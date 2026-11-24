@@ -21,8 +21,9 @@ Léelo completo antes de trabajar en este proyecto.
 - ✅ Datos de ejemplo copiados a `datos/` y anonimizados ("Empresa Ejemplo S.A.S.").
 - ✅ `.gitignore` creado y repositorio git iniciado en `main`, **sin commits todavía**.
 - ✅ **Paso 1 · Preparación del entorno**: uv 0.13.9 instalado, `pyproject.toml` + `uv.lock`, `config.py` (pydantic-settings), `.env.example`, 5 pruebas y CI de GitHub Actions. ruff, mypy y pytest en verde en local. El CI remoto se verá al primer *push* (todavía no hay remoto).
+- ✅ **Paso 2 · Modelos y validación**: `dominio/modelos.py`, `lectura.py` (lanza `ErrorDeDatos` con mensajes en español), `validacion.py` (errores y sugerencias) y `scripts/validar_datos.py` (en el CI). 51 pruebas. Datos reales: 0 errores, 1 sugerencia.
 - ⏳ Pendiente de Anderson: más adelante (Paso 10), copiar `.env.example` como `.env` y poner la API key de Anthropic.
-- ▶ **Siguiente: Paso 2 · Modelos de datos y validación de insumos** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
+- ▶ **Siguiente: Paso 3 · Base de herramientas y observabilidad** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
 
 Actualiza esta sección cada vez que se cierre un paso.
 
@@ -93,6 +94,8 @@ tests/                      # unit · golden · evals
 - `repositorio/soportes/`: los documentos de la empresa, con `vigencia_hasta` en `index.json`.
 - `glosario-campos.json`: etiqueta del cliente → ruta en el maestro.
 
+**`datos/` no se modifica, ni por código ni a mano.** Si a un dato le falta algo (por ejemplo, el maestro no tiene `version` ni `actualizado_en`), se reporta como **sugerencia** para el dueño del dato, nunca se "arregla". `validar_datos.py` separa los **errores** (dato roto: el CI falla) de las **sugerencias** (dato mejorable: el CI no falla).
+
 Ojo: varios soportes tienen `vigencia_hasta` en 2026 y algunos ya vencieron. Por eso la fecha de ejecución se inyecta: las pruebas no deben depender del día en que se corren.
 
 ## Comandos (cuando existan)
@@ -100,6 +103,7 @@ Ojo: varios soportes tienen `vigencia_hasta` en 2026 y algunos ya vencieron. Por
 ```powershell
 uv sync                         # instalar dependencias
 uv run pytest                   # pruebas
+uv run python scripts/validar_datos.py   # valida datos/ (errores y sugerencias)
 uv run ruff check . ; uv run mypy src
 uv run python scripts/demo.py   # todos los casos sin LLM
 uv run uvicorn registro_proveedor.api.app:app --reload   # servidor local

@@ -16,7 +16,7 @@
 | # | Paso | Fase | Estado |
 |---|---|---|---|
 | 1 | Preparación del entorno | F0 | ✅ |
-| 2 | Modelos de datos y validación de insumos | F0 | ⬜ |
+| 2 | Modelos de datos y validación de insumos | F0 | ✅ |
 | 3 | Base de herramientas y observabilidad | F0 | ⬜ |
 | 4 | Listado y lectura de solicitudes | F1 | ⬜ |
 | 5 | Mapeo de campos y su confirmación | F1 | ⬜ |
@@ -55,10 +55,15 @@
 - `.github/workflows/ci.yml`: `uv sync --locked` → ruff check → ruff format → mypy → pytest. En local todo pasa; en GitHub se verá en verde con el primer *push*, cuando exista el remoto.
 
 ### Paso 2 · Modelos de datos y validación de insumos
-**Objetivo:** describir con Pydantic la solicitud, las plantillas, el maestro, los soportes y el glosario, y detectar los datos rotos antes de procesarlos.
-**Hecho cuando:** `validar_datos.py` revisa todos los insumos, incluidas las rutas del glosario contra el maestro, y reporta los errores en lenguaje claro.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Objetivo:** describir con Pydantic la solicitud, las plantillas, el maestro, los soportes y el glosario, y detectar los datos rotos antes de procesarlos, sin modificar nunca `datos/`.
+**Hecho cuando:** `validar_datos.py` revisa todos los insumos, incluidas las rutas del glosario contra el maestro, y reporta en lenguaje claro los **errores** (dato roto: el CI falla) separados de las **sugerencias** para el dueño del dato (dato mejorable: el CI no falla). Con los datos de ejemplo: 0 errores y la sugerencia de agregar `version` y `actualizado_en` al maestro.
+**Estado:** ✅
+**Avance:**
+- `dominio/modelos.py`: `Solicitud`, `CeldaPlantilla`, `CampoPlantilla`, `Soporte`, `Maestro` (con submodelos) y `Glosario`, más los enums `Pais`, `Formato` y `TipoSoporte`. Los archivos del caso son estrictos y el maestro es tolerante (solo `razon_social` y `nit` son obligatorios).
+- `dominio/lectura.py`: una función `cargar_*` por archivo. Rechaza el JSON mal formado, las claves repetidas y los nombres de caso peligrosos (`../`), y traduce los errores de Pydantic a español con su ubicación (`elemento 3 > «celda_valor»`).
+- `dominio/validacion.py`: revisiones que cruzan archivos (id y carpeta, plantilla según el formato, celdas repetidas, rutas del glosario contra el maestro, archivos de soporte). El reporte separa errores y sugerencias, y un caso roto no impide revisar los demás.
+- `scripts/validar_datos.py`: imprime el reporte y termina con 1 solo si hay errores. Se agregó al CI.
+- 46 pruebas nuevas (51 en total) que rompen una copia temporal de `datos/`. Una de ellas verifica que validar no modifica los datos reales. Resultado real: **0 errores, 1 sugerencia**.
 
 ### Paso 3 · Base de herramientas y observabilidad
 **Objetivo:** crear el contrato común de las herramientas (`Resultado`, decorador `@herramienta` y registro), los logs estructurados y el enmascaramiento de datos sensibles.
@@ -219,7 +224,17 @@ _por completar_
 - `config.py` es el **único punto de lectura de configuración**. Las demás capas reciben un objeto `Configuracion` y nunca leen `os.environ`. `RAIZ_PROYECTO` es la base para resolver `datos/` y `out/`.
 - Las carpetas de cada capa (`dominio/`, `herramientas/`, `agente/`, `api/`) se crean en el paso que las necesita.
 
-_El resto se completa en los pasos 2, 3, 10, 15 y 16._
+**Dominio: modelos, lectura y validación (Paso 2):**
+
+| Módulo | Responsabilidad |
+|---|---|
+| `dominio/modelos.py` | La forma de cada insumo (Pydantic). No lee archivos. |
+| `dominio/lectura.py` | Lee un JSON, lo convierte en su modelo y, si falla, lanza `ErrorDeDatos` con los problemas en español. Concentra los nombres de los archivos y la protección de rutas. |
+| `dominio/validacion.py` | Revisa todos los insumos juntos y devuelve un `Reporte` de errores y sugerencias. |
+
+Dentro del dominio, un dato roto **sí lanza** `ErrorDeDatos`. La capa de herramientas (Paso 3) lo convertirá en `Resultado(ok=False, error=...)`, de modo que el agente nunca reciba una excepción.
+
+_El resto se completa en los pasos 3, 10, 15 y 16._
 
 ## B3 · Núcleo determinista: lectura, mapeo, reglas y generación
 **Se alimenta de:** Pasos 4, 5, 6, 7 y 8.
@@ -311,6 +326,9 @@ _por completar_
 | D8 | La API key es opcional en la configuración. | Hacerla obligatoria. | El núcleo y `demo.py` deben funcionar sin LLM (principio 7). | 1 |
 | D9 | Las variables vacías del `.env` cuentan como ausentes (`env_ignore_empty`). | Exigir que se borren las líneas vacías. | Copiar `.env.example` tal cual no debe romper el arranque. | 1 |
 | D10 | ruff no revisa los `.md`. | Formatear también los ejemplos de código de los documentos. | Los ejemplos del plan son ilustrativos, no código ejecutable. | 1 |
+| D11 | `datos/` no se modifica; lo que le falta se reporta como **sugerencia** para el dueño del dato. | Completar a mano `maestro.json` (por ejemplo, con `version`). | Los datos son la entrada real del proceso: el sistema debe convivir con datos incompletos y decir qué falta, no esconderlo. | 2 |
+| D12 | El validador separa **errores** (bloquean) de **sugerencias** (no bloquean). | Un solo nivel de error. | Un dato mejorable no debe detener el proceso ni el CI, pero tampoco debe pasar en silencio. | 2 |
+| D13 | Modelo `Maestro` fijo para los campos conocidos y tolerante con los nuevos. | Fijo estricto (`extra="forbid"`) o totalmente flexible. | El estricto haría fallar todo el maestro por un campo nuevo; el flexible no detectaría errores de tipo. Así se valida lo conocido y lo nuevo se sugiere revisar. | 2 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -319,6 +337,8 @@ _Se agregan más decisiones en cada paso._
 **Objetivo:** listar las interpretaciones que se tomaron donde la necesidad no era explícita.
 
 - *(Paso 1)* El repositorio se alojará en **GitHub**, por eso el CI es de GitHub Actions. Si se usa otra plataforma, se adapta `ci.yml`.
+- *(Paso 2)* `version` y `actualizado_en` del maestro son una buena práctica, no un requisito: los datos de ejemplo no los tienen y se procesan igual.
+- *(Paso 2)* En un caso `portal`, `plantilla-campos.json` es opcional (el de Panamá lo trae). Si existe, define los valores para copiar; si no, se genera una sugerencia.
 
 _Se agregan más supuestos en cada paso._
 
@@ -334,6 +354,7 @@ _por completar_
 | Paso | Asistente | Para qué | Qué se ajustó o descartó |
 |---|---|---|---|
 | 1 | Claude Code | Proponer y crear la configuración del proyecto, `config.py`, las pruebas y el CI. | Al probar, se encontró que `FECHA_EJECUCION=` vacía rompía la configuración; se corrigió con `env_ignore_empty` y una prueba. Se quitó el comando de ejemplo que genera `uv init`. |
+| 2 | Claude Code | Proponer y escribir los modelos, la lectura, la validación, el script y las pruebas. | **Descartado por Anderson:** completar a mano `maestro.json` con `version` y `actualizado_en`. Se decidió no tocar `datos/` y reportarlo como sugerencia (D11). También se cambió la recomendación inicial de un maestro estricto por uno tolerante (D13). |
 
 _Se agregan filas en cada paso._
 

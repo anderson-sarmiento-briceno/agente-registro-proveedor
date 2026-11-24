@@ -424,15 +424,18 @@ El prompt se **versiona** y cada cambio se valida con las evaluaciones (sección
 |---|---|---|
 | `datos/casos/<caso>/solicitud.json` | `id`, `de`, `asunto`, `fecha`, `pais`, `cliente`, `cuerpo`, `formato`, `adjuntos[]` | Modelo `Solicitud` |
 | `datos/casos/<caso>/plantilla-celdas.json` | Excel: `hoja`, `celda_etiqueta`, `etiqueta`, `celda_valor` | Modelo `CeldaPlantilla` (celda con formato A1 válido) |
-| `datos/casos/<caso>/plantilla-campos.json` | PDF: `etiqueta`, `obligatorio` | Modelo `CampoPlantilla` |
+| `datos/casos/<caso>/plantilla-campos.json` | PDF (obligatorio) o portal (opcional; si existe, alimenta `valores-portal.md`): `etiqueta`, `obligatorio` | Modelo `CampoPlantilla` |
 | `datos/casos/<caso>/soportes-exigidos.json` | Tipos de soporte | Lista de `TipoSoporte` (enum) |
-| `datos/repositorio/maestro.json` | Datos de la empresa con claves en `snake_case` | Modelo `Maestro` |
+| `datos/repositorio/maestro.json` | Datos de la empresa con claves en `snake_case` | Modelo `Maestro`: fijo para los campos conocidos y tolerante con los nuevos (un campo desconocido genera una sugerencia, no un error) |
 | `datos/repositorio/soportes/index.json` | `tipo`, `archivo`, `vigencia_hasta`, `pais_emisor` | Modelo `Soporte`; además se verifica que el archivo exista |
 | `datos/glosario-campos.json` | Etiqueta → ruta en el maestro | Se verifica que cada ruta exista en el maestro |
 
 **Buenas prácticas de datos:**
-- Un script `validar_datos.py` revisa todo lo anterior y se ejecuta en CI. Si alguien rompe el maestro o el glosario, se detecta antes de llegar a producción.
-- El maestro guarda `version` y `actualizado_en`, y cada paquete registra con qué versión se generó.
+- `datos/` **no se modifica**, ni por el código ni a mano para "arreglar" la demostración. Si a un dato le falta algo, se reporta y se deja como sugerencia para el dueño del dato.
+- Un script `validar_datos.py` revisa todo lo anterior y se ejecuta en CI. Si alguien rompe el maestro o el glosario, se detecta antes de llegar a producción. El reporte tiene dos niveles:
+  - **Error**: el dato está roto y no se puede procesar (celda inválida, formato desconocido, ruta del glosario inexistente, archivo de soporte ausente). Hace fallar el CI.
+  - **Sugerencia**: el dato funciona, pero le falta algo que el diseño espera (por ejemplo, el maestro sin `version`). Va dirigida al dueño del dato y no hace fallar el CI.
+- Se recomienda que el maestro guarde `version` y `actualizado_en`, para que cada paquete registre con qué versión se generó. Son **opcionales**: si faltan, `validar_datos.py` lo sugiere y el manifiesto dice "maestro sin versión", sin inventarla. *(Los datos de ejemplo no los tienen.)*
 - El maestro tiene un **dueño del dato** con responsabilidad formal.
 
 **Casos de referencia** (para las pruebas y la demostración):
