@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 1 | Preparación del entorno | F0 | ✅ |
 | 2 | Modelos de datos y validación de insumos | F0 | ✅ |
-| 3 | Base de herramientas y observabilidad | F0 | ⬜ |
+| 3 | Base de herramientas y observabilidad | F0 | ✅ |
 | 4 | Listado y lectura de solicitudes | F1 | ⬜ |
 | 5 | Mapeo de campos y su confirmación | F1 | ⬜ |
 | 6 | Reglas de negocio configurables | F1 | ⬜ |
@@ -48,28 +48,32 @@
 **Hecho cuando:** `uv sync` instala todo, `uv run pytest` corre, el CI (ruff + mypy + pytest) está en verde y `.env.example` lista las variables sin valores.
 **Estado:** ✅
 **Avance:**
-- `pyproject.toml` con todas las dependencias del stack, fijadas en `uv.lock`, y la configuración de ruff, mypy (`strict` + plugin de Pydantic) y pytest. Python ≥ 3.12 (local: 3.13).
-- `src/registro_proveedor/config.py`: la clase `Configuracion` (pydantic-settings) lee `.env`. La API key es opcional y es `SecretStr`, así que nunca se imprime. La fecha de ejecución es inyectable (RN7).
-- `.env.example` con `ANTHROPIC_API_KEY`, `LLM_MODELO`, `FECHA_EJECUCION` y `NIVEL_LOG`, sin valores secretos. Las variables vacías se tratan como ausentes (`env_ignore_empty`).
-- `tests/test_entorno.py`: 5 pruebas (importación, carga sin clave, clave oculta, fecha inyectada, `.env.example` copiado tal cual).
-- `.github/workflows/ci.yml`: `uv sync --locked` → ruff check → ruff format → mypy → pytest. En local todo pasa; en GitHub se verá en verde con el primer *push*, cuando exista el remoto.
+- **Instalación en un comando.** `pyproject.toml` lista las librerías y `uv.lock` guarda sus versiones exactas. Con `uv sync`, cualquier persona instala exactamente lo mismo.
+- **Configuración en un solo lugar.** `config.py` lee el archivo `.env`. La clave de Anthropic es opcional (el núcleo funciona sin ella) y nunca se muestra en pantalla. La fecha de ejecución se puede fijar para que las pruebas den siempre lo mismo.
+- **`.env.example`**: la lista de variables, sin valores secretos. Copiarlo tal cual como `.env` funciona.
+- **Calidad automática.** En cada cambio, el CI revisa el estilo (ruff), los tipos (mypy) y las pruebas (pytest). En local todo pasa. En GitHub se verá con el primer *push*.
 
 ### Paso 2 · Modelos de datos y validación de insumos
 **Objetivo:** describir con Pydantic la solicitud, las plantillas, el maestro, los soportes y el glosario, y detectar los datos rotos antes de procesarlos, sin modificar nunca `datos/`.
 **Hecho cuando:** `validar_datos.py` revisa todos los insumos, incluidas las rutas del glosario contra el maestro, y reporta en lenguaje claro los **errores** (dato roto: el CI falla) separados de las **sugerencias** para el dueño del dato (dato mejorable: el CI no falla). Con los datos de ejemplo: 0 errores y la sugerencia de agregar `version` y `actualizado_en` al maestro.
 **Estado:** ✅
 **Avance:**
-- `dominio/modelos.py`: `Solicitud`, `CeldaPlantilla`, `CampoPlantilla`, `Soporte`, `Maestro` (con submodelos) y `Glosario`, más los enums `Pais`, `Formato` y `TipoSoporte`. Los archivos del caso son estrictos y el maestro es tolerante (solo `razon_social` y `nit` son obligatorios).
-- `dominio/lectura.py`: una función `cargar_*` por archivo. Rechaza el JSON mal formado, las claves repetidas y los nombres de caso peligrosos (`../`), y traduce los errores de Pydantic a español con su ubicación (`elemento 3 > «celda_valor»`).
-- `dominio/validacion.py`: revisiones que cruzan archivos (id y carpeta, plantilla según el formato, celdas repetidas, rutas del glosario contra el maestro, archivos de soporte). El reporte separa errores y sugerencias, y un caso roto no impide revisar los demás.
-- `scripts/validar_datos.py`: imprime el reporte y termina con 1 solo si hay errores. Se agregó al CI.
-- 46 pruebas nuevas (51 en total) que rompen una copia temporal de `datos/`. Una de ellas verifica que validar no modifica los datos reales. Resultado real: **0 errores, 1 sugerencia**.
+- **Moldes de los datos** (`modelos.py`): describen cómo debe ser cada archivo, por ejemplo que el formato sea `xlsx`, `pdf` o `portal`. Los archivos de los casos son estrictos. El maestro es flexible: solo exige razón social y NIT, y lo demás puede faltar.
+- **Lectura** (`lectura.py`): lee cada archivo y, si algo está mal, lo explica en español y dice dónde. Por ejemplo: `elemento 3 > «celda_valor»: «C0» no es válido; se espera una celda como «B3»`.
+- **Validación** (`validacion.py`): revisa lo que solo se ve mirando varios archivos juntos, como que cada ruta del glosario exista en el maestro o que dos campos no usen la misma celda. Separa los **errores** (dato roto) de las **sugerencias** (dato mejorable).
+- **Script** (`validar_datos.py`): muestra el reporte. El CI falla solo si hay errores.
+- **Pruebas:** 72 en total. Rompen una copia de los datos, nunca los reales. Resultado con los datos de ejemplo: **0 errores y 1 sugerencia** (agregar la versión al maestro).
 
 ### Paso 3 · Base de herramientas y observabilidad
 **Objetivo:** crear el contrato común de las herramientas (`Resultado`, decorador `@herramienta` y registro), los logs estructurados y el enmascaramiento de datos sensibles.
 **Hecho cuando:** una herramienta de ejemplo valida sus argumentos, nunca lanza excepciones, escribe en `log.jsonl` y enmascara los valores sensibles.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Un contrato para todas** (`herramientas/base.py`). Cada herramienta responde siempre `{ok, data, error}`. Con poner `@herramienta` encima de una función, esta revisa sus argumentos, nunca lanza una excepción y deja registro.
+- **Errores tranquilos.** Un argumento inválido, un dato roto o un fallo inesperado terminan en `ok=False` con un mensaje claro. El detalle técnico va solo al log de operación.
+- **Registro de cada llamada** (`observabilidad.py`): una línea en `out/log.jsonl` y otra en `out/<caso>/log.jsonl`, con hora, sesión, herramienta, resultado y resumen.
+- **Datos sensibles ocultos:** el número de cuenta y la cédula salen como `****2345` hacia el modelo y en los logs. El NIT no se oculta, porque es de la empresa y es público.
+- **Pruebas:** 113 en total. Una herramienta de ejemplo, que solo existe en las pruebas, comprueba todo lo anterior.
 
 ## Fase F1 · Núcleo determinista
 
@@ -219,22 +223,51 @@ _por completar_
 **Se alimenta de:** Pasos 1, 2, 3, 10, 15 y 16.
 **Objetivo:** mostrar el diagrama front → API → agente → herramientas → dominio → archivos, las capas y sus responsabilidades, y dónde viven el prompt, el conocimiento y la ejecución.
 
-**Base del proyecto (Paso 1):**
-- El código vive en `src/registro_proveedor/` (estructura *src*): las pruebas importan el paquete instalado, no archivos sueltos.
-- `config.py` es el **único punto de lectura de configuración**. Las demás capas reciben un objeto `Configuracion` y nunca leen `os.environ`. `RAIZ_PROYECTO` es la base para resolver `datos/` y `out/`.
-- Las carpetas de cada capa (`dominio/`, `herramientas/`, `agente/`, `api/`) se crean en el paso que las necesita.
+**Lo que existe hasta ahora (pasos 1 a 3):**
 
-**Dominio: modelos, lectura y validación (Paso 2):**
+```
+ agente (Paso 12) / demo.py (Paso 9)
+        │  pide una herramienta
+        ▼
+ herramientas/base.py ── revisa argumentos · nunca lanza · registra · oculta lo sensible
+        │                     └─ escribe en out/log.jsonl
+        ▼
+ dominio/  lectura.py → modelos.py      validacion.py → validar_datos.py (CI)
+        │
+        ▼
+ datos/ (solo lectura)
+```
 
-| Módulo | Responsabilidad |
+| Parte | Qué hace, en una frase |
 |---|---|
-| `dominio/modelos.py` | La forma de cada insumo (Pydantic). No lee archivos. |
-| `dominio/lectura.py` | Lee un JSON, lo convierte en su modelo y, si falla, lanza `ErrorDeDatos` con los problemas en español. Concentra los nombres de los archivos y la protección de rutas. |
-| `dominio/validacion.py` | Revisa todos los insumos juntos y devuelve un `Reporte` de errores y sugerencias. |
+| `config.py` | Es el único lugar donde se lee la configuración (`.env`). |
+| `dominio/modelos.py` | Describe cómo debe ser cada dato. No lee archivos. |
+| `dominio/lectura.py` | Lee un archivo y lo convierte en un dato confiable, o explica qué está mal. |
+| `dominio/validacion.py` | Revisa todos los datos juntos y arma el reporte. |
+| `herramientas/base.py` | El contrato común: `Resultado`, `Contexto`, `@herramienta` y `Registro`. |
+| `observabilidad.py` | El registro de llamadas (`log.jsonl`), los logs de operación y el enmascaramiento. |
 
-Dentro del dominio, un dato roto **sí lanza** `ErrorDeDatos`. La capa de herramientas (Paso 3) lo convertirá en `Resultado(ok=False, error=...)`, de modo que el agente nunca reciba una excepción.
+**Una regla importante:** dentro del dominio, un dato roto genera un error (`ErrorDeDatos`). La herramienta lo atrapa y responde `ok=False` con el mensaje, así que el agente nunca se cae por un error.
 
-_El resto se completa en los pasos 3, 10, 15 y 16._
+**Dos formas de llamar a una herramienta:**
+- **Desde Python** (demo.py y pruebas): recibe los datos completos y con su tipo.
+- **Desde el agente:** por nombre y con un diccionario, que se valida antes de ejecutar. Lo que el agente recibe sale con `a_json()`, que oculta los datos sensibles.
+
+**Glosario rápido:**
+
+| Término | Qué es |
+|---|---|
+| **uv** | Instala Python y las librerías del proyecto. |
+| **Pydantic** | Revisa que un dato tenga la forma esperada, como una aduana. |
+| **ruff** | Revisa el estilo del código y lo ordena. |
+| **mypy** | Revisa que los tipos de datos sean coherentes antes de ejecutar el código. |
+| **pytest** | Ejecuta las pruebas automáticas. |
+| **CI** | Ejecuta todas esas revisiones solo, cada vez que se sube un cambio. |
+| **Fixture** | Algo que una prueba necesita y que pytest prepara antes, como una copia de `datos/`. |
+| **Decorador** | Una "envoltura" que se pone encima de una función (`@herramienta`) para agregarle comportamiento. |
+| **structlog** | La librería de los logs de operación, que los escribe en JSON. |
+
+_El resto se completa en los pasos 10, 15 y 16._
 
 ## B3 · Núcleo determinista: lectura, mapeo, reglas y generación
 **Se alimenta de:** Pasos 4, 5, 6, 7 y 8.
@@ -259,7 +292,18 @@ _por completar_
 ## B7 · Seguridad y guardarraíles
 **Se alimenta de:** Pasos 3, 14 y 18.
 **Objetivo:** documentar el manejo de secretos, el enmascaramiento de datos sensibles, los datos mínimos que se envían al modelo, la defensa contra la inyección de prompts, la verificación de valores, la protección del acceso y los topes de costo.
-_por completar_
+
+**Lo que hay hasta ahora (pasos 1 a 3):**
+
+| Riesgo | Cómo se cubre |
+|---|---|
+| Que se filtre la clave de Anthropic | Vive solo en `.env` (que no se sube a git) y se guarda como `SecretStr`: si se imprime, se ve `**********`. |
+| Que el modelo o un log vean la cuenta o la cédula completas | Salen como `****2345`. Todo lo que va al modelo pasa por `a_json()` y todo log pasa por el enmascaramiento. |
+| Que un error técnico muestre datos o rutas del computador | El modelo solo recibe un mensaje corto. El detalle va al log de operación, sin los valores de las variables. |
+| Que se pida un caso como `../secreto` para salir de la carpeta | El nombre se valida con un patrón y, además, se comprueba que la ruta final quede dentro de `datos/` o de `out/`. |
+| Que el modelo invente argumentos (`{"enviar": true}`) | Se rechazan: los argumentos no aceptan campos desconocidos. |
+
+**Lo que falta:** el enmascaramiento funciona por **nombre de campo**. El Paso 5 usará `es_ruta_sensible()` para ocultar el valor de un campo como "Número de cuenta". El Paso 14 agrega la revisión de la respuesta del modelo y la defensa contra correos maliciosos. El Paso 18 agrega la protección del acceso y los topes de costo.
 
 ## B8 · Diseño para portales web
 **Se alimenta de:** Paso 7 y la sección 14 del plan.
@@ -313,8 +357,8 @@ _por completar_
 | HU-3 Generar formulario | 7 | ⬜ | |
 | HU-4 Paquete para firma | 8 | ⬜ | |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
-| HU-6 Manejo de errores | 3, 12 | ⬜ | |
-| HU-7 Trazabilidad | 3, 8 | ⬜ | |
+| HU-6 Manejo de errores | 3, 12 | 🟨 | Hecho para las herramientas (nunca lanzan; mensaje claro). Falta el error del proveedor del LLM (Paso 12). |
+| HU-7 Trazabilidad | 3, 8 | 🟨 | Hecho el `log.jsonl` por llamada, sin datos sensibles. Falta el `manifiesto.json` del paquete (Paso 8). |
 
 ## B13 · Decisiones y trade-offs
 **Se alimenta de:** todos los pasos.
@@ -329,6 +373,10 @@ _por completar_
 | D11 | `datos/` no se modifica; lo que le falta se reporta como **sugerencia** para el dueño del dato. | Completar a mano `maestro.json` (por ejemplo, con `version`). | Los datos son la entrada real del proceso: el sistema debe convivir con datos incompletos y decir qué falta, no esconderlo. | 2 |
 | D12 | El validador separa **errores** (bloquean) de **sugerencias** (no bloquean). | Un solo nivel de error. | Un dato mejorable no debe detener el proceso ni el CI, pero tampoco debe pasar en silencio. | 2 |
 | D13 | Modelo `Maestro` fijo para los campos conocidos y tolerante con los nuevos. | Fijo estricto (`extra="forbid"`) o totalmente flexible. | El estricto haría fallar todo el maestro por un campo nuevo; el flexible no detectaría errores de tipo. Así se valida lo conocido y lo nuevo se sugiere revisar. | 2 |
+| D14 | El NIT no se enmascara; la cuenta bancaria y la cédula del representante, sí. | Enmascarar también el NIT. | RN8 habla de identificaciones **personales**. El NIT es de la empresa, es público y el resumen lo necesita. | 3 |
+| D15 | Dos logs: la auditoría (`log.jsonl`) y la operación (structlog). | Un solo log para todo. | Responden preguntas distintas: "¿qué hizo el agente?" frente a "¿por qué falló?". El detalle técnico no debe mezclarse con la auditoría. | 3 |
+| D16 | El enmascaramiento se aplica al salir (`a_json()` y los logs), y la llamada desde Python recibe los datos completos. | Enmascarar dentro de cada herramienta. | Una sola puerta de salida es más difícil de olvidar. demo.py y los generadores necesitan los valores reales para escribir los archivos. | 3 |
+| D17 | El argumento `requiere_confirmacion` ya existe en `@herramienta`, aunque todavía no bloquea nada. | Agregarlo en el Paso 13. | Las herramientas de los pasos 4 a 8 nacen con la marca correcta y el Paso 13 solo agrega el bloqueo. | 3 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -355,6 +403,7 @@ _por completar_
 |---|---|---|---|
 | 1 | Claude Code | Proponer y crear la configuración del proyecto, `config.py`, las pruebas y el CI. | Al probar, se encontró que `FECHA_EJECUCION=` vacía rompía la configuración; se corrigió con `env_ignore_empty` y una prueba. Se quitó el comando de ejemplo que genera `uv init`. |
 | 2 | Claude Code | Proponer y escribir los modelos, la lectura, la validación, el script y las pruebas. | **Descartado por Anderson:** completar a mano `maestro.json` con `version` y `actualizado_en`. Se decidió no tocar `datos/` y reportarlo como sugerencia (D11). También se cambió la recomendación inicial de un maestro estricto por uno tolerante (D13). |
+| 3 | Claude Code | Proponer y escribir el contrato de herramientas, la observabilidad y sus pruebas; además, comentar con detalle el código de los pasos 1 y 2 y completar sus pruebas. | Anderson pidió comentarios más detallados en el código y un `SOLUCION.md` más sencillo. Al revisar se corrigió un comentario falso (decía que `obligatorio: 1` se rechaza, pero Pydantic lo acepta) y se desactivó que los errores muestren las variables locales, que podían contener datos sensibles. |
 
 _Se agregan filas en cada paso._
 

@@ -21,9 +21,10 @@ Léelo completo antes de trabajar en este proyecto.
 - ✅ Datos de ejemplo copiados a `datos/` y anonimizados ("Empresa Ejemplo S.A.S.").
 - ✅ `.gitignore` creado y repositorio git iniciado en `main`, **sin commits todavía**.
 - ✅ **Paso 1 · Preparación del entorno**: uv 0.13.9 instalado, `pyproject.toml` + `uv.lock`, `config.py` (pydantic-settings), `.env.example`, 5 pruebas y CI de GitHub Actions. ruff, mypy y pytest en verde en local. El CI remoto se verá al primer *push* (todavía no hay remoto).
-- ✅ **Paso 2 · Modelos y validación**: `dominio/modelos.py`, `lectura.py` (lanza `ErrorDeDatos` con mensajes en español), `validacion.py` (errores y sugerencias) y `scripts/validar_datos.py` (en el CI). 51 pruebas. Datos reales: 0 errores, 1 sugerencia.
+- ✅ **Paso 2 · Modelos y validación**: `dominio/modelos.py`, `lectura.py` (lanza `ErrorDeDatos` con mensajes en español), `validacion.py` (errores y sugerencias) y `scripts/validar_datos.py` (en el CI). 72 pruebas. El código lleva comentarios detallados (qué y por qué), porque Anderson debe poder explicar cada parte: mantener ese nivel en los pasos siguientes. Datos reales: 0 errores, 1 sugerencia.
 - ⏳ Pendiente de Anderson: más adelante (Paso 10), copiar `.env.example` como `.env` y poner la API key de Anthropic.
-- ▶ **Siguiente: Paso 3 · Base de herramientas y observabilidad** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
+- ✅ **Paso 3 · Base de herramientas**: `herramientas/base.py` (`Resultado`, `Contexto`, `@herramienta`, `Registro`, `ErrorDeHerramienta`, `IdCasoArg`) y `observabilidad.py` (`log.jsonl` global y por caso, structlog, `enmascarar`, `es_ruta_sensible`). 113 pruebas. El NIT no se enmascara (D14).
+- ▶ **Siguiente: Paso 4 · Listado y lectura de solicitudes** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
 
 Actualiza esta sección cada vez que se cierre un paso.
 
