@@ -18,7 +18,7 @@
 | 1 | Preparación del entorno | F0 | ✅ |
 | 2 | Modelos de datos y validación de insumos | F0 | ✅ |
 | 3 | Base de herramientas y observabilidad | F0 | ✅ |
-| 4 | Listado y lectura de solicitudes | F1 | ⬜ |
+| 4 | Listado y lectura de solicitudes | F1 | ✅ |
 | 5 | Mapeo de campos y su confirmación | F1 | ⬜ |
 | 6 | Reglas de negocio configurables | F1 | ⬜ |
 | 7 | Generación de formularios | F1 | ⬜ |
@@ -80,8 +80,13 @@
 ### Paso 4 · Listado y lectura de solicitudes
 **Objetivo:** `proveedor_listar_casos` muestra los casos disponibles (cliente, país y formato), con un filtro opcional, para que el agente identifique "el de Ecuador". `proveedor_leer_solicitud` devuelve el país, el cliente, el formato, los campos y los soportes exigidos de un caso.
 **Hecho cuando:** el listado filtra por cliente o país, la lectura responde correctamente en los 4 casos de referencia y ambas devuelven un error claro ante un caso inexistente o una plantilla corrupta.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`proveedor_listar_casos`**: muestra los casos con su cliente, país, formato y fecha. El filtro no distingue mayúsculas ni tildes: "Ecuador", "EC" y "andina" encuentran el mismo caso. Si coinciden varios, devuelve todos para que el agente pregunte cuál es.
+- **`proveedor_leer_solicitud`**: devuelve lo que pide el cliente (país, formato, campos y soportes), con la misma forma para Excel, PDF y portal. En los casos de portal agrega un aviso.
+- **Errores claros:** un caso que no existe responde "no existe el caso… Use proveedor_listar_casos". Una plantilla rota dice qué archivo falla y dónde. Un caso roto no impide listar los demás.
+- **El correo no se le pasa al modelo:** solo los datos ya extraídos, para evitar instrucciones maliciosas.
+- **Pruebas:** 163 en total. Cubren los 4 casos de referencia, los filtros y los errores.
 
 ### Paso 5 · Mapeo de campos y su confirmación
 **Objetivo:** `proveedor_mapear_campos` clasifica cada campo en `lleno`, `faltante` o `requiere_confirmacion`, en capas (exacto → normalizado → similitud), deja registrados el origen y el método, y guarda el mapeo en `out/<caso>/mapeo.json`. `proveedor_confirmar_campo` resuelve un campo en `requiere_confirmacion` (aceptar o dejar faltante) y registra la decisión en ese mapeo.
@@ -272,7 +277,31 @@ _El resto se completa en los pasos 10, 15 y 16._
 ## B3 · Núcleo determinista: lectura, mapeo, reglas y generación
 **Se alimenta de:** Pasos 4, 5, 6, 7 y 8.
 **Objetivo:** explicar cómo se lee una solicitud, cómo funciona el mapeo en capas y sus niveles de confianza, dónde están configuradas las reglas de negocio y cómo se generan el formulario y el paquete.
-_por completar_
+
+**1. Encontrar y leer el caso (Paso 4)**
+
+```
+"procesa el de Ecuador"
+   │
+   ▼
+proveedor_listar_casos(filtro="Ecuador") ──▶ ec-corp-andina
+   │
+   ▼
+proveedor_leer_solicitud(caso="ec-corp-andina")
+   └─▶ país EC · formato pdf · 15 campos · 5 soportes exigidos
+```
+
+| Parte | Qué hace, en una frase |
+|---|---|
+| `dominio/texto.py` | Normaliza el texto para comparar: "Panamá" → "panama". |
+| `dominio/casos.py` | Lista y lee los casos. Es la lógica, sin nada del agente. |
+| `herramientas/proveedor.py` | Las herramientas reales: envolturas delgadas sobre `casos.py`. |
+
+**Cómo funciona el filtro:** cada palabra del filtro debe aparecer en el caso, el cliente o el país. Una palabra de 4 letras o más vale si es el comienzo de otra ("indus" encuentra "industrias"). Las más cortas deben ser exactas, para que "CO" (Colombia) no encuentre "corp" (el caso de Ecuador).
+
+**Los campos tienen la misma forma en todos los formatos:** etiqueta, si es obligatorio y, en Excel, la hoja y la celda. Las plantillas de Excel no dicen si un campo es obligatorio, así que ese dato queda vacío en lugar de inventarse.
+
+_El mapeo, las reglas y la generación se completan en los pasos 5 a 8._
 
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
@@ -352,7 +381,7 @@ _por completar_
 
 | Historia | Pasos | Estado | Qué falta para producción |
 |---|---|---|---|
-| HU-1 Leer la solicitud | 4 | ⬜ | |
+| HU-1 Leer la solicitud | 4 | 🟨 | Hecho: listar, filtrar y leer los 4 casos, con errores claros. Falta marcar los campos ambiguos de país, como "RUC" → NIT (pasos 5 y 6). |
 | HU-2 Mapear campos | 5, 6 | ⬜ | |
 | HU-3 Generar formulario | 7 | ⬜ | |
 | HU-4 Paquete para firma | 8 | ⬜ | |
@@ -377,6 +406,8 @@ _por completar_
 | D15 | Dos logs: la auditoría (`log.jsonl`) y la operación (structlog). | Un solo log para todo. | Responden preguntas distintas: "¿qué hizo el agente?" frente a "¿por qué falló?". El detalle técnico no debe mezclarse con la auditoría. | 3 |
 | D16 | El enmascaramiento se aplica al salir (`a_json()` y los logs), y la llamada desde Python recibe los datos completos. | Enmascarar dentro de cada herramienta. | Una sola puerta de salida es más difícil de olvidar. demo.py y los generadores necesitan los valores reales para escribir los archivos. | 3 |
 | D17 | El argumento `requiere_confirmacion` ya existe en `@herramienta`, aunque todavía no bloquea nada. | Agregarlo en el Paso 13. | Las herramientas de los pasos 4 a 8 nacen con la marca correcta y el Paso 13 solo agrega el bloqueo. | 3 |
+| D18 | `proveedor_leer_solicitud` no devuelve el cuerpo del correo. | Pasarle el correo completo al modelo. | El correo es contenido externo y puede traer instrucciones maliciosas. Lo necesario ya se extrae sin el modelo. | 4 |
+| D19 | En el filtro, las palabras de menos de 4 letras deben coincidir exactas. | Buscar cualquier coincidencia parcial. | Con coincidencia parcial, "CO" (Colombia) encontraría "corp" (el caso de Ecuador). | 4 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -404,6 +435,7 @@ _por completar_
 | 1 | Claude Code | Proponer y crear la configuración del proyecto, `config.py`, las pruebas y el CI. | Al probar, se encontró que `FECHA_EJECUCION=` vacía rompía la configuración; se corrigió con `env_ignore_empty` y una prueba. Se quitó el comando de ejemplo que genera `uv init`. |
 | 2 | Claude Code | Proponer y escribir los modelos, la lectura, la validación, el script y las pruebas. | **Descartado por Anderson:** completar a mano `maestro.json` con `version` y `actualizado_en`. Se decidió no tocar `datos/` y reportarlo como sugerencia (D11). También se cambió la recomendación inicial de un maestro estricto por uno tolerante (D13). |
 | 3 | Claude Code | Proponer y escribir el contrato de herramientas, la observabilidad y sus pruebas; además, comentar con detalle el código de los pasos 1 y 2 y completar sus pruebas. | Anderson pidió comentarios más detallados en el código y un `SOLUCION.md` más sencillo. Al revisar se corrigió un comentario falso (decía que `obligatorio: 1` se rechaza, pero Pydantic lo acepta) y se desactivó que los errores muestren las variables locales, que podían contener datos sensibles. |
+| 4 | Claude Code | Proponer y escribir el listado, la lectura y sus herramientas. | Una prueba falló porque la expectativa estaba mal: el filtro "S.A." también encuentra "S.A.S." (Colombia). Se corrigió la prueba, no el código. |
 
 _Se agregan filas en cada paso._
 

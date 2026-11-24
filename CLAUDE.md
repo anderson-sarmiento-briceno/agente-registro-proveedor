@@ -24,7 +24,8 @@ Léelo completo antes de trabajar en este proyecto.
 - ✅ **Paso 2 · Modelos y validación**: `dominio/modelos.py`, `lectura.py` (lanza `ErrorDeDatos` con mensajes en español), `validacion.py` (errores y sugerencias) y `scripts/validar_datos.py` (en el CI). 72 pruebas. El código lleva comentarios detallados (qué y por qué), porque Anderson debe poder explicar cada parte: mantener ese nivel en los pasos siguientes. Datos reales: 0 errores, 1 sugerencia.
 - ⏳ Pendiente de Anderson: más adelante (Paso 10), copiar `.env.example` como `.env` y poner la API key de Anthropic.
 - ✅ **Paso 3 · Base de herramientas**: `herramientas/base.py` (`Resultado`, `Contexto`, `@herramienta`, `Registro`, `ErrorDeHerramienta`, `IdCasoArg`) y `observabilidad.py` (`log.jsonl` global y por caso, structlog, `enmascarar`, `es_ruta_sensible`). 113 pruebas. El NIT no se enmascara (D14).
-- ▶ **Siguiente: Paso 4 · Listado y lectura de solicitudes** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
+- ✅ **Paso 4 · Listado y lectura**: `dominio/texto.py` (`normalizar`, `palabras`), `dominio/casos.py` (`listar_casos`, `leer_caso`) y `herramientas/proveedor.py` (`registro` real con `proveedor_listar_casos` y `proveedor_leer_solicitud`). La lectura no devuelve el cuerpo del correo (D18). 163 pruebas.
+- ▶ **Siguiente: Paso 5 · Mapeo de campos y su confirmación** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
 
 Actualiza esta sección cada vez que se cierre un paso.
 

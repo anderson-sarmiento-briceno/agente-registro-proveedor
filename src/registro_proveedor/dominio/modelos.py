@@ -84,6 +84,16 @@ class Pais(StrEnum):
     HONDURAS = "HN"
 
 
+# Nombre de cada país, para mostrarlo y para que se pueda buscar "Ecuador" además de "EC".
+NOMBRES_PAIS: dict[Pais, str] = {
+    Pais.COLOMBIA: "Colombia",
+    Pais.ECUADOR: "Ecuador",
+    Pais.PERU: "Perú",
+    Pais.PANAMA: "Panamá",
+    Pais.HONDURAS: "Honduras",
+}
+
+
 class Formato(StrEnum):
     """Formato en el que el cliente espera el formulario."""
 

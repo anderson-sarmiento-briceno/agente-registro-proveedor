@@ -83,6 +83,15 @@ class ErrorDeDatos(Exception):
         self.problemas = problemas
 
 
+class ErrorDeCaso(ErrorDeDatos):
+    """El caso pedido no existe o su nombre no es válido.
+
+    Es un tipo aparte de `ErrorDeDatos` (hereda de él) para que una herramienta pueda
+    reconocerlo y agregar una ayuda: "use proveedor_listar_casos para ver los casos".
+    Quien solo espera `ErrorDeDatos` lo sigue atrapando igual.
+    """
+
+
 # ---------- Adaptadores de Pydantic ----------
 # Un modelo (`class Solicitud(BaseModel)`) valida un objeto JSON. Pero varios archivos
 # son una LISTA de objetos (`[{...}, {...}]`) o un diccionario simple. Para esos,
@@ -115,13 +124,13 @@ def carpeta_de_caso(datos: Path, caso: str) -> Path:
     """
     casos = (datos / CARPETA_CASOS).resolve()
     if not re.fullmatch(PATRON_ID_CASO, caso):
-        raise ErrorDeDatos(
+        raise ErrorDeCaso(
             datos / CARPETA_CASOS,
             [f"el nombre de caso «{caso}» no es válido; se espera {PISTAS_PATRON[PATRON_ID_CASO]}"],
         )
     carpeta = (casos / caso).resolve()
     if not carpeta.is_relative_to(casos) or not carpeta.is_dir():
-        raise ErrorDeDatos(datos / CARPETA_CASOS, [f"no existe el caso «{caso}»"])
+        raise ErrorDeCaso(datos / CARPETA_CASOS, [f"no existe el caso «{caso}»"])
     return carpeta
 
 
