@@ -19,7 +19,7 @@
 | 2 | Modelos de datos y validación de insumos | F0 | ✅ |
 | 3 | Base de herramientas y observabilidad | F0 | ✅ |
 | 4 | Listado y lectura de solicitudes | F1 | ✅ |
-| 5 | Mapeo de campos y su confirmación | F1 | ⬜ |
+| 5 | Mapeo de campos y su confirmación | F1 | ✅ |
 | 6 | Reglas de negocio configurables | F1 | ⬜ |
 | 7 | Generación de formularios | F1 | ⬜ |
 | 8 | Paquete para firma | F1 | ⬜ |
@@ -91,8 +91,13 @@
 ### Paso 5 · Mapeo de campos y su confirmación
 **Objetivo:** `proveedor_mapear_campos` clasifica cada campo en `lleno`, `faltante` o `requiere_confirmacion`, en capas (exacto → normalizado → similitud), deja registrados el origen y el método, y guarda el mapeo en `out/<caso>/mapeo.json`. `proveedor_confirmar_campo` resuelve un campo en `requiere_confirmacion` (aceptar o dejar faltante) y registra la decisión en ese mapeo.
 **Hecho cuando:** las pruebas unitarias cubren cada capa, ninguna prueba produce un valor que no exista en el maestro y una confirmación cambia el estado del campo sin tocar los demás. *(El bloqueo que obliga a aprobarla en el front se conecta en el Paso 13.)*
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`proveedor_mapear_campos`**: busca cada campo en el glosario en tres capas (exacta → sin mayúsculas ni tildes → parecida) y después su valor en el maestro. Cada campo queda lleno, faltante o por confirmar, con una nota que explica por qué.
+- **El resultado se guarda** en `out/<caso>/mapeo.json`, con los valores completos. El modelo, en cambio, ve el número de cuenta y la cédula como `****2345`.
+- **`proveedor_confirmar_campo`**: la analista acepta el valor propuesto o deja el campo vacío. Queda registrado quién lo decidió y cuándo, y los demás campos no cambian. Si vuelve a mapear, la decisión se conserva, salvo que el maestro haya cambiado.
+- **Nunca se inventa un valor:** el propio modelo de datos rechaza un valor sin fuente, y una prueba revisa que cada valor sea exactamente el del maestro.
+- **Con los datos reales:** CO 17 llenos · EC 14 llenos y 1 faltante · HN 10 llenos y 1 faltante · PA 9 llenos. **Pruebas:** 222 en total.
 
 ### Paso 6 · Reglas de negocio configurables
 **Objetivo:** llevar a `config/reglas.yaml` las reglas de identificador por país, de datos bancarios, de vigencias y "por vencer", y de fecha de ejecución inyectable (RN1–RN8).
@@ -301,7 +306,26 @@ proveedor_leer_solicitud(caso="ec-corp-andina")
 
 **Los campos tienen la misma forma en todos los formatos:** etiqueta, si es obligatorio y, en Excel, la hoja y la celda. Las plantillas de Excel no dicen si un campo es obligatorio, así que ese dato queda vacío en lugar de inventarse.
 
-_El mapeo, las reglas y la generación se completan en los pasos 5 a 8._
+**2. Mapear los campos (Paso 5)**
+
+Para cada campo, primero se busca la etiqueta en el glosario y después el valor en el maestro:
+
+```
+"Nombre de la empresa" ──glosario──▶ razon_social ──maestro──▶ "Empresa Ejemplo S.A.S."
+```
+
+| Capa | Ejemplo | Confianza | Resultado |
+|---|---|---|---|
+| 1. Exacta | "Razón social" | 1.0 | lleno |
+| 2. Sin mayúsculas, tildes ni signos | "RAZON SOCIAL:" | 0.95 | lleno |
+| 3. Parecida | "Razon socail" (92 %) | el puntaje | lleno si es ≥ 0.9 · por confirmar si está entre 0.8 y 0.9 · faltante si es menor |
+
+- **Si el maestro no tiene el dato**, el campo queda **faltante**. Nunca se rellena con otra cosa.
+- **Si una etiqueta se parece igual a dos datos distintos**, queda **por confirmar**.
+- **La medida de parecido es prudente a propósito:** compara las frases completas. Una más permisiva diría que "Cédula del representante legal" es igual a "Representante legal" y llenaría la cédula con el nombre.
+- **Todo queda en `mapeo.json`:** es la fuente que usará el generador de formularios (Paso 7), así que el modelo nunca le pasa valores a otra herramienta.
+
+_Las reglas de país y la generación se completan en los pasos 6 a 8._
 
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
@@ -332,7 +356,9 @@ _por completar_
 | Que se pida un caso como `../secreto` para salir de la carpeta | El nombre se valida con un patrón y, además, se comprueba que la ruta final quede dentro de `datos/` o de `out/`. |
 | Que el modelo invente argumentos (`{"enviar": true}`) | Se rechazan: los argumentos no aceptan campos desconocidos. |
 
-**Lo que falta:** el enmascaramiento funciona por **nombre de campo**. El Paso 5 usará `es_ruta_sensible()` para ocultar el valor de un campo como "Número de cuenta". El Paso 14 agrega la revisión de la respuesta del modelo y la defensa contra correos maliciosos. El Paso 18 agrega la protección del acceso y los topes de costo.
+**Paso 5:** en el mapeo, el valor de un campo como "Número de cuenta" se oculta según su **ruta en el maestro** (`es_ruta_sensible`), porque en la respuesta ese dato se llama `valor`, no `numero_cuenta`.
+
+**Lo que falta:** el Paso 14 agrega la revisión de la respuesta del modelo y la defensa contra correos maliciosos. El Paso 18 agrega la protección del acceso y los topes de costo.
 
 ## B8 · Diseño para portales web
 **Se alimenta de:** Paso 7 y la sección 14 del plan.
@@ -382,7 +408,7 @@ _por completar_
 | Historia | Pasos | Estado | Qué falta para producción |
 |---|---|---|---|
 | HU-1 Leer la solicitud | 4 | 🟨 | Hecho: listar, filtrar y leer los 4 casos, con errores claros. Falta marcar los campos ambiguos de país, como "RUC" → NIT (pasos 5 y 6). |
-| HU-2 Mapear campos | 5, 6 | ⬜ | |
+| HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, origen y método por campo, confirmación registrada y nunca un valor inventado. Falta la regla de país (Paso 6) y que la confirmación exija aprobar en el front (Paso 13). |
 | HU-3 Generar formulario | 7 | ⬜ | |
 | HU-4 Paquete para firma | 8 | ⬜ | |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
@@ -408,6 +434,9 @@ _por completar_
 | D17 | El argumento `requiere_confirmacion` ya existe en `@herramienta`, aunque todavía no bloquea nada. | Agregarlo en el Paso 13. | Las herramientas de los pasos 4 a 8 nacen con la marca correcta y el Paso 13 solo agrega el bloqueo. | 3 |
 | D18 | `proveedor_leer_solicitud` no devuelve el cuerpo del correo. | Pasarle el correo completo al modelo. | El correo es contenido externo y puede traer instrucciones maliciosas. Lo necesario ya se extrae sin el modelo. | 4 |
 | D19 | En el filtro, las palabras de menos de 4 letras deben coincidir exactas. | Buscar cualquier coincidencia parcial. | Con coincidencia parcial, "CO" (Colombia) encontraría "corp" (el caso de Ecuador). | 4 |
+| D20 | El parecido se mide con `token_sort_ratio` (frases completas). | `token_set_ratio` o `ratio`. | Se probaron las tres con etiquetas reales. `token_set` llenaría la cédula con el nombre, y `ratio` propondría el cargo como nombre del representante. | 5 |
+| D21 | La confirmación guarda el valor que se le propuso a la analista. | Guardar solo la decisión. | Permite cambiar de opinión y, al volver a mapear, saber si la propuesta sigue siendo la misma que ella aprobó. | 5 |
+| D22 | En el mapeo, lo sensible se oculta según la ruta del maestro, en la herramienta. | Confiar en el enmascaramiento por nombre de campo. | El número de cuenta viene en un campo llamado `valor`: el enmascaramiento por nombre no lo vería. | 5 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -436,6 +465,7 @@ _por completar_
 | 2 | Claude Code | Proponer y escribir los modelos, la lectura, la validación, el script y las pruebas. | **Descartado por Anderson:** completar a mano `maestro.json` con `version` y `actualizado_en`. Se decidió no tocar `datos/` y reportarlo como sugerencia (D11). También se cambió la recomendación inicial de un maestro estricto por uno tolerante (D13). |
 | 3 | Claude Code | Proponer y escribir el contrato de herramientas, la observabilidad y sus pruebas; además, comentar con detalle el código de los pasos 1 y 2 y completar sus pruebas. | Anderson pidió comentarios más detallados en el código y un `SOLUCION.md` más sencillo. Al revisar se corrigió un comentario falso (decía que `obligatorio: 1` se rechaza, pero Pydantic lo acepta) y se desactivó que los errores muestren las variables locales, que podían contener datos sensibles. |
 | 4 | Claude Code | Proponer y escribir el listado, la lectura y sus herramientas. | Una prueba falló porque la expectativa estaba mal: el filtro "S.A." también encuentra "S.A.S." (Colombia). Se corrigió la prueba, no el código. |
+| 5 | Claude Code | Proponer y escribir el mapeo en capas, la confirmación y sus herramientas. | Antes de elegir la medida de parecido se midieron tres con etiquetas reales (D20). Se rehízo el diseño de "cambiar de opinión", porque la primera versión perdía el valor propuesto al dejar un campo faltante (D21). |
 
 _Se agregan filas en cada paso._
 

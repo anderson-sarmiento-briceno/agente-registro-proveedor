@@ -20,10 +20,17 @@ def _log(contexto: Contexto) -> list[dict[str, object]]:
 
 def test_herramientas_registradas() -> None:
     nombres = [h.nombre for h in registro.listar()]
-    assert nombres == ["proveedor_leer_solicitud", "proveedor_listar_casos"]
+    assert nombres == [
+        "proveedor_confirmar_campo",
+        "proveedor_leer_solicitud",
+        "proveedor_listar_casos",
+        "proveedor_mapear_campos",
+    ]
     for h in registro.listar():
         assert h.descripcion  # el modelo decide con esta frase cuándo usarla
-        assert not h.requiere_confirmacion  # solo leen: no necesitan aprobación
+    # Solo confirmar un campo necesita aprobación humana (las demás no deciden nada).
+    con_aprobacion = [h.nombre for h in registro.listar() if h.requiere_confirmacion]
+    assert con_aprobacion == ["proveedor_confirmar_campo"]
 
 
 # ---------- proveedor_listar_casos ----------

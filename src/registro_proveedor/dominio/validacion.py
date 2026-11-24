@@ -55,6 +55,7 @@ from registro_proveedor.dominio.lectura import (
     carpeta_de_caso,
 )
 from registro_proveedor.dominio.modelos import CeldaPlantilla, Formato, Maestro
+from registro_proveedor.dominio.texto import normalizar
 
 # ---------- El reporte ----------
 # Se usan `dataclass` (de Python) y no modelos de Pydantic porque aquí no hay nada
@@ -284,6 +285,27 @@ def _validar_glosario(datos: Path, maestro: Maestro | None, reporte: Reporte) ->
         problema = _problema_de_ruta(contenido, ruta)
         if problema:
             reporte.error(datos / ARCHIVO_GLOSARIO, f"«{etiqueta}» → «{ruta}»: {problema}")
+    for mensaje in _etiquetas_que_normalizan_igual(glosario):
+        reporte.error(datos / ARCHIVO_GLOSARIO, mensaje)
+
+
+def _etiquetas_que_normalizan_igual(glosario: dict[str, str]) -> list[str]:
+    """Dos etiquetas que solo cambian en mayúsculas, tildes o signos, pero con rutas distintas.
+
+    Por ejemplo "Razón social" → razon_social y "RAZON SOCIAL" → nit. El mapeo (Paso 5)
+    compara sin mayúsculas ni tildes, así que no sabría cuál de las dos usar.
+    """
+    vistas: dict[str, str] = {}  # etiqueta normalizada → primera etiqueta original
+    problemas: list[str] = []
+    for etiqueta in sorted(glosario):
+        clave = normalizar(etiqueta)
+        otra = vistas.setdefault(clave, etiqueta)
+        if otra != etiqueta and glosario[otra] != glosario[etiqueta]:
+            problemas.append(
+                f"«{otra}» → «{glosario[otra]}» y «{etiqueta}» → «{glosario[etiqueta]}» "
+                "solo se diferencian en mayúsculas, tildes o signos: el mapeo no sabría cuál usar"
+            )
+    return problemas
 
 
 def _problema_de_ruta(contenido: dict[str, object], ruta: str) -> str | None:

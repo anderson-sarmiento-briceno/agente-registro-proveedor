@@ -152,6 +152,9 @@ class Contexto:
     salida: Path  # carpeta de resultados: out/
     fecha_ejecucion: date  # RN7: contra esta fecha se revisan las vigencias
     sesion_id: str = "local"
+    # Quién está trabajando: queda registrado en las confirmaciones (HU-2). En el MVP
+    # hay una sola usuaria; con inicio de sesión (Paso 18) será su nombre de usuario.
+    usuario: str = "analista"
     # Función que da la hora actual, para el `ts` del log. En pruebas se reemplaza
     # por una que siempre da la misma hora, y así el log es predecible.
     reloj: Callable[[], datetime] = field(default=_ahora_utc)

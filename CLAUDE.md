@@ -25,7 +25,8 @@ Léelo completo antes de trabajar en este proyecto.
 - ⏳ Pendiente de Anderson: más adelante (Paso 10), copiar `.env.example` como `.env` y poner la API key de Anthropic.
 - ✅ **Paso 3 · Base de herramientas**: `herramientas/base.py` (`Resultado`, `Contexto`, `@herramienta`, `Registro`, `ErrorDeHerramienta`, `IdCasoArg`) y `observabilidad.py` (`log.jsonl` global y por caso, structlog, `enmascarar`, `es_ruta_sensible`). 113 pruebas. El NIT no se enmascara (D14).
 - ✅ **Paso 4 · Listado y lectura**: `dominio/texto.py` (`normalizar`, `palabras`), `dominio/casos.py` (`listar_casos`, `leer_caso`) y `herramientas/proveedor.py` (`registro` real con `proveedor_listar_casos` y `proveedor_leer_solicitud`). La lectura no devuelve el cuerpo del correo (D18). 163 pruebas.
-- ▶ **Siguiente: Paso 5 · Mapeo de campos y su confirmación** (ver `SOLUCION.md`). Antes de escribir código, explícame qué se va a crear y por qué.
+- ✅ **Paso 5 · Mapeo**: `dominio/mapeo.py` (capas exacta → normalizada → `token_sort_ratio`, umbrales 0.9/0.8 todavía en el código, `mapeo.json` en `out/<caso>/`, confirmación con `valor_propuesto`) y las herramientas `proveedor_mapear_campos` y `proveedor_confirmar_campo` (`requiere_confirmacion=True`). Lo sensible se oculta por ruta (D22). 222 pruebas.
+- ▶ **Siguiente: Paso 6 · Reglas de negocio configurables** (ver `SOLUCION.md`): RN1 (RUC/RTN → NIT con confirmación), umbrales y "por vencer" en `config/reglas.yaml`. Antes de escribir código, explícame qué se va a crear y por qué.
 
 Actualiza esta sección cada vez que se cierre un paso.
 
