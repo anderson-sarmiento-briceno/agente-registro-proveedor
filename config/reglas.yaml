@@ -1,0 +1,49 @@
+# Reglas de negocio del agente "Registro como Proveedor".
+#
+# Este archivo se puede editar sin tocar el código. Al leerlo, el programa revisa que
+# los valores tengan sentido (por ejemplo, que los umbrales estén entre 0 y 1) y, si
+# algo está mal, lo dice con un mensaje claro.
+#
+# Después de editarlo, corra las pruebas (`uv run pytest`) para ver el efecto.
+
+# ---------- Mapeo de campos (Paso 5) ----------
+# Qué tan parecida debe ser la etiqueta del cliente a una del glosario.
+# 1.0 = idéntica · 0.0 = nada que ver.
+mapeo:
+  umbral_lleno: 0.9           # desde aquí, el campo se llena solo
+  umbral_confirmar: 0.8       # desde aquí (y por debajo del anterior), se propone y la analista confirma
+                              # por debajo de este valor, el campo queda faltante
+  confianza_normalizado: 0.95 # confianza de una etiqueta igual salvo mayúsculas, tildes o signos
+
+# ---------- RN1 · Identificador tributario por país ----------
+# La empresa solo tiene identificador de su país (NIT de Colombia). Si el cliente es
+# de otro país, el campo se llena con ese identificador, pero queda "por confirmar"
+# con la nota "identificador extranjero".
+identificador_tributario:
+  ruta_maestro: nit           # dónde está el identificador en el maestro
+  pais_empresa: CO            # país del identificador que tiene la empresa
+  por_pais:                   # cómo se llama el identificador en cada país (deben estar todos)
+    CO: NIT
+    EC: RUC
+    PE: RUC
+    PA: RUC
+    HN: RTN
+
+# ---------- RN2 · Datos bancarios ----------
+# Se llenan solo si la plantilla del cliente los pide, y NUNCA van en el borrador
+# del correo (Paso 8). Aquí se listan las rutas del maestro que son datos bancarios.
+datos_bancarios:
+  rutas:
+    - banco.nombre
+    - banco.tipo_cuenta
+    - banco.numero_cuenta
+    - banco.titular
+    - banco.swift
+    - banco.moneda
+
+# ---------- RN3 y RN6 · Vigencia de los soportes ----------
+# Un soporte vencido o ausente bloquea el paquete para firma (RN3).
+# Uno que vence en esta cantidad de días o menos se marca "por vencer": no bloquea,
+# pero se avisa (RN6).
+vigencias:
+  dias_por_vencer: 15

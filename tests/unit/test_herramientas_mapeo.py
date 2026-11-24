@@ -66,10 +66,13 @@ def test_mapear_agrupa_por_estado(contexto: Contexto) -> None:
     r = _ejecutar("proveedor_mapear_campos", {"caso": CASO}, contexto)
     assert r["ok"] is True
     datos = como_dict(r["data"])
-    assert len(como_lista(datos["llenos"])) == 14
+    assert len(como_lista(datos["llenos"])) == 13
     faltantes = como_lista(datos["faltantes"])
     assert [como_dict(c)["etiqueta"] for c in faltantes] == ["Número de contribuyente especial"]
-    assert datos["requiere_confirmacion"] == []
+    # RN1 (Paso 6): el RUC se propone con el NIT colombiano, pero hay que confirmarlo.
+    pendientes = como_lista(datos["requiere_confirmacion"])
+    assert [como_dict(c)["etiqueta"] for c in pendientes] == ["RUC"]
+    assert "identificador extranjero" in str(como_dict(pendientes[0])["nota"])
     assert datos["archivo"] == f"out/{CASO}/mapeo.json"
     assert datos["version_maestro"] == "sin versión"
 
@@ -90,7 +93,7 @@ def test_mapear_deja_registro(contexto: Contexto) -> None:
     registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, contexto)
     linea = json.loads((contexto.salida / CASO / "log.jsonl").read_text(encoding="utf-8"))
     assert linea["herramienta"] == "proveedor_mapear_campos"
-    assert linea["resumen"] == "14 llenos · 1 faltantes · 0 por confirmar"
+    assert linea["resumen"] == "13 llenos · 1 faltantes · 1 por confirmar"
 
 
 def test_mapear_caso_inexistente(contexto: Contexto) -> None:
@@ -127,7 +130,7 @@ def test_aceptar_un_campo_pendiente(ctx_con_pendiente: Contexto) -> None:
     ctx = ctx_con_pendiente
     r = _ejecutar("proveedor_mapear_campos", {"caso": CASO}, ctx)
     pendientes = como_lista(como_dict(r["data"])["requiere_confirmacion"])
-    assert [como_dict(c)["etiqueta"] for c in pendientes] == ["Num. de cuenta"]
+    assert [como_dict(c)["etiqueta"] for c in pendientes] == ["RUC", "Num. de cuenta"]
 
     texto = _texto(
         ctx,
@@ -141,9 +144,9 @@ def test_aceptar_un_campo_pendiente(ctx_con_pendiente: Contexto) -> None:
     assert campo["valor"] == "****2345"  # enmascarado para el modelo...
     assert campo["confirmacion"]["valor_propuesto"] == "****2345"  # ...también aquí
     assert CUENTA not in texto
-    # Antes: 13 llenos · 1 faltante · 1 por confirmar. Después de aceptar, el pendiente
-    # pasa a lleno (el faltante "Número de contribuyente especial" sigue igual).
-    assert respuesta["data"]["resumen"] == "14 llenos · 1 faltantes · 0 por confirmar"
+    # Antes: 12 llenos · 1 faltante · 2 por confirmar (RUC y "Num. de cuenta"). Después de
+    # aceptar la cuenta, queda solo el RUC pendiente.
+    assert respuesta["data"]["resumen"] == "13 llenos · 1 faltantes · 1 por confirmar"
 
     # ...pero completo en mapeo.json, con quién y cuándo lo decidió.
     guardado = cargar_mapeo(ctx.salida / CASO)

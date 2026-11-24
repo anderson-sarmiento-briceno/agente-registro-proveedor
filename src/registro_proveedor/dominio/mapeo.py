@@ -16,6 +16,10 @@ La búsqueda en el glosario va en capas, de la más segura a la menos segura:
     3. similitud             "Razon socail" se parece a "Razón social"   confianza = puntaje
                              ≥ 0.9 → lleno · entre 0.8 y 0.9 → requiere_confirmacion
                              · menos de 0.8 → faltante
+    (los números 0.95, 0.9 y 0.8 se leen de config/reglas.yaml)
+
+Después de las capas se aplica la regla de país RN1: si el cliente no es de Colombia,
+un campo lleno con el NIT pasa a requiere_confirmacion ("identificador extranjero").
 
 Cada campo guarda de dónde salió (ruta), cómo se encontró (método), la confianza y
 una nota en lenguaje claro: es la trazabilidad por valor (S12).
@@ -24,9 +28,6 @@ El mapeo completo se guarda en `out/<caso>/mapeo.json`, con los valores COMPLETO
 es la fuente que usará el generador de formularios (Paso 7), de modo que el modelo
 de lenguaje nunca "pasa" valores de una herramienta a otra (S6). Lo que se le
 muestra al modelo sale enmascarado (eso lo hace la herramienta, no este módulo).
-
-Pendiente para el Paso 6: las reglas de país (RN1, "RUC" → NIT con confirmación) y
-llevar los umbrales a `config/reglas.yaml`.
 """
 
 import os
@@ -40,13 +41,14 @@ from rapidfuzz import fuzz, process
 
 from registro_proveedor.dominio.casos import CampoSolicitado, CasoLeido
 from registro_proveedor.dominio.lectura import ErrorDeDatos, describir_error_validacion, leer_json
-from registro_proveedor.dominio.modelos import Glosario, Maestro
+from registro_proveedor.dominio.modelos import Glosario, Maestro, Pais
+from registro_proveedor.dominio.reglas import (
+    ReglaIdentificador,
+    Reglas,
+    ReglasMapeo,
+    nota_identificador_extranjero,
+)
 from registro_proveedor.dominio.texto import normalizar
-
-# Umbrales de la capa 3 (similitud). En el Paso 6 pasan a config/reglas.yaml.
-UMBRAL_LLENO = 0.9
-UMBRAL_CONFIRMAR = 0.8
-CONFIANZA_NORMALIZADO = 0.95
 
 ARCHIVO_MAPEO = "mapeo.json"
 
@@ -166,7 +168,9 @@ class Coincidencia:
     empate_con: str | None = None
 
 
-def buscar_en_glosario(etiqueta: str, glosario: Glosario) -> Coincidencia | None:
+def buscar_en_glosario(
+    etiqueta: str, glosario: Glosario, reglas: ReglasMapeo
+) -> Coincidencia | None:
     """Busca la etiqueta en el glosario por capas. None si el glosario está vacío.
 
     Devuelve la mejor coincidencia aunque sea mala (por ejemplo, 0.6): quien llama
@@ -186,7 +190,7 @@ def buscar_en_glosario(etiqueta: str, glosario: Glosario) -> Coincidencia | None
     if buscada in indice:
         original = indice[buscada]
         return Coincidencia(
-            Metodo.GLOSARIO_NORMALIZADO, CONFIANZA_NORMALIZADO, original, glosario[original]
+            Metodo.GLOSARIO_NORMALIZADO, reglas.confianza_normalizado, original, glosario[original]
         )
 
     # Capa 3: la más parecida. `token_sort_ratio` ordena las palabras antes de comparar
@@ -229,18 +233,18 @@ def valor_en_maestro(contenido: dict[str, object], ruta: str) -> str | None:
 
 
 def mapear_campo(
-    campo: CampoSolicitado, glosario: Glosario, contenido: dict[str, object]
+    campo: CampoSolicitado, glosario: Glosario, contenido: dict[str, object], reglas: ReglasMapeo
 ) -> CampoMapeado:
     """Mapea un campo: busca la etiqueta en el glosario y el valor en el maestro."""
-    coincidencia = buscar_en_glosario(campo.etiqueta, glosario)
+    coincidencia = buscar_en_glosario(campo.etiqueta, glosario, reglas)
 
     # Sin coincidencia suficiente: faltante, sin ruta ni valor.
-    if coincidencia is None or coincidencia.confianza < UMBRAL_CONFIRMAR:
+    if coincidencia is None or coincidencia.confianza < reglas.umbral_confirmar:
         nota = "la etiqueta no está en el glosario"
         if coincidencia is not None:
             nota += (
                 f" (lo más parecido fue «{coincidencia.etiqueta_glosario}», "
-                f"{coincidencia.confianza:.0%}, menos del mínimo de {UMBRAL_CONFIRMAR:.0%})"
+                f"{coincidencia.confianza:.0%}, menos del mínimo de {reglas.umbral_confirmar:.0%})"
             )
         return _campo(
             campo,
@@ -256,7 +260,7 @@ def mapear_campo(
     if valor is None:
         nota = f"el maestro no tiene el dato «{coincidencia.ruta}»"
         return _campo(campo, Estado.FALTANTE, None, nota, coincidencia=coincidencia)
-    estado, nota = _estado_y_nota(coincidencia)
+    estado, nota = _estado_y_nota(coincidencia, reglas.umbral_lleno)
     return _campo(campo, estado, valor, nota, coincidencia=coincidencia)
 
 
@@ -286,7 +290,7 @@ def _campo(
     )
 
 
-def _estado_y_nota(c: Coincidencia) -> tuple[Estado, str]:
+def _estado_y_nota(c: Coincidencia, umbral_lleno: float) -> tuple[Estado, str]:
     if c.metodo is Metodo.GLOSARIO_EXACTO:
         return Estado.LLENO, f"igual a la etiqueta «{c.etiqueta_glosario}» del glosario"
     if c.metodo is Metodo.GLOSARIO_NORMALIZADO:
@@ -298,7 +302,7 @@ def _estado_y_nota(c: Coincidencia) -> tuple[Estado, str]:
         return Estado.REQUIERE_CONFIRMACION, (
             f"{parecido}, pero también a «{c.empate_con}», que es otro dato: confirme cuál es"
         )
-    if c.confianza >= UMBRAL_LLENO:
+    if c.confianza >= umbral_lleno:
         return Estado.LLENO, parecido
     return Estado.REQUIERE_CONFIRMACION, f"{parecido}: confirme que es el mismo dato"
 
@@ -307,18 +311,32 @@ def mapear_caso(
     caso: CasoLeido,
     glosario: Glosario,
     maestro: Maestro,
+    reglas: Reglas,
     generado_en: datetime,
     fecha_ejecucion: date,
     anterior: Mapeo | None = None,
 ) -> Mapeo:
     """Mapea todos los campos de un caso, conservando las confirmaciones de `anterior`.
 
+    El orden importa:
+    1. las tres capas (`mapear_campo`);
+    2. la regla de país RN1, que puede bajar un campo `lleno` a `requiere_confirmacion`;
+    3. las confirmaciones anteriores. Van al final para que, si la analista ya aceptó el
+       NIT como RUC, al volver a mapear su decisión se conserve.
+
     Si la analista ya confirmó un campo y se vuelve a mapear, su decisión se conserva,
     siempre que la propuesta sea la misma (misma ruta y mismo valor). Si el maestro
     cambió, la decisión anterior ya no aplica y hay que volver a confirmar.
     """
     contenido = maestro.model_dump(mode="json")
-    campos = [mapear_campo(c, glosario, contenido) for c in caso.campos]
+    campos = [
+        aplicar_identificador(
+            mapear_campo(c, glosario, contenido, reglas.mapeo),
+            caso.pais,
+            reglas.identificador_tributario,
+        )
+        for c in caso.campos
+    ]
     if anterior is not None:
         campos = [_conservar_confirmacion(c, anterior) for c in campos]
     return Mapeo(
@@ -327,6 +345,23 @@ def mapear_caso(
         fecha_ejecucion=fecha_ejecucion,
         version_maestro=maestro.version,
         campos=campos,
+    )
+
+
+def aplicar_identificador(
+    campo: CampoMapeado, pais_cliente: Pais, regla: ReglaIdentificador
+) -> CampoMapeado:
+    """RN1: un campo con el NIT, para un cliente de otro país, requiere confirmación.
+
+    Aplica a cualquier etiqueta que haya terminado en el NIT ("RUC", "RTN",
+    "Identificación tributaria"...), porque lo que importa es el DATO, no el nombre.
+    Un campo faltante no cambia: no hay valor que confirmar.
+    """
+    nota = nota_identificador_extranjero(regla, pais_cliente)
+    if nota is None or campo.ruta != regla.ruta_maestro or campo.estado is Estado.FALTANTE:
+        return campo
+    return campo.model_copy(
+        update={"estado": Estado.REQUIERE_CONFIRMACION, "nota": f"{campo.nota} · {nota}"}
     )
 
 
@@ -381,13 +416,11 @@ def _propuesta(campo: CampoMapeado, mapeo: Mapeo) -> CampoMapeado:
             f"el campo «{campo.etiqueta}» está «{campo.estado}»: solo se confirman los campos "
             f"en requiere_confirmacion. Pendientes: {_pendientes(mapeo)}"
         )
-    nota_original = campo.nota.split(" · ")[0]  # sin el "· aceptado por..." anterior
     return campo.model_copy(
         update={
             "estado": Estado.REQUIERE_CONFIRMACION,
             "valor": campo.confirmacion.valor_propuesto,
             "confirmacion": None,
-            "nota": nota_original,
         }
     )
 
@@ -417,22 +450,15 @@ def _pendientes(mapeo: Mapeo) -> str:
 
 
 def _aplicar(campo: CampoMapeado, confirmacion: Confirmacion) -> CampoMapeado:
-    """Aplica una confirmación a un campo en `requiere_confirmacion`."""
+    """Aplica una confirmación a un campo en `requiere_confirmacion`.
+
+    La nota NO se modifica: sigue explicando por qué el campo necesitaba confirmación.
+    Quién decidió qué y cuándo queda en `confirmacion`.
+    """
     if confirmacion.decision is Decision.ACEPTAR:
-        return campo.model_copy(
-            update={
-                "estado": Estado.LLENO,
-                "confirmacion": confirmacion,
-                "nota": f"{campo.nota} · aceptado por {confirmacion.por}",
-            }
-        )
+        return campo.model_copy(update={"estado": Estado.LLENO, "confirmacion": confirmacion})
     return campo.model_copy(
-        update={
-            "estado": Estado.FALTANTE,
-            "valor": None,
-            "confirmacion": confirmacion,
-            "nota": f"{campo.nota} · dejado faltante por {confirmacion.por}",
-        }
+        update={"estado": Estado.FALTANTE, "valor": None, "confirmacion": confirmacion}
     )
 
 

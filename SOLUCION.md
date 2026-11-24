@@ -20,7 +20,7 @@
 | 3 | Base de herramientas y observabilidad | F0 | ✅ |
 | 4 | Listado y lectura de solicitudes | F1 | ✅ |
 | 5 | Mapeo de campos y su confirmación | F1 | ✅ |
-| 6 | Reglas de negocio configurables | F1 | ⬜ |
+| 6 | Reglas de negocio configurables | F1 | ✅ |
 | 7 | Generación de formularios | F1 | ⬜ |
 | 8 | Paquete para firma | F1 | ⬜ |
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ⬜ |
@@ -102,8 +102,13 @@
 ### Paso 6 · Reglas de negocio configurables
 **Objetivo:** llevar a `config/reglas.yaml` las reglas de identificador por país, de datos bancarios, de vigencias y "por vencer", y de fecha de ejecución inyectable (RN1–RN8).
 **Hecho cuando:** cada regla tiene su prueba, y cambiar un umbral en el YAML cambia el resultado sin tocar el código.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`config/reglas.yaml`**: los umbrales del mapeo, el identificador de cada país, la lista de datos bancarios y los días de aviso "por vencer". Tiene comentarios para quien lo edite, y si un valor no tiene sentido (por ejemplo, un umbral mayor que 1) da un error claro.
+- **RN1 aplicada:** si el cliente no es colombiano, el campo que se llena con el NIT queda **por confirmar**, con la nota "identificador extranjero". Ahora EC, HN y PA tienen 1 campo por confirmar cada uno.
+- **Vigencias listas** (RN3 y RN6): cada soporte queda presente, por vencer, vencido o ausente. Los vencidos y los ausentes bloquean la firma. El checklist del Paso 8 las usará.
+- **Comprobado de punta a punta:** con `umbral_lleno: 0.95`, el mismo campo pasa de lleno a por confirmar sin tocar el código.
+- **Pruebas:** 261 en total.
 
 ### Paso 7 · Generación de formularios
 **Objetivo:** `proveedor_generar_formulario` produce el Excel en las celdas exactas, el PDF con las etiquetas en orden (o el AcroForm rellenado) y `valores-portal.md` para los portales.
@@ -325,7 +330,24 @@ Para cada campo, primero se busca la etiqueta en el glosario y después el valor
 - **La medida de parecido es prudente a propósito:** compara las frases completas. Una más permisiva diría que "Cédula del representante legal" es igual a "Representante legal" y llenaría la cédula con el nombre.
 - **Todo queda en `mapeo.json`:** es la fuente que usará el generador de formularios (Paso 7), así que el modelo nunca le pasa valores a otra herramienta.
 
-_Las reglas de país y la generación se completan en los pasos 6 a 8._
+**3. Reglas de negocio (Paso 6)**
+
+Las reglas que el negocio puede querer cambiar viven en `config/reglas.yaml`. Por ejemplo, para avisar 30 días antes de un vencimiento en vez de 15, se cambia un número en ese archivo.
+
+| Regla | Qué hace | Dónde vive |
+|---|---|---|
+| RN1 · Identificador por país | Cliente extranjero → el campo con el NIT queda **por confirmar** ("identificador extranjero"). | `reglas.yaml` + mapeo |
+| RN2 · Datos bancarios | Se llenan solo si la plantilla los pide y **nunca** van en el borrador del correo. | `reglas.yaml` (lo usa el Paso 8) |
+| RN3 · Qué bloquea la firma | Un soporte vencido o ausente bloquea; un campo faltante, no. | `dominio/reglas.py` |
+| RN4 · Nada sale sin aprobación | La confirmación la controla el servidor. | Paso 13 |
+| RN5 · Registro de cada llamada | `out/log.jsonl` y `out/<caso>/log.jsonl`. | `observabilidad.py` (Paso 3) |
+| RN6 · Por vencer | Vence en 15 días o menos → se avisa, no bloquea. | `reglas.yaml` |
+| RN7 · Fecha inyectable | Las pruebas usan una fecha fija. | `.env` (`FECHA_EJECUCION`) |
+| RN8 · Datos sensibles | Cuenta y cédula como `****2345`. | **En el código**, a propósito (D23) |
+
+**Ejemplo con las fechas.** Hoy (24 de noviembre de 2026) la Cámara de Comercio ya está vencida: venció el 30 de septiembre. Por eso las pruebas usan el 1 de septiembre de 2026. Con esa fecha, la Cámara está vigente, los parafiscales vencidos bloquean el caso de Honduras y el certificado tributario ausente bloquea el de Ecuador.
+
+_La generación y el paquete se completan en los pasos 7 y 8._
 
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
@@ -407,8 +429,8 @@ _por completar_
 
 | Historia | Pasos | Estado | Qué falta para producción |
 |---|---|---|---|
-| HU-1 Leer la solicitud | 4 | 🟨 | Hecho: listar, filtrar y leer los 4 casos, con errores claros. Falta marcar los campos ambiguos de país, como "RUC" → NIT (pasos 5 y 6). |
-| HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, origen y método por campo, confirmación registrada y nunca un valor inventado. Falta la regla de país (Paso 6) y que la confirmación exija aprobar en el front (Paso 13). |
+| HU-1 Leer la solicitud | 4, 6 | ✅ | Para producción: probar con plantillas reales, que serán más desordenadas que las de ejemplo. |
+| HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, regla de país, origen por campo, confirmación registrada y nunca un valor inventado. Falta que la confirmación exija aprobar en el front (Paso 13). |
 | HU-3 Generar formulario | 7 | ⬜ | |
 | HU-4 Paquete para firma | 8 | ⬜ | |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
@@ -437,6 +459,9 @@ _por completar_
 | D20 | El parecido se mide con `token_sort_ratio` (frases completas). | `token_set_ratio` o `ratio`. | Se probaron las tres con etiquetas reales. `token_set` llenaría la cédula con el nombre, y `ratio` propondría el cargo como nombre del representante. | 5 |
 | D21 | La confirmación guarda el valor que se le propuso a la analista. | Guardar solo la decisión. | Permite cambiar de opinión y, al volver a mapear, saber si la propuesta sigue siendo la misma que ella aprobó. | 5 |
 | D22 | En el mapeo, lo sensible se oculta según la ruta del maestro, en la herramienta. | Confiar en el enmascaramiento por nombre de campo. | El número de cuenta viene en un campo llamado `valor`: el enmascaramiento por nombre no lo vería. | 5 |
+| D23 | La lista de datos sensibles (RN8) queda en el código, no en `reglas.yaml`. | Hacerla configurable. | Es seguridad, no negocio: borrar una línea del YAML por error dejaría expuesta la cuenta bancaria. | 6 |
+| D24 | `reglas.yaml` se lee en cada llamada a la herramienta. | Leerlo una sola vez al arrancar. | Un cambio en las reglas se nota en el siguiente mapeo, sin reiniciar. Leer un archivo pequeño cuesta casi nada. | 6 |
+| D25 | La decisión de la analista queda solo en `confirmacion`; la nota no se toca. | Agregar "aceptado por..." al final de la nota. | La nota explica por qué se preguntó (por ejemplo, la de RN1). Mezclarla con la decisión complicaba cambiar de opinión. | 6 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -447,6 +472,9 @@ _Se agregan más decisiones en cada paso._
 - *(Paso 1)* El repositorio se alojará en **GitHub**, por eso el CI es de GitHub Actions. Si se usa otra plataforma, se adapta `ci.yml`.
 - *(Paso 2)* `version` y `actualizado_en` del maestro son una buena práctica, no un requisito: los datos de ejemplo no los tienen y se procesan igual.
 - *(Paso 2)* En un caso `portal`, `plantilla-campos.json` es opcional (el de Panamá lo trae). Si existe, define los valores para copiar; si no, se genera una sugerencia.
+- *(Paso 6)* Un documento que vence **hoy** todavía es válido hoy, y queda "por vencer". Se considera vencido desde el día siguiente.
+- *(Paso 6)* El aviso "por vencer" empieza a los **15 días**, como sugiere el plan. Es la pregunta abierta 5 del plan: el área administrativa puede cambiarlo en `reglas.yaml`.
+- *(Paso 6)* RN1 se aplica a cualquier campo que termine en el NIT, se llame "RUC", "RTN" o "Identificación tributaria": lo que importa es el dato, no el nombre de la etiqueta.
 
 _Se agregan más supuestos en cada paso._
 
@@ -466,6 +494,7 @@ _por completar_
 | 3 | Claude Code | Proponer y escribir el contrato de herramientas, la observabilidad y sus pruebas; además, comentar con detalle el código de los pasos 1 y 2 y completar sus pruebas. | Anderson pidió comentarios más detallados en el código y un `SOLUCION.md` más sencillo. Al revisar se corrigió un comentario falso (decía que `obligatorio: 1` se rechaza, pero Pydantic lo acepta) y se desactivó que los errores muestren las variables locales, que podían contener datos sensibles. |
 | 4 | Claude Code | Proponer y escribir el listado, la lectura y sus herramientas. | Una prueba falló porque la expectativa estaba mal: el filtro "S.A." también encuentra "S.A.S." (Colombia). Se corrigió la prueba, no el código. |
 | 5 | Claude Code | Proponer y escribir el mapeo en capas, la confirmación y sus herramientas. | Antes de elegir la medida de parecido se midieron tres con etiquetas reales (D20). Se rehízo el diseño de "cambiar de opinión", porque la primera versión perdía el valor propuesto al dejar un campo faltante (D21). |
+| 6 | Claude Code | Proponer y escribir `reglas.yaml`, RN1, las vigencias y sus pruebas. | La primera versión de la prueba "cambiar el YAML cambia el resultado" no probaba nada real; se reescribió de punta a punta, con la herramienta y dos archivos de reglas. Al agregar la nota de RN1 se vio que la forma de guardar la decisión en la nota podía borrarla, y se cambió (D25). |
 
 _Se agregan filas en cada paso._
 

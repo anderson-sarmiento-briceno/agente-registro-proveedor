@@ -24,6 +24,7 @@ from registro_proveedor.dominio.lectura import (
     cargar_glosario,
     cargar_maestro,
 )
+from registro_proveedor.dominio.reglas import cargar_reglas
 from registro_proveedor.herramientas.base import (
     ArgumentosHerramienta,
     Contexto,
@@ -200,6 +201,9 @@ def mapear_campos(args: MapearCamposArgs, ctx: Contexto) -> Resultado[VistaMapeo
         caso,
         cargar_glosario(ctx.datos),
         cargar_maestro(ctx.datos),
+        # Las reglas se leen en cada llamada: si alguien edita reglas.yaml, el cambio se
+        # nota en el siguiente mapeo, sin reiniciar nada.
+        cargar_reglas(ctx.reglas),
         generado_en=ctx.reloj(),
         fecha_ejecucion=ctx.fecha_ejecucion,
         anterior=anterior,

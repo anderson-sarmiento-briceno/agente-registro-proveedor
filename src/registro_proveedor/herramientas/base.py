@@ -152,6 +152,9 @@ class Contexto:
     salida: Path  # carpeta de resultados: out/
     fecha_ejecucion: date  # RN7: contra esta fecha se revisan las vigencias
     sesion_id: str = "local"
+    # Archivo de reglas de negocio (Paso 6). Las pruebas pueden usar uno propio para
+    # comprobar que cambiar un número en el YAML cambia el resultado.
+    reglas: Path = RAIZ_PROYECTO / "config" / "reglas.yaml"
     # Quién está trabajando: queda registrado en las confirmaciones (HU-2). En el MVP
     # hay una sola usuaria; con inicio de sesión (Paso 18) será su nombre de usuario.
     usuario: str = "analista"
