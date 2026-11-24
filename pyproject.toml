@@ -1,0 +1,67 @@
+[project]
+name = "registro-proveedor"
+version = "0.1.0"
+description = "Agente que prepara los formularios de registro como proveedor desde el repositorio maestro."
+authors = [
+    { name = "Anderson Sarmiento Briceno", email = "andersarb@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=2.13.0",
+    "fastapi>=0.165.0",
+    "fpdf2>=2.9.0",
+    "jinja2>=3.1.6",
+    "openpyxl>=3.1.5",
+    "pydantic>=2.14.4",
+    "pydantic-settings>=2.16.3",
+    "pypdf>=7.1.1",
+    "pyyaml>=6.0.4",
+    "rapidfuzz>=3.14.6",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+    "types-pyyaml>=6.0.12.20261122",
+]
+
+# ---------- ruff: estilo y errores comunes ----------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Los documentos .md no son código: ruff no debe formatear sus ejemplos.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # estilo básico (pycodestyle)
+    "F",       # errores reales: nombres sin definir, imports sin usar (pyflakes)
+    "I",       # orden de los imports
+    "UP",      # sintaxis moderna de Python
+    "B",       # errores probables (bugbear)
+    "SIM",     # código que se puede simplificar
+    "RUF",     # reglas propias de ruff
+]
+
+# ---------- mypy: tipos estrictos ----------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
+# ---------- pytest ----------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
