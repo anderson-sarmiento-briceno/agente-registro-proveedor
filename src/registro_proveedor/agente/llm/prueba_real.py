@@ -20,6 +20,7 @@ from registro_proveedor.agente.llm.adaptador import (
     Mensaje,
     MotivoFin,
     RespuestaModelo,
+    Uso,
     definiciones_desde_registro,
 )
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
@@ -37,6 +38,10 @@ SISTEMA_DE_PRUEBA = (
 # Precio de claude-haiku-5-5 (dólares por millón de tokens, prompts de hasta 100K tokens).
 PRECIO_ENTRADA_USD = 0.10
 PRECIO_SALIDA_USD = 0.50
+# Guardar algo en la caché cuesta un poco MÁS que la entrada normal (la primera vez);
+# leerlo de la caché, mucho MENOS (las veces siguientes).
+FACTOR_CACHE_ESCRITURA = 1.25
+FACTOR_CACHE_LECTURA = 0.10
 
 EXPLICACION_MOTIVO = {
     MotivoFin.PIDE_HERRAMIENTA: "pide herramientas (el ciclo del Paso 12 las ejecutaría)",
@@ -91,11 +96,24 @@ def describir(
     if respuesta.texto:
         lineas += ["", f"Texto del modelo: {respuesta.texto}"]
     uso = respuesta.uso
-    costo = (uso.entrada * PRECIO_ENTRADA_USD + uso.salida * PRECIO_SALIDA_USD) / 1_000_000
     lineas += [
         "",
         f"Tokens: {uso.entrada} de entrada · {uso.salida} de salida · "
         f"{uso.cache_lectura} leídos de la caché · {uso.cache_escritura} guardados en la caché",
-        f"Costo aproximado: USD {costo:.5f} (sin descontar la caché)",
+        f"Costo aproximado: USD {costo_usd(uso):.5f} (incluye la caché)",
     ]
     return "\n".join(lineas)
+
+
+def costo_usd(uso: Uso) -> float:
+    """Costo aproximado de una llamada en dólares, contando la caché.
+
+    Cada tipo de token tiene su precio: la entrada normal, la salida, lo que se guarda
+    en la caché (1.25 veces la entrada) y lo que se lee de ella (0.1 veces la entrada).
+    """
+    entrada = (
+        uso.entrada
+        + uso.cache_escritura * FACTOR_CACHE_ESCRITURA
+        + uso.cache_lectura * FACTOR_CACHE_LECTURA
+    )
+    return (entrada * PRECIO_ENTRADA_USD + uso.salida * PRECIO_SALIDA_USD) / 1_000_000

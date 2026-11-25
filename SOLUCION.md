@@ -158,7 +158,7 @@
 - **Adaptador de Anthropic** (`proveedor_anthropic.py`), con el SDK oficial: timeout de 30 s, 3 reintentos ante fallas pasajeras (los hace el SDK), caché del prompt, esfuerzo `medium` en vez de `temperature` (CA6 ajustada) y errores traducidos a mensajes claros, sin la clave.
 - **Modelo falso** (`falso.py`): responde con un guion, para probar el ciclo del Paso 12 sin clave ni costo.
 - **Las herramientas que ve el modelo salen solas del registro**: hoy son 6. `proveedor_simular_envio` llega en el Paso 13.
-- **Prueba real manual:** `scripts/probar_modelo.py` muestra qué herramienta pide el modelo ante una pregunta. Queda pendiente correrla cuando Anderson ponga la clave en `.env`. **Pruebas:** 383 en total, sin red.
+- **Prueba real hecha** con `scripts/probar_modelo.py`. Ante *"¿Qué solicitudes de registro hay? Busca la del cliente de Ecuador"*, el modelo pidió `proveedor_listar_casos` con `{"filtro": "Ecuador"}`: el primer paso correcto. Costó unos USD 0.0003, casi todo por guardar las instrucciones en la caché la primera vez. **Pruebas:** 384 en total, sin red.
 
 ### Paso 11 · System prompt y base de conocimiento
 **Objetivo:** escribir `agente/prompt.md` (comportamiento) y `knowledge/registro-proveedor.md` (proceso, países y soportes), separados del código y versionados.
@@ -489,6 +489,8 @@ uv run pytest --actualizar-golden    # después de un cambio intencional; revisa
 | Cambiar de proveedor | Una clase nueva que cumpla `AdaptadorLLM` (ver B2). |
 
 **Costo:** se medirá por caso procesado en el Paso 18. Cada respuesta ya registra los tokens de entrada, de salida y de caché.
+
+**Primera llamada real (Paso 10):** 4 tokens de entrada, 60 de salida y 2056 guardados en la caché (las instrucciones y las 6 herramientas): unos **USD 0.0003**. Guardar en caché cuesta 1.25 veces la entrada; leer de ella, 0.1 veces. Por eso, desde la segunda llamada de una conversación, esa parte cuesta mucho menos.
 
 ## B6 · Ciclo del agente y confirmación humana
 **Se alimenta de:** Pasos 11, 12 y 13.

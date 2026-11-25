@@ -33,11 +33,12 @@ from registro_proveedor.agente.llm.adaptador import (
     MotivoFin,
     ResultadoHerramienta,
     Rol,
+    Uso,
     definiciones_desde_registro,
 )
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, pide, responde
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
-from registro_proveedor.agente.llm.prueba_real import probar
+from registro_proveedor.agente.llm.prueba_real import costo_usd, probar
 from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.proveedor import registro
 
@@ -408,6 +409,15 @@ def test_prueba_real_muestra_la_herramienta_que_pidio() -> None:
     assert '| 1 | proveedor_listar_casos | {"filtro": "Ecuador"} |' in texto
     assert "Herramientas ofrecidas (6)" in texto
     assert CLAVE not in texto
+
+
+def test_costo_con_cache() -> None:
+    """Los tokens de la llamada real: 4 de entrada, 60 de salida y 2056 guardados en caché."""
+    primera = costo_usd(Uso(entrada=4, salida=60, cache_escritura=2056))
+    assert primera == pytest.approx((4 + 2056 * 1.25) * 0.10 / 1e6 + 60 * 0.50 / 1e6)
+    # La segunda vez, lo mismo se LEE de la caché: mucho más barato.
+    segunda = costo_usd(Uso(entrada=4, salida=60, cache_lectura=2056))
+    assert segunda < primera / 3
 
 
 def test_prueba_real_sin_clave(monkeypatch: pytest.MonkeyPatch) -> None:
