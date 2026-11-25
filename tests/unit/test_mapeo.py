@@ -403,6 +403,7 @@ def _base(**cambios: object) -> dict[str, object]:
         "etiqueta": "X",
         "obligatorio": None,
         "hoja": None,
+        "celda_etiqueta": None,
         "celda": None,
         "estado": "lleno",
         "metodo": "glosario_exacto",

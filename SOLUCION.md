@@ -21,7 +21,7 @@
 | 4 | Listado y lectura de solicitudes | F1 | ✅ |
 | 5 | Mapeo de campos y su confirmación | F1 | ✅ |
 | 6 | Reglas de negocio configurables | F1 | ✅ |
-| 7 | Generación de formularios | F1 | ⬜ |
+| 7 | Generación de formularios | F1 | ✅ |
 | 8 | Paquete para firma | F1 | ⬜ |
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ⬜ |
 | 10 | Adaptador del modelo de lenguaje | F2 | ⬜ |
@@ -113,8 +113,13 @@
 ### Paso 7 · Generación de formularios
 **Objetivo:** `proveedor_generar_formulario` produce el Excel en las celdas exactas, el PDF con las etiquetas en orden (o el AcroForm rellenado) y `valores-portal.md` para los portales.
 **Hecho cuando:** los tres formatos se generan desde el mapeo guardado (no desde el modelo) y los campos faltantes quedan vacíos y resaltados.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`proveedor_generar_formulario`**: lee `mapeo.json` (nunca valores del modelo) y genera el Excel, el PDF o `valores-portal.md`, según el formato del cliente. Si el mapeo no existe o no corresponde a la plantilla actual, pide volver a mapear.
+- **Excel:** cada etiqueta y su valor en la hoja y la celda exactas, todo como texto (el código postal `050021` conserva su cero) y sin riesgo de que un `=` se ejecute como fórmula.
+- **PDF:** los campos en el orden de la plantilla, con `*` en los obligatorios.
+- **Portal:** una tabla para copiar, con el aviso "formato no soportado para automatizar".
+- **Faltantes y pendientes:** quedan vacíos, en amarillo (falta) o naranja (por confirmar), con una nota que explica por qué. Lo que está por confirmar no se escribe hasta que la analista lo apruebe. **Pruebas:** 291 en total.
 
 ### Paso 8 · Paquete para firma
 **Objetivo:** `proveedor_armar_paquete` crea la carpeta con el formulario, los soportes, `checklist.md`, `borrador-correo.md` y `manifiesto.json`, y calcula `listo_para_firma`.
@@ -347,7 +352,28 @@ Las reglas que el negocio puede querer cambiar viven en `config/reglas.yaml`. Po
 
 **Ejemplo con las fechas.** Hoy (24 de noviembre de 2026) la Cámara de Comercio ya está vencida: venció el 30 de septiembre. Por eso las pruebas usan el 1 de septiembre de 2026. Con esa fecha, la Cámara está vigente, los parafiscales vencidos bloquean el caso de Honduras y el certificado tributario ausente bloquea el de Ecuador.
 
-_La generación y el paquete se completan en los pasos 7 y 8._
+**4. Generar el formulario (Paso 7)**
+
+```
+out/<caso>/mapeo.json ──▶ proveedor_generar_formulario ──▶ formulario.xlsx | formulario.pdf | valores-portal.md
+```
+
+| Estado del campo | En el formulario |
+|---|---|
+| lleno | el valor |
+| faltante | vacío, **amarillo**, con la nota "Falta: …" |
+| por confirmar | vacío, **naranja**, con la nota "Pendiente de confirmación: …" |
+
+| Archivo | Qué hace, en una frase |
+|---|---|
+| `generadores/comun.py` | Decide qué se escribe en cada campo y comprueba que el mapeo sea de la plantilla actual. |
+| `generadores/excel.py` | Escribe cada etiqueta y su valor en la celda exacta, siempre como texto. |
+| `generadores/pdf.py` | Arma una tabla etiqueta/valor en el orden de la plantilla. |
+| `generadores/portal.py` + `plantillas/valores-portal.md.j2` | Arma la tabla para copiar en el portal (el texto vive en la plantilla de Jinja2). |
+
+**Por qué nunca desde el modelo:** el formulario sale solo de `mapeo.json`, así que el modelo no puede cambiar un valor entre "mapear" y "generar". La respuesta al modelo trae la ruta y los conteos, sin ningún valor.
+
+_El paquete para firma se completa en el Paso 8._
 
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
@@ -385,7 +411,18 @@ _por completar_
 ## B8 · Diseño para portales web
 **Se alimenta de:** Paso 7 y la sección 14 del plan.
 **Objetivo:** resumir lo implementado (valores para copiar y adjuntos) y el diseño del navegador asistido: credenciales, límites y reparto de tareas entre el agente y la persona.
-_por completar_
+
+**Lo implementado (MVP):** para un cliente con portal, el agente genera `out/<caso>/valores-portal.md`, una tabla "campo → valor" lista para copiar, y avisa que el portal no se automatiza. Lo que falta o está por confirmar se marca en la tabla y se lista al final. Los soportes que se deben adjuntar llegan con el paquete del Paso 8.
+
+**Lo que sigue (fase F4, diseño):**
+
+| Tema | Propuesta |
+|---|---|
+| Cómo | Un navegador asistido (Playwright, en modo visible): el agente llena los campos y la persona mira. |
+| Credenciales | Las escribe **la persona** directamente en el navegador, o salen de un gestor de contraseñas corporativo. Nunca van en el repositorio, el prompt ni los logs, y el agente nunca las ve. |
+| Límites | CAPTCHA, MFA y cambios de diseño del portal. El agente **no** resuelve CAPTCHAs: lo hace la persona. La ubicación de cada campo en cada portal se guarda en archivos de configuración versionados y se prueba periódicamente. |
+| Reparto de tareas | El agente navega y llena. La persona ingresa las credenciales, revisa y hace clic en **"Enviar"**. |
+| Evidencia | Una captura de pantalla antes de enviar, guardada en el manifiesto del paquete. |
 
 ## B9 · Operación y despliegue (README)
 **Se alimenta de:** Pasos 1, 9 y 19.
@@ -431,7 +468,7 @@ _por completar_
 |---|---|---|---|
 | HU-1 Leer la solicitud | 4, 6 | ✅ | Para producción: probar con plantillas reales, que serán más desordenadas que las de ejemplo. |
 | HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, regla de país, origen por campo, confirmación registrada y nunca un valor inventado. Falta que la confirmación exija aprobar en el front (Paso 13). |
-| HU-3 Generar formulario | 7 | ⬜ | |
+| HU-3 Generar formulario | 7 | 🟨 | Hecho: Excel en celdas exactas, PDF en orden y valores para portal, siempre desde el mapeo, con los faltantes vacíos y resaltados. Falta rellenar un PDF AcroForm del cliente y escribir sobre su `.xlsx` original (ningún caso de ejemplo los trae). |
 | HU-4 Paquete para firma | 8 | ⬜ | |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
 | HU-6 Manejo de errores | 3, 12 | 🟨 | Hecho para las herramientas (nunca lanzan; mensaje claro). Falta el error del proveedor del LLM (Paso 12). |
@@ -462,6 +499,10 @@ _por completar_
 | D23 | La lista de datos sensibles (RN8) queda en el código, no en `reglas.yaml`. | Hacerla configurable. | Es seguridad, no negocio: borrar una línea del YAML por error dejaría expuesta la cuenta bancaria. | 6 |
 | D24 | `reglas.yaml` se lee en cada llamada a la herramienta. | Leerlo una sola vez al arrancar. | Un cambio en las reglas se nota en el siguiente mapeo, sin reiniciar. Leer un archivo pequeño cuesta casi nada. | 6 |
 | D25 | La decisión de la analista queda solo en `confirmacion`; la nota no se toca. | Agregar "aceptado por..." al final de la nota. | La nota explica por qué se preguntó (por ejemplo, la de RN1). Mezclarla con la decisión complicaba cambiar de opinión. | 6 |
+| D26 | Un campo por confirmar queda **vacío** en el formulario hasta que se apruebe. | Escribir el valor propuesto. | Un valor no aprobado no debe aparecer en un documento que va a firma. Después de confirmar, se vuelve a generar. | 7 |
+| D27 | `celda_etiqueta` es obligatoria en `mapeo.json` (sin valor por defecto). | Darle un valor por defecto vacío. | Un mapeo viejo falla al leerse y la herramienta pide volver a mapear, en vez de generar un Excel sin etiquetas. | 7 |
+| D28 | En el Excel, todo se escribe como texto y un `=` no se vuelve fórmula. | Dejar que Excel adivine el tipo. | Excel quitaría el cero de "050021" y podría ejecutar una fórmula maliciosa al abrir el archivo. | 7 |
+| D29 | El PDF rellenable (AcroForm) queda pendiente. | Implementarlo sin un archivo para probar. | Ningún caso de ejemplo trae un AcroForm: sería código que nadie puede verificar. | 7 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -475,6 +516,8 @@ _Se agregan más decisiones en cada paso._
 - *(Paso 6)* Un documento que vence **hoy** todavía es válido hoy, y queda "por vencer". Se considera vencido desde el día siguiente.
 - *(Paso 6)* El aviso "por vencer" empieza a los **15 días**, como sugiere el plan. Es la pregunta abierta 5 del plan: el área administrativa puede cambiarlo en `reglas.yaml`.
 - *(Paso 6)* RN1 se aplica a cualquier campo que termine en el NIT, se llame "RUC", "RTN" o "Identificación tributaria": lo que importa es el dato, no el nombre de la etiqueta.
+- *(Paso 7)* El Excel se crea nuevo, porque los casos de ejemplo traen la plantilla en JSON y no el `.xlsx` del cliente. En producción convendría escribir sobre el archivo original para respetar su formato.
+- *(Paso 7)* Los valores se escriben tal como están en el maestro. Por ejemplo, "País" sale como `CO`, no como "Colombia". Si un cliente lo pide de otra forma, es un cambio de presentación para decidir con la usuaria.
 
 _Se agregan más supuestos en cada paso._
 
@@ -495,6 +538,7 @@ _por completar_
 | 4 | Claude Code | Proponer y escribir el listado, la lectura y sus herramientas. | Una prueba falló porque la expectativa estaba mal: el filtro "S.A." también encuentra "S.A.S." (Colombia). Se corrigió la prueba, no el código. |
 | 5 | Claude Code | Proponer y escribir el mapeo en capas, la confirmación y sus herramientas. | Antes de elegir la medida de parecido se midieron tres con etiquetas reales (D20). Se rehízo el diseño de "cambiar de opinión", porque la primera versión perdía el valor propuesto al dejar un campo faltante (D21). |
 | 6 | Claude Code | Proponer y escribir `reglas.yaml`, RN1, las vigencias y sus pruebas. | La primera versión de la prueba "cambiar el YAML cambia el resultado" no probaba nada real; se reescribió de punta a punta, con la herramienta y dos archivos de reglas. Al agregar la nota de RN1 se vio que la forma de guardar la decisión en la nota podía borrarla, y se cambió (D25). |
+| 7 | Claude Code | Proponer y escribir los generadores de Excel, PDF y portal, y su herramienta. | Al revisar el resultado se encontró que un comentario de la plantilla de Jinja2 se filtraba en el archivo (contenía los símbolos de cierre de comentario), y se corrigió. Se revisó el PDF visualmente, no solo su texto. |
 
 _Se agregan filas en cada paso._
 

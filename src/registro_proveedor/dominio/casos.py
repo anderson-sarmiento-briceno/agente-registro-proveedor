@@ -143,7 +143,8 @@ def _palabra_coincide(buscada: str, disponibles: list[str]) -> bool:
 class CampoSolicitado(_Modelo):
     """Un campo que pide el cliente, con la misma forma para Excel, PDF y portal.
 
-    - Excel: trae `hoja` y `celda` (donde va el valor). La plantilla no dice si el
+    - Excel: trae `hoja`, `celda_etiqueta` (donde va la etiqueta) y `celda` (donde va
+      el valor). La plantilla no dice si el
       campo es obligatorio, así que `obligatorio` queda en None: no se inventa.
     - PDF y portal: traen `obligatorio`, y no tienen hoja ni celda.
     """
@@ -151,6 +152,7 @@ class CampoSolicitado(_Modelo):
     etiqueta: str
     obligatorio: bool | None
     hoja: str | None = None
+    celda_etiqueta: str | None = None  # Paso 7: el formulario Excel escribe también la etiqueta
     celda: str | None = None
 
 
@@ -210,7 +212,13 @@ def _campos_y_avisos(carpeta: Path, formato: Formato) -> tuple[list[CampoSolicit
     if formato is Formato.EXCEL:
         celdas = cargar_plantilla_celdas(carpeta)
         return [
-            CampoSolicitado(etiqueta=c.etiqueta, obligatorio=None, hoja=c.hoja, celda=c.celda_valor)
+            CampoSolicitado(
+                etiqueta=c.etiqueta,
+                obligatorio=None,
+                hoja=c.hoja,
+                celda_etiqueta=c.celda_etiqueta,
+                celda=c.celda_valor,
+            )
             for c in celdas
         ], []
     if formato is Formato.PDF:

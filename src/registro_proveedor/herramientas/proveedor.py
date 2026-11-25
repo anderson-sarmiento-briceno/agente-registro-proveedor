@@ -15,15 +15,26 @@ Herramientas (se irán agregando paso a paso):
     Paso 13: proveedor_simular_envio
 """
 
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from registro_proveedor.dominio import casos, mapeo
+from registro_proveedor.dominio.generadores.comun import (
+    ErrorDeGeneracion,
+    FormularioGenerado,
+    verificar_correspondencia,
+)
+from registro_proveedor.dominio.generadores.excel import generar_excel
+from registro_proveedor.dominio.generadores.pdf import generar_pdf
+from registro_proveedor.dominio.generadores.portal import generar_portal
 from registro_proveedor.dominio.lectura import (
     ErrorDeCaso,
     ErrorDeDatos,
     cargar_glosario,
     cargar_maestro,
 )
+from registro_proveedor.dominio.modelos import Formato
 from registro_proveedor.dominio.reglas import cargar_reglas
 from registro_proveedor.herramientas.base import (
     ArgumentosHerramienta,
@@ -262,4 +273,107 @@ def confirmar_campo(args: ConfirmarCampoArgs, ctx: Contexto) -> Resultado[Result
     vista = _vista(ctx, nuevo, [])
     return Resultado(
         ok=True, data=ResultadoConfirmacion(campo=_para_mostrar(campo), resumen=_contar(vista))
+    )
+
+
+# ---------- proveedor_generar_formulario ----------
+
+
+class GenerarFormularioArgs(ArgumentosHerramienta):
+    caso: IdCasoArg
+
+
+class VistaFormulario(_Vista):
+    """Lo que ve el modelo después de generar: dónde quedó el archivo y los conteos.
+
+    No incluye ningún valor: el modelo no los necesita para explicar el resultado.
+    """
+
+    caso: str
+    formato: str
+    archivo: str
+    escritos: int
+    faltantes: int
+    pendientes: int
+    avisos: list[str]
+
+
+AVISO_PORTAL = (
+    "formato no soportado para automatizar: el cliente usa un portal web; "
+    "se generaron los valores listos para copiar"
+)
+
+GENERADORES = {
+    Formato.EXCEL: generar_excel,
+    Formato.PDF: generar_pdf,
+    Formato.PORTAL: generar_portal,
+}
+
+
+def _resumir_formulario(v: VistaFormulario) -> str:
+    return (
+        f"{v.archivo} · {v.escritos} escritos · {v.faltantes} faltantes · {v.pendientes} pendientes"
+    )
+
+
+@registro.herramienta(
+    nombre="proveedor_generar_formulario",
+    descripcion="Genera el formulario del caso en el formato del cliente (Excel, PDF o valores "
+    "para copiar en el portal) a partir del mapeo guardado; no recibe valores.",
+    argumentos=GenerarFormularioArgs,
+    resumir=_resumir_formulario,
+)
+def generar_formulario(args: GenerarFormularioArgs, ctx: Contexto) -> Resultado[VistaFormulario]:
+    caso = _leer_caso(ctx, args.caso)
+    carpeta = ctx.carpeta_de_salida(args.caso)
+    guardado = _mapeo_guardado(carpeta, args.caso)
+    try:
+        verificar_correspondencia(guardado, caso)
+        generado = GENERADORES[caso.formato](guardado, caso, carpeta)
+    except ErrorDeGeneracion as e:
+        raise ErrorDeHerramienta(str(e)) from None
+    return Resultado(ok=True, data=_vista_formulario(ctx, caso, generado))
+
+
+def _mapeo_guardado(carpeta: Path, caso: str) -> mapeo.Mapeo:
+    """El mapeo de `out/<caso>/mapeo.json`; si no existe o no sirve, un error que dice qué hacer.
+
+    Un mapeo.json de antes del Paso 7 no tiene `celda_etiqueta` y no pasa la validación:
+    por eso el mensaje sugiere volver a mapear.
+    """
+    try:
+        guardado = mapeo.cargar_mapeo(carpeta)
+    except ErrorDeDatos:
+        raise ErrorDeHerramienta(
+            f"el mapeo guardado del caso «{caso}» está dañado o es de una versión anterior: "
+            "vuelva a usar proveedor_mapear_campos"
+        ) from None
+    if guardado is None:
+        raise ErrorDeHerramienta(
+            f"el caso «{caso}» todavía no tiene mapeo: primero use proveedor_mapear_campos"
+        )
+    return guardado
+
+
+def _vista_formulario(
+    ctx: Contexto, caso: casos.CasoLeido, generado: FormularioGenerado
+) -> VistaFormulario:
+    avisos: list[str] = []
+    if caso.formato is Formato.PORTAL:
+        avisos.append(AVISO_PORTAL)
+    if generado.pendientes:
+        cuantos = (
+            "hay 1 campo por confirmar: quedó vacío"
+            if generado.pendientes == 1
+            else f"hay {generado.pendientes} campos por confirmar: quedaron vacíos"
+        )
+        avisos.append(f"{cuantos} en el formulario; después de confirmar, vuelva a generarlo")
+    return VistaFormulario(
+        caso=caso.caso,
+        formato=caso.formato,
+        archivo=f"{ctx.salida.name}/{caso.caso}/{generado.ruta.name}",
+        escritos=generado.escritos,
+        faltantes=generado.faltantes,
+        pendientes=generado.pendientes,
+        avisos=avisos,
     )

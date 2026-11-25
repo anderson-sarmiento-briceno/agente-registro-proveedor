@@ -143,11 +143,19 @@ def test_lectura_de_los_casos_de_referencia(
 def test_campos_de_excel_traen_hoja_y_celda() -> None:
     campos = leer_caso(DATOS_REALES, "co-industrias-delta").campos
     assert campos[0] == CampoSolicitado(
-        etiqueta="Razón social", obligatorio=None, hoja="Datos Proveedor", celda="C3"
+        etiqueta="Razón social",
+        obligatorio=None,
+        hoja="Datos Proveedor",
+        celda_etiqueta="B3",
+        celda="C3",
     )
     # El banco va en la segunda hoja.
     assert campos[-1] == CampoSolicitado(
-        etiqueta="Titular de la cuenta", obligatorio=None, hoja="Datos Bancarios", celda="C6"
+        etiqueta="Titular de la cuenta",
+        obligatorio=None,
+        hoja="Datos Bancarios",
+        celda_etiqueta="B6",
+        celda="C6",
     )
 
 

@@ -110,6 +110,10 @@ class CampoMapeado(_Modelo):
     etiqueta: str
     obligatorio: bool | None
     hoja: str | None
+    # Sin valor por defecto a propósito: un mapeo.json anterior al Paso 7 no la tiene, y
+    # al leerlo falla con "falta este campo". Así el generador pide volver a mapear en
+    # vez de escribir un Excel sin etiquetas.
+    celda_etiqueta: str | None
     celda: str | None
 
     # El resultado del mapeo.
@@ -279,6 +283,7 @@ def _campo(
         etiqueta=campo.etiqueta,
         obligatorio=campo.obligatorio,
         hoja=campo.hoja,
+        celda_etiqueta=campo.celda_etiqueta,
         celda=campo.celda,
         estado=estado,
         metodo=coincidencia.metodo if coincidencia else metodo,

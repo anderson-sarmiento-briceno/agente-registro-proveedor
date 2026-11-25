@@ -1,0 +1,25 @@
+{#- Plantilla de Jinja2 para out/<caso>/valores-portal.md.
+    Doble llave = escribe un valor. Llave con porcentaje = lógica (un ciclo, un "si").
+    Llave con numeral = comentario, como este, que no aparece en el resultado.
+    El guion junto a las llaves quita los saltos de línea sobrantes. -#}
+# Valores para el portal · {{ cliente }}
+
+Caso: `{{ caso }}` · Mapeo del {{ generado_en }} · Versión del maestro: {{ version_maestro }}
+
+> El formato **portal** no se automatiza: copie cada valor en el campo del mismo nombre del portal.
+> Este archivo contiene datos completos (incluida la cuenta bancaria): no lo reenvíe por correo.
+
+| # | Campo | Valor | Estado |
+|---|---|---|---|
+{% for e in escrituras -%}
+| {{ loop.index }} | {{ e.etiqueta | celda_md }}{{ " *" if e.obligatorio }} | {{ (e.valor or "") | celda_md }} | {{ estados[e.marca] }} |
+{% endfor %}
+\* Campo obligatorio.
+{%- if pendientes %}
+
+**Pendientes de confirmación:** {{ pendientes | join(", ") }}. Después de confirmarlos, vuelva a generar este archivo.
+{%- endif %}
+{%- if faltantes %}
+
+**Faltan en el maestro:** {{ faltantes | join(", ") }}. Complételos a mano en el portal o pídalos al dueño del dato.
+{%- endif %}

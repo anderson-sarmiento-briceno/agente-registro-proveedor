@@ -22,6 +22,7 @@ def test_herramientas_registradas() -> None:
     nombres = [h.nombre for h in registro.listar()]
     assert nombres == [
         "proveedor_confirmar_campo",
+        "proveedor_generar_formulario",
         "proveedor_leer_solicitud",
         "proveedor_listar_casos",
         "proveedor_mapear_campos",
