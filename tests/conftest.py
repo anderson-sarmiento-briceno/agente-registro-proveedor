@@ -29,6 +29,28 @@ from registro_proveedor.herramientas.base import Contexto
 from tests.ayudas import DATOS_REALES, FECHA_FIJA, HORA_FIJA, EditarJson
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Agrega la opción `--actualizar-golden` al comando `pytest`.
+
+    Las pruebas golden comparan el resultado de la demo con archivos guardados en
+    `tests/golden/`. Después de un cambio INTENCIONAL (por ejemplo, una frase nueva en
+    el checklist), se ejecuta `uv run pytest --actualizar-golden` para reescribirlos.
+    El cambio queda a la vista en git y se revisa antes de aceptarlo.
+    """
+    parser.addoption(
+        "--actualizar-golden",
+        action="store_true",
+        default=False,
+        help="Reescribe los archivos de tests/golden/ con el resultado actual.",
+    )
+
+
+@pytest.fixture
+def actualizar_golden(request: pytest.FixtureRequest) -> bool:
+    """True si se pidió `--actualizar-golden`."""
+    return bool(request.config.getoption("--actualizar-golden"))
+
+
 @pytest.fixture
 def datos(tmp_path: Path) -> Path:
     """Copia temporal de `datos/` para poder romperla sin tocar los datos reales.

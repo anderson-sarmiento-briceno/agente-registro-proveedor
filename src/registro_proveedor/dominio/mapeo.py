@@ -479,7 +479,9 @@ def guardar_mapeo(carpeta: Path, mapeo: Mapeo) -> Path:
     """
     destino = carpeta / ARCHIVO_MAPEO
     temporal = carpeta / f".{ARCHIVO_MAPEO}.tmp"
-    temporal.write_text(mapeo.model_dump_json(indent=2), encoding="utf-8")
+    # newline="\n": el mismo salto de línea en Windows y en Linux (si no, Windows escribe
+    # "\r\n" y el archivo, y su huella, cambian según la máquina).
+    temporal.write_text(mapeo.model_dump_json(indent=2), encoding="utf-8", newline="\n")
     os.replace(temporal, destino)
     return destino
 

@@ -1,0 +1,210 @@
+{
+  "Datos Proveedor": {
+    "B3": {
+      "valor": "Razón social",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C3": {
+      "valor": "Empresa Ejemplo S.A.S.",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B4": {
+      "valor": "NIT",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C4": {
+      "valor": "900123456",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B5": {
+      "valor": "Dígito de verificación",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C5": {
+      "valor": "7",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B6": {
+      "valor": "Dirección",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C6": {
+      "valor": "Calle 10 # 43A-25, Oficina 501",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B7": {
+      "valor": "Ciudad",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C7": {
+      "valor": "Medellín",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B8": {
+      "valor": "Código postal",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C8": {
+      "valor": "050021",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B9": {
+      "valor": "Teléfono",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C9": {
+      "valor": "+57 604 555 0100",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B10": {
+      "valor": "Correo electrónico",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C10": {
+      "valor": "lgomez@empresa-ejemplo.com",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B11": {
+      "valor": "Representante legal",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C11": {
+      "valor": "Roberto Andrade Salazar",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B12": {
+      "valor": "Cédula del representante legal",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C12": {
+      "valor": "71555123",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B13": {
+      "valor": "Actividad económica",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C13": {
+      "valor": "Desarrollo de sistemas informáticos y consultoría en tecnologías de la información",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B14": {
+      "valor": "Código CIIU",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C14": {
+      "valor": "6201",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B15": {
+      "valor": "Régimen tributario",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C15": {
+      "valor": "Responsable de IVA",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    }
+  },
+  "Datos Bancarios": {
+    "B3": {
+      "valor": "Banco",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C3": {
+      "valor": "Bancolombia S.A.",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B4": {
+      "valor": "Tipo de cuenta",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C4": {
+      "valor": "Ahorros",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B5": {
+      "valor": "Número de cuenta",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C5": {
+      "valor": "03100012345",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B6": {
+      "valor": "Titular de la cuenta",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "C6": {
+      "valor": "Empresa Ejemplo S.A.S.",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    }
+  }
+}

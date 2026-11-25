@@ -23,7 +23,7 @@
 | 6 | Reglas de negocio configurables | F1 | ✅ |
 | 7 | Generación de formularios | F1 | ✅ |
 | 8 | Paquete para firma | F1 | ✅ |
-| 9 | Demostración sin modelo y pruebas *golden* | F1 | ⬜ |
+| 9 | Demostración sin modelo y pruebas *golden* | F1 | ✅ |
 | 10 | Adaptador del modelo de lenguaje | F2 | ⬜ |
 | 11 | System prompt y base de conocimiento | F2 | ⬜ |
 | 12 | Ciclo del agente | F2 | ⬜ |
@@ -138,8 +138,13 @@
 ### Paso 9 · Demostración sin modelo y pruebas *golden*
 **Objetivo:** `scripts/demo.py` procesa todos los casos llamando directamente a las herramientas, y las pruebas *golden* fijan el resultado esperado de cada caso.
 **Hecho cuando:** dos ejecuciones seguidas con la misma fecha dan exactamente el mismo resultado, sin ninguna clave de LLM.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`scripts/demo.py`**: con un comando procesa los 4 casos por el mismo camino que usará el agente (leer → mapear → generar → armar el paquete) e imprime un resumen. Limpia `out/` al empezar, pero solo si la carpeta se llama `out`.
+- **Fecha fija** 2026-09-01 por defecto, con `--fecha hoy` o `--fecha AAAA-MM-DD` para cambiarla.
+- **Mismo resultado siempre:** dos ejecuciones dan archivos idénticos byte por byte, salvo los `log.jsonl` (guardan cuánto tardó cada llamada). Para lograrlo, el Excel ahora se genera reproducible.
+- **Sin LLM, comprobado:** una prueba ejecuta la demo sin clave y verifica que el SDK de Anthropic nunca se carga.
+- **Pruebas golden** en `tests/golden/`: el resumen de la demo y, por caso, el mapeo, el checklist, el borrador, el manifiesto y las celdas del Excel o el texto del PDF. **Pruebas:** 346 en total; la demo también corre en el CI.
 
 ## Fase F2 · Agente y chat
 
@@ -408,7 +413,31 @@ out/<caso>/paquete/
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
 **Objetivo:** describir la estrategia de pruebas (unitarias, *golden*, `demo.py` y evaluaciones del agente), qué cubre cada nivel, cómo corren en el CI y los resultados obtenidos.
-_por completar_
+
+| Nivel | Qué cubre | Dónde |
+|---|---|---|
+| **Unitarias** | Cada pieza por separado: lectura y validación de datos, mapeo y sus capas, reglas, generadores, paquete, herramientas y observabilidad. Muchas rompen una **copia** de los datos a propósito, para ver que el error se detecta con un buen mensaje. | `tests/unit/` |
+| **Golden** | El resultado completo de cada caso, comparado con lo guardado: mapeo, checklist, borrador, manifiesto y celdas del Excel o texto del PDF. Si algo cambia sin querer, muestra la diferencia línea por línea. | `tests/golden/` |
+| **Demo** | Los 4 casos de punta a punta, sin LLM, con un comando. También comprueba que dos ejecuciones den lo mismo. | `scripts/demo.py` |
+| **Evaluaciones del agente** | Conversaciones guionadas con el modelo real (Paso 17). | pendiente |
+
+**Garantías que tienen su propia prueba:**
+- **Nunca se inventa un valor:** cada valor del formulario es exactamente el del maestro.
+- **Lo sensible no sale:** el número de cuenta y la cédula nunca aparecen completos en lo que ve el modelo, en los logs ni en el borrador.
+- **Las herramientas nunca lanzan:** ni con argumentos malos, ni con datos rotos, ni con un error inesperado.
+- **`datos/` nunca se modifica.**
+- **Mismo resultado siempre** con la misma fecha.
+
+**Cómo se ejecutan:**
+
+```powershell
+uv run pytest                        # todas: unitarias y golden
+uv run pytest --actualizar-golden    # después de un cambio intencional; revisar con git diff
+```
+
+**En el CI**, en cada cambio: ruff → mypy → pytest → `validar_datos.py` → `demo.py`.
+
+**Resultado actual:** 346 pruebas en verde.
 
 ## B5 · Elección del modelo y costo
 **Se alimenta de:** Pasos 10 y 18.
@@ -478,7 +507,20 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 
 **CI:** `.github/workflows/ci.yml` corre en cada *push* los mismos comandos de calidad, con `uv sync --locked` (falla si `uv.lock` está desactualizado).
 
-_`demo.py`, el despliegue y la URL se completan en los pasos 9 y 19._
+**Demostración sin modelo (Paso 9):**
+
+```powershell
+uv run python scripts/demo.py                          # los 4 casos, fecha fija 2026-09-01
+uv run python scripts/demo.py --fecha hoy              # con la fecha real
+uv run python scripts/demo.py --caso ec-corp-andina    # un solo caso
+```
+
+- No necesita clave de Anthropic.
+- Borra y vuelve a crear `out/`, y deja ahí, por caso, el mapeo, el formulario y el paquete para firma.
+- Termina con código 0 si todo salió bien. Un caso "no listo para firma" no es un error.
+- Con la fecha de hoy, ningún caso está listo, porque la Cámara de Comercio venció el 30 de septiembre.
+
+_El despliegue y la URL se completan en el Paso 19._
 
 ## B10 · Módulo reutilizable
 **Se alimenta de:** Paso 20.
@@ -537,6 +579,9 @@ _por completar_
 | D31 | El formulario se genera de nuevo al armar el paquete. | Copiar el que generó el Paso 7. | Así nunca va a firma un formulario viejo, por ejemplo uno de antes de confirmar el RUC. | 8 |
 | D32 | RN2 tiene dos protecciones: la plantilla no recibe datos bancarios y el texto se revisa antes de guardarlo. | Confiar solo en la plantilla. | Un dato podría llegar por otro lado, como el asunto del correo del cliente. Los valores que también son públicos (el titular = la razón social) no se consideran secretos. | 8 |
 | D33 | El paquete se arma en una carpeta temporal y reemplaza al anterior al final. | Escribir directo en `paquete/`. | Nunca queda un paquete a medias ni archivos sobrantes de una versión anterior. | 8 |
+| D34 | El Excel se hace reproducible (fechas fijas dentro del archivo) y todo el texto se escribe con saltos de línea `\n`. | Aceptar que el Excel y las huellas cambien en cada ejecución. | El plan pide "exactamente el mismo resultado". Además, así el resultado es igual en Windows y en Linux (el CI). | 9 |
+| D35 | Los golden comparan el Excel por sus celdas, el PDF por su texto, y sin las huellas de los archivos binarios. | Comparar los archivos byte por byte. | La compresión puede variar entre sistemas. Que las huellas no cambien en la misma máquina se prueba aparte. | 9 |
+| D36 | La demo solo borra una carpeta que se llame `out`. | Borrar la carpeta que se le indique. | Un `--salida` mal escrito no puede borrar algo valioso. | 9 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -576,6 +621,7 @@ _por completar_
 | 6 | Claude Code | Proponer y escribir `reglas.yaml`, RN1, las vigencias y sus pruebas. | La primera versión de la prueba "cambiar el YAML cambia el resultado" no probaba nada real; se reescribió de punta a punta, con la herramienta y dos archivos de reglas. Al agregar la nota de RN1 se vio que la forma de guardar la decisión en la nota podía borrarla, y se cambió (D25). |
 | 7 | Claude Code | Proponer y escribir los generadores de Excel, PDF y portal, y su herramienta. | Al revisar el resultado se encontró que un comentario de la plantilla de Jinja2 se filtraba en el archivo (contenía los símbolos de cierre de comentario), y se corrigió. Se revisó el PDF visualmente, no solo su texto. |
 | 8 | Claude Code | Proponer y escribir el paquete, el checklist, el borrador, el manifiesto y su herramienta. | Anderson decidió que los campos por confirmar bloqueen la firma (D30). La primera versión de la revisión de RN2 bloqueaba todos los paquetes, porque el titular de la cuenta es la razón social, que va en la firma; se afinó para no tratar como secreto un dato público (D32). Al leer los archivos se corrigieron detalles de presentación: paréntesis dobles, "1 días" y líneas en blanco sobrantes. |
+| 9 | Claude Code | Proponer y escribir la demo, las pruebas golden y el Excel reproducible. | Antes de arreglar el determinismo se midió qué archivos cambiaban entre dos ejecuciones, y así apareció que openpyxl sobrescribe la fecha de modificación. **Un error del asistente:** un script de PowerShell para reemplazar texto en varios archivos dañó tres de ellos; se detectó enseguida y se recuperaron desde git sin perder trabajo. Desde entonces se edita archivo por archivo. |
 
 _Se agregan filas en cada paso._
 

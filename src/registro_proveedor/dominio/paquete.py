@@ -160,15 +160,15 @@ def armar_paquete(
         copiados = _copiar_soportes(evaluaciones, carpeta_soportes, temporal)
         borrador = _borrador(caso, solicitud, maestro, indice, evaluaciones, listo)
         _revisar_rn2(borrador, mapeo, maestro, reglas)
-        (temporal / ARCHIVO_BORRADOR).write_text(borrador, encoding="utf-8")
+        (temporal / ARCHIVO_BORRADOR).write_text(borrador, encoding="utf-8", newline="\n")
         archivos = [formulario, *copiados, ARCHIVO_CHECKLIST, ARCHIVO_BORRADOR]
         checklist = _checklist(caso, mapeo, fecha, evaluaciones, motivos, avisos, listo, archivos)
-        (temporal / ARCHIVO_CHECKLIST).write_text(checklist, encoding="utf-8")
+        (temporal / ARCHIVO_CHECKLIST).write_text(checklist, encoding="utf-8", newline="\n")
         manifiesto = _manifiesto(
             caso, mapeo, fecha, generado_en, evaluaciones, motivos, temporal, archivos
         )
         (temporal / ARCHIVO_MANIFIESTO).write_text(
-            manifiesto.model_dump_json(indent=2), encoding="utf-8"
+            manifiesto.model_dump_json(indent=2), encoding="utf-8", newline="\n"
         )
     except BaseException:
         shutil.rmtree(temporal, ignore_errors=True)  # no dejar un paquete a medias

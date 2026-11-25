@@ -1,0 +1,20 @@
+Formulario de registro de proveedor
+Cliente: Corporación Andina de Servicios S.A.
+Nombre de la empresa * Empresa Ejemplo S.A.S.
+RUC *
+Número de contribuyente especial
+Domicilio fiscal * Calle 10 # 43A-25, Oficina 501
+Ciudad * Medellín
+País * CO
+Teléfono * +57 604 555 0100
+Correo electrónico * lgomez@empresa-ejemplo.com
+Página web https://www.empresa-ejemplo.com
+Representante legal * Roberto Andrade Salazar
+Cargo del representante legal * Gerente General
+Actividad económica *
+Desarrollo de sistemas informáticos y consultoría en tecnologías de la
+información
+Banco * Bancolombia S.A.
+Número de cuenta * 03100012345
+SWIFT * COLOCOBM
+* Campo obligatorio. Celdas amarillas: dato que falta en el repositorio maestro. Celdas naranjas: dato pendiente de confirmación.

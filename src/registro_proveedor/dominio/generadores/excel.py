@@ -12,6 +12,8 @@ Dos protecciones:
        ("inyección de fórmulas").
 """
 
+import re
+import zipfile
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -63,8 +65,38 @@ def generar_excel(mapeo: Mapeo, caso: CasoLeido, carpeta: Path) -> FormularioGen
     libro.properties.creator = AUTOR
     libro.properties.title = f"Registro de proveedor - {caso.cliente}"
     destino = carpeta / ARCHIVO_EXCEL
-    escribir_atomico(destino, lambda ruta: libro.save(ruta))
+
+    def escribir(ruta: Path) -> None:
+        libro.save(ruta)
+        _hacer_reproducible(ruta, fecha.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+    escribir_atomico(destino, escribir)
     return resumen(destino, lista)
+
+
+# Fecha que se pone a cada archivo dentro del .xlsx: la mínima que admite el formato ZIP.
+FECHA_ZIP = (1980, 1, 1, 0, 0, 0)
+PROPIEDADES = "docProps/core.xml"  # el archivo interno con el autor, el título y las fechas
+MODIFICADO = re.compile(rb"(<dcterms:modified[^>]*>)[^<]*(</dcterms:modified>)")
+
+
+def _hacer_reproducible(ruta: Path, fecha_iso: str) -> None:
+    """Deja el .xlsx idéntico, byte por byte, cada vez que se genera con el mismo mapeo.
+
+    Un .xlsx es un ZIP con varios archivos XML adentro. Dos cosas cambiaban en cada
+    ejecución aunque el contenido fuera el mismo (y con ellas, la huella del manifiesto):
+    1. la hora que el ZIP guarda para cada archivo interno → se pone una fecha fija;
+    2. la fecha de "modificado" que openpyxl escribe con la hora actual al guardar, aunque
+       se le haya dado otra → se reemplaza por la fecha del mapeo.
+    """
+    with zipfile.ZipFile(ruta) as original:
+        contenido = [(info.filename, original.read(info)) for info in original.infolist()]
+    with zipfile.ZipFile(ruta, "w", zipfile.ZIP_DEFLATED) as nuevo:
+        for nombre, datos in contenido:
+            if nombre == PROPIEDADES:
+                datos = MODIFICADO.sub(rb"\g<1>" + fecha_iso.encode() + rb"\g<2>", datos)
+            info = zipfile.ZipInfo(nombre, date_time=FECHA_ZIP)
+            nuevo.writestr(info, datos, zipfile.ZIP_DEFLATED)
 
 
 def _hoja(libro: Workbook, hojas: dict[str, Worksheet], e: Escritura) -> Worksheet:

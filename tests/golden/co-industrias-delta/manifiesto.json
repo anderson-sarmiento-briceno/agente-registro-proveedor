@@ -1,0 +1,256 @@
+{
+  "caso": "co-industrias-delta",
+  "cliente": "Industrias Delta S.A.S.",
+  "generado_en": "2026-09-01T12:00:00Z",
+  "fecha_ejecucion": "2026-09-01",
+  "version_maestro": "sin versión",
+  "listo_para_firma": true,
+  "motivos": [],
+  "soportes": [
+    {
+      "tipo": "camara_comercio",
+      "estado": "presente",
+      "archivo": "camara-comercio-2026-08.txt",
+      "vigencia_hasta": "2026-09-30",
+      "dias_restantes": 29,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-09-30 (29 días)"
+    },
+    {
+      "tipo": "rut",
+      "estado": "presente",
+      "archivo": "rut-2026.txt",
+      "vigencia_hasta": null,
+      "dias_restantes": null,
+      "bloquea": false,
+      "nota": "no tiene vencimiento"
+    },
+    {
+      "tipo": "certificacion_bancaria",
+      "estado": "presente",
+      "archivo": "certificacion-bancaria-2026-08.txt",
+      "vigencia_hasta": "2026-12-31",
+      "dias_restantes": 121,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-12-31 (121 días)"
+    },
+    {
+      "tipo": "estados_financieros",
+      "estado": "presente",
+      "archivo": "estados-financieros-2025.txt",
+      "vigencia_hasta": "2027-03-31",
+      "dias_restantes": 211,
+      "bloquea": false,
+      "nota": "vigente hasta el 2027-03-31 (211 días)"
+    }
+  ],
+  "campos": [
+    {
+      "etiqueta": "Razón social",
+      "estado": "lleno",
+      "ruta": "razon_social",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "NIT",
+      "estado": "lleno",
+      "ruta": "nit",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Dígito de verificación",
+      "estado": "lleno",
+      "ruta": "digito_verificacion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Dirección",
+      "estado": "lleno",
+      "ruta": "direccion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Ciudad",
+      "estado": "lleno",
+      "ruta": "ciudad",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Código postal",
+      "estado": "lleno",
+      "ruta": "codigo_postal",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Teléfono",
+      "estado": "lleno",
+      "ruta": "telefono",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Correo electrónico",
+      "estado": "lleno",
+      "ruta": "contacto_comercial.email",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Cédula del representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.identificacion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Actividad económica",
+      "estado": "lleno",
+      "ruta": "actividad_economica",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Código CIIU",
+      "estado": "lleno",
+      "ruta": "ciiu_principal",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Régimen tributario",
+      "estado": "lleno",
+      "ruta": "regimen_tributario",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Banco",
+      "estado": "lleno",
+      "ruta": "banco.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Tipo de cuenta",
+      "estado": "lleno",
+      "ruta": "banco.tipo_cuenta",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Número de cuenta",
+      "estado": "lleno",
+      "ruta": "banco.numero_cuenta",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Titular de la cuenta",
+      "estado": "lleno",
+      "ruta": "banco.titular",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    }
+  ],
+  "archivos": [
+    {
+      "nombre": "formulario.xlsx",
+      "sha256": "(binario: se comprueba en test_demo.py)",
+      "bytes": null
+    },
+    {
+      "nombre": "camara-comercio-2026-08.txt",
+      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
+      "bytes": 178
+    },
+    {
+      "nombre": "rut-2026.txt",
+      "sha256": "16826dc27a2420a88efef2088d7742e7da1ff1bd87d015c2ef721ab3aee64c69",
+      "bytes": 122
+    },
+    {
+      "nombre": "certificacion-bancaria-2026-08.txt",
+      "sha256": "297872a791fe3acc9db082fa90b1cde7ebefba2659703ea84a3d3cdcaa0f5a3a",
+      "bytes": 149
+    },
+    {
+      "nombre": "estados-financieros-2025.txt",
+      "sha256": "db399bf5a26c543902a7cd132a9638cebf80efe1e72e3f68ed146de6d6ba274f",
+      "bytes": 152
+    },
+    {
+      "nombre": "checklist.md",
+      "sha256": "1d4237e30a58a24e658554934f54bd3c18707a49446a2787518965b6618bd42b",
+      "bytes": 924
+    },
+    {
+      "nombre": "borrador-correo.md",
+      "sha256": "5e89c2773ce69f07a9aa088f81d8882c286051116d9d75d9bfc952cd69ffe88e",
+      "bytes": 562
+    }
+  ]
+}

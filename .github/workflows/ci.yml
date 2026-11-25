@@ -32,3 +32,6 @@ jobs:
 
       - name: Validación de datos (falla solo con errores, no con sugerencias)
         run: uv run python scripts/validar_datos.py
+
+      - name: Demostración sin modelo de lenguaje (los 4 casos, sin clave)
+        run: uv run python scripts/demo.py

@@ -1,0 +1,136 @@
+{
+  "Registro": {
+    "A2": {
+      "valor": "Razón social",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B2": {
+      "valor": "Empresa Ejemplo S.A.S.",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A3": {
+      "valor": "RTN",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B3": {
+      "valor": null,
+      "tipo": "n",
+      "relleno": "FCE4D6",
+      "comentario": "Pendiente de confirmación: igual a la etiqueta «RTN» del glosario · identificador extranjero: el cliente de Honduras pide RTN; la empresa solo tiene NIT de Colombia: confirme si se acepta"
+    },
+    "A4": {
+      "valor": "País",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B4": {
+      "valor": "CO",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A5": {
+      "valor": "Dirección",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B5": {
+      "valor": "Calle 10 # 43A-25, Oficina 501",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A6": {
+      "valor": "Teléfono",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B6": {
+      "valor": "+57 604 555 0100",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A7": {
+      "valor": "Correo electrónico",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B7": {
+      "valor": "lgomez@empresa-ejemplo.com",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A8": {
+      "valor": "Representante legal",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B8": {
+      "valor": "Roberto Andrade Salazar",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A9": {
+      "valor": "Fecha de constitución",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B9": {
+      "valor": "2008-03-14",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A10": {
+      "valor": "Número de empleados",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B10": {
+      "valor": "480",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A11": {
+      "valor": "Ingresos anuales",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B11": {
+      "valor": "98000000000",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "A12": {
+      "valor": "Referencias comerciales",
+      "tipo": "s",
+      "relleno": null,
+      "comentario": null
+    },
+    "B12": {
+      "valor": null,
+      "tipo": "n",
+      "relleno": "FFF2CC",
+      "comentario": "Falta: la etiqueta no está en el glosario (lo más parecido fue «Contacto comercial», 59%, menos del mínimo de 80%)"
+    }
+  }
+}

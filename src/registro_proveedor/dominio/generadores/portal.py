@@ -40,5 +40,5 @@ def generar_portal(mapeo: Mapeo, caso: CasoLeido, carpeta: Path) -> FormularioGe
         faltantes=[e.etiqueta for e in lista if e.marca is Marca.FALTANTE],
     )
     destino = carpeta / ARCHIVO_PORTAL
-    escribir_atomico(destino, lambda ruta: ruta.write_text(texto, encoding="utf-8"))
+    escribir_atomico(destino, lambda ruta: ruta.write_text(texto, encoding="utf-8", newline="\n"))
     return resumen(destino, lista)

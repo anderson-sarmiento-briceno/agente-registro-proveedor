@@ -1,0 +1,248 @@
+{
+  "caso": "ec-corp-andina",
+  "cliente": "Corporación Andina de Servicios S.A.",
+  "generado_en": "2026-09-01T12:00:00Z",
+  "fecha_ejecucion": "2026-09-01",
+  "version_maestro": "sin versión",
+  "listo_para_firma": false,
+  "motivos": [
+    "soporte ausente: Certificado de cumplimiento tributario, no está en el repositorio",
+    "campo por confirmar: «RUC»"
+  ],
+  "soportes": [
+    {
+      "tipo": "camara_comercio",
+      "estado": "presente",
+      "archivo": "camara-comercio-2026-08.txt",
+      "vigencia_hasta": "2026-09-30",
+      "dias_restantes": 29,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-09-30 (29 días)"
+    },
+    {
+      "tipo": "rut",
+      "estado": "presente",
+      "archivo": "rut-2026.txt",
+      "vigencia_hasta": null,
+      "dias_restantes": null,
+      "bloquea": false,
+      "nota": "no tiene vencimiento"
+    },
+    {
+      "tipo": "certificacion_bancaria",
+      "estado": "presente",
+      "archivo": "certificacion-bancaria-2026-08.txt",
+      "vigencia_hasta": "2026-12-31",
+      "dias_restantes": 121,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-12-31 (121 días)"
+    },
+    {
+      "tipo": "estados_financieros",
+      "estado": "presente",
+      "archivo": "estados-financieros-2025.txt",
+      "vigencia_hasta": "2027-03-31",
+      "dias_restantes": 211,
+      "bloquea": false,
+      "nota": "vigente hasta el 2027-03-31 (211 días)"
+    },
+    {
+      "tipo": "certificado_cumplimiento_tributario",
+      "estado": "ausente",
+      "archivo": null,
+      "vigencia_hasta": null,
+      "dias_restantes": null,
+      "bloquea": true,
+      "nota": "no está en el repositorio"
+    }
+  ],
+  "campos": [
+    {
+      "etiqueta": "Nombre de la empresa",
+      "estado": "lleno",
+      "ruta": "razon_social",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "RUC",
+      "estado": "requiere_confirmacion",
+      "ruta": "nit",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Número de contribuyente especial",
+      "estado": "faltante",
+      "ruta": null,
+      "metodo": "sin_coincidencia",
+      "confianza": 0.625,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Domicilio fiscal",
+      "estado": "lleno",
+      "ruta": "direccion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Ciudad",
+      "estado": "lleno",
+      "ruta": "ciudad",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "País",
+      "estado": "lleno",
+      "ruta": "pais",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Teléfono",
+      "estado": "lleno",
+      "ruta": "telefono",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Correo electrónico",
+      "estado": "lleno",
+      "ruta": "contacto_comercial.email",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Página web",
+      "estado": "lleno",
+      "ruta": "sitio_web",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Cargo del representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.cargo",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Actividad económica",
+      "estado": "lleno",
+      "ruta": "actividad_economica",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Banco",
+      "estado": "lleno",
+      "ruta": "banco.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Número de cuenta",
+      "estado": "lleno",
+      "ruta": "banco.numero_cuenta",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "SWIFT",
+      "estado": "lleno",
+      "ruta": "banco.swift",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    }
+  ],
+  "archivos": [
+    {
+      "nombre": "formulario.pdf",
+      "sha256": "(binario: se comprueba en test_demo.py)",
+      "bytes": null
+    },
+    {
+      "nombre": "camara-comercio-2026-08.txt",
+      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
+      "bytes": 178
+    },
+    {
+      "nombre": "rut-2026.txt",
+      "sha256": "16826dc27a2420a88efef2088d7742e7da1ff1bd87d015c2ef721ab3aee64c69",
+      "bytes": 122
+    },
+    {
+      "nombre": "certificacion-bancaria-2026-08.txt",
+      "sha256": "297872a791fe3acc9db082fa90b1cde7ebefba2659703ea84a3d3cdcaa0f5a3a",
+      "bytes": 149
+    },
+    {
+      "nombre": "estados-financieros-2025.txt",
+      "sha256": "db399bf5a26c543902a7cd132a9638cebf80efe1e72e3f68ed146de6d6ba274f",
+      "bytes": 152
+    },
+    {
+      "nombre": "checklist.md",
+      "sha256": "31a9ab478e9368b897ce844af68cbc7442d8f93b0505b3dcfcd71b8567a9dd2a",
+      "bytes": 1320
+    },
+    {
+      "nombre": "borrador-correo.md",
+      "sha256": "a197d96dd037cd3851a52abbe8edd81d6c695a4f7827d2c183f8ebdabc9c8c67",
+      "bytes": 638
+    }
+  ]
+}

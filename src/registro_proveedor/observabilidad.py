@@ -117,7 +117,7 @@ def escribir_auditoria(salida: Path, registro: RegistroLlamada) -> None:
     for destino in destinos:
         try:
             destino.parent.mkdir(parents=True, exist_ok=True)
-            with destino.open("a", encoding="utf-8") as archivo:
+            with destino.open("a", encoding="utf-8", newline="\n") as archivo:
                 archivo.write(linea + "\n")
         except OSError as e:
             obtener_logger().warning(

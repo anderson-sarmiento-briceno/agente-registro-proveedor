@@ -1,0 +1,185 @@
+{
+  "caso": "hn-agroexport-sula",
+  "cliente": "Agroexport Sula S. de R.L.",
+  "generado_en": "2026-09-01T12:00:00Z",
+  "fecha_ejecucion": "2026-09-01",
+  "version_maestro": "sin versión",
+  "listo_para_firma": false,
+  "motivos": [
+    "soporte vencido: Certificación de parafiscales, venció el 2026-08-31 (hace 1 día)",
+    "campo por confirmar: «RTN»"
+  ],
+  "soportes": [
+    {
+      "tipo": "camara_comercio",
+      "estado": "presente",
+      "archivo": "camara-comercio-2026-08.txt",
+      "vigencia_hasta": "2026-09-30",
+      "dias_restantes": 29,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-09-30 (29 días)"
+    },
+    {
+      "tipo": "rut",
+      "estado": "presente",
+      "archivo": "rut-2026.txt",
+      "vigencia_hasta": null,
+      "dias_restantes": null,
+      "bloquea": false,
+      "nota": "no tiene vencimiento"
+    },
+    {
+      "tipo": "parafiscales",
+      "estado": "vencido",
+      "archivo": "parafiscales-2026-07.txt",
+      "vigencia_hasta": "2026-08-31",
+      "dias_restantes": -1,
+      "bloquea": true,
+      "nota": "venció el 2026-08-31 (hace 1 día)"
+    }
+  ],
+  "campos": [
+    {
+      "etiqueta": "Razón social",
+      "estado": "lleno",
+      "ruta": "razon_social",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "RTN",
+      "estado": "requiere_confirmacion",
+      "ruta": "nit",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "País",
+      "estado": "lleno",
+      "ruta": "pais",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Dirección",
+      "estado": "lleno",
+      "ruta": "direccion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Teléfono",
+      "estado": "lleno",
+      "ruta": "telefono",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Correo electrónico",
+      "estado": "lleno",
+      "ruta": "contacto_comercial.email",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Fecha de constitución",
+      "estado": "lleno",
+      "ruta": "fecha_constitucion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Número de empleados",
+      "estado": "lleno",
+      "ruta": "numero_empleados",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Ingresos anuales",
+      "estado": "lleno",
+      "ruta": "ingresos_ultimo_ano.valor",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Referencias comerciales",
+      "estado": "faltante",
+      "ruta": null,
+      "metodo": "sin_coincidencia",
+      "confianza": 0.5853658536585367,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    }
+  ],
+  "archivos": [
+    {
+      "nombre": "formulario.xlsx",
+      "sha256": "(binario: se comprueba en test_demo.py)",
+      "bytes": null
+    },
+    {
+      "nombre": "camara-comercio-2026-08.txt",
+      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
+      "bytes": 178
+    },
+    {
+      "nombre": "rut-2026.txt",
+      "sha256": "16826dc27a2420a88efef2088d7742e7da1ff1bd87d015c2ef721ab3aee64c69",
+      "bytes": 122
+    },
+    {
+      "nombre": "parafiscales-2026-07.txt",
+      "sha256": "58704e3398bdd6b24a3d67bcba38fc2a622dceac17c4cee78c37fd65e2a99775",
+      "bytes": 188
+    },
+    {
+      "nombre": "checklist.md",
+      "sha256": "fb02113d74b194ae294ad732c888b565f378a7a43225fa3ea69b8e8a8117e790",
+      "bytes": 1069
+    },
+    {
+      "nombre": "borrador-correo.md",
+      "sha256": "b9aa48bff6e3f223cabd43a6719106612adf18f372514c53ec662e4dae718b82",
+      "bytes": 639
+    }
+  ]
+}

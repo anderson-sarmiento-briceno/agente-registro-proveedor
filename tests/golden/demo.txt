@@ -1,0 +1,32 @@
+Demostración sin modelo de lenguaje · fecha de ejecución 2026-09-01
+
+co-industrias-delta · Industrias Delta S.A.S. · Colombia · xlsx
+  campos: 17 llenos · 0 faltantes · 0 por confirmar
+  formulario: out/co-industrias-delta/formulario.xlsx
+  paquete: ✅ listo para firma (out/co-industrias-delta/paquete)
+
+ec-corp-andina · Corporación Andina de Servicios S.A. · Ecuador · pdf
+  campos: 13 llenos · 1 faltante · 1 por confirmar
+  formulario: out/ec-corp-andina/formulario.pdf
+  paquete: ⛔ NO listo para firma (out/ec-corp-andina/paquete)
+    - soporte ausente: Certificado de cumplimiento tributario, no está en el repositorio
+    - campo por confirmar: «RUC»
+  avisos (no bloquean):
+    - campo faltante en el maestro: «Número de contribuyente especial»
+
+hn-agroexport-sula · Agroexport Sula S. de R.L. · Honduras · xlsx
+  campos: 9 llenos · 1 faltante · 1 por confirmar
+  formulario: out/hn-agroexport-sula/formulario.xlsx
+  paquete: ⛔ NO listo para firma (out/hn-agroexport-sula/paquete)
+    - soporte vencido: Certificación de parafiscales, venció el 2026-08-31 (hace 1 día)
+    - campo por confirmar: «RTN»
+  avisos (no bloquean):
+    - campo faltante en el maestro: «Referencias comerciales»
+
+pa-logistica-istmo · Logística del Istmo S.A. · Panamá · portal
+  campos: 8 llenos · 0 faltantes · 1 por confirmar
+  formulario: out/pa-logistica-istmo/valores-portal.md
+  paquete: ⛔ NO listo para firma (out/pa-logistica-istmo/paquete)
+    - campo por confirmar: «RUC»
+
+Resultado: 4 casos procesados · 1 listo para firma · 3 no listos · 0 con error

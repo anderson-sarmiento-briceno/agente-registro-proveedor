@@ -1,0 +1,150 @@
+{
+  "caso": "pa-logistica-istmo",
+  "cliente": "Logística del Istmo S.A.",
+  "generado_en": "2026-09-01T12:00:00Z",
+  "fecha_ejecucion": "2026-09-01",
+  "version_maestro": "sin versión",
+  "listo_para_firma": false,
+  "motivos": [
+    "campo por confirmar: «RUC»"
+  ],
+  "soportes": [
+    {
+      "tipo": "camara_comercio",
+      "estado": "presente",
+      "archivo": "camara-comercio-2026-08.txt",
+      "vigencia_hasta": "2026-09-30",
+      "dias_restantes": 29,
+      "bloquea": false,
+      "nota": "vigente hasta el 2026-09-30 (29 días)"
+    },
+    {
+      "tipo": "rut",
+      "estado": "presente",
+      "archivo": "rut-2026.txt",
+      "vigencia_hasta": null,
+      "dias_restantes": null,
+      "bloquea": false,
+      "nota": "no tiene vencimiento"
+    }
+  ],
+  "campos": [
+    {
+      "etiqueta": "Nombre o razón social del proveedor",
+      "estado": "lleno",
+      "ruta": "razon_social",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "RUC",
+      "estado": "requiere_confirmacion",
+      "ruta": "nit",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Dirección",
+      "estado": "lleno",
+      "ruta": "direccion",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Teléfono",
+      "estado": "lleno",
+      "ruta": "telefono",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Correo electrónico",
+      "estado": "lleno",
+      "ruta": "contacto_comercial.email",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Representante legal",
+      "estado": "lleno",
+      "ruta": "representante_legal.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Banco",
+      "estado": "lleno",
+      "ruta": "banco.nombre",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "Número de cuenta",
+      "estado": "lleno",
+      "ruta": "banco.numero_cuenta",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    },
+    {
+      "etiqueta": "SWIFT",
+      "estado": "lleno",
+      "ruta": "banco.swift",
+      "metodo": "glosario_exacto",
+      "confianza": 1.0,
+      "decision": null,
+      "confirmado_por": null,
+      "confirmado_en": null
+    }
+  ],
+  "archivos": [
+    {
+      "nombre": "valores-portal.md",
+      "sha256": "75ef661f8f0d8d280af3af3df2b98c4d9a927be28de37ca284f7815f4b65742b",
+      "bytes": 1006
+    },
+    {
+      "nombre": "camara-comercio-2026-08.txt",
+      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
+      "bytes": 178
+    },
+    {
+      "nombre": "rut-2026.txt",
+      "sha256": "16826dc27a2420a88efef2088d7742e7da1ff1bd87d015c2ef721ab3aee64c69",
+      "bytes": 122
+    },
+    {
+      "nombre": "checklist.md",
+      "sha256": "d76b40c1bc2f07570e95c24f3e3e1e761ad055365d6e87af3ed039b198bfdea9",
+      "bytes": 733
+    },
+    {
+      "nombre": "borrador-correo.md",
+      "sha256": "6cf6b502be0ac10db16438de85cb11806ea96a7a72dc8b52625ca8fd51500867",
+      "bytes": 576
+    }
+  ]
+}
