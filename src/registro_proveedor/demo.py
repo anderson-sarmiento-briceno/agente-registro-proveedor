@@ -44,6 +44,19 @@ class ErrorDeDemo(Exception):
 class ResultadoDemo:
     codigo: int  # 0 = todas las herramientas respondieron bien; 1 = alguna falló
     texto: str  # el resumen para mostrar en la terminal
+    matriz: str = ""  # casos por herramientas (se muestra con --llamadas)
+
+
+# Las herramientas que se llaman para cada caso, en orden: nombre, para qué (en los
+# mensajes de error) y título de su columna en la matriz.
+PASOS = (
+    ("proveedor_leer_solicitud", "leer", "1. Leer solicitud"),
+    ("proveedor_mapear_campos", "mapear", "2. Mapear campos"),
+    ("proveedor_generar_formulario", "generar el formulario", "3. Generar formulario"),
+    ("proveedor_armar_paquete", "armar el paquete", "4. Armar paquete"),
+)
+# ✓ y ✗ (y no ✅ ⛔) porque ocupan una sola columna en la terminal y no descuadran la tabla.
+BIEN, MAL = "✓", "✗"
 
 
 # ---------- Preparación ----------
@@ -109,13 +122,16 @@ def ejecutar_demo(
     pedidos = casos or disponibles
 
     con_error = listos = 0
+    filas: list[tuple[str, dict[str, str]]] = []  # para la matriz: caso → celda por herramienta
     for caso in pedidos:
         if caso not in disponibles:
             lineas += [f"{caso}", f"  ERROR: no existe el caso «{caso}»", ""]
+            filas.append((caso, {PASOS[0][0]: f"{MAL} no existe el caso"}))
             con_error += 1
             continue
-        ok, listo, bloque = _procesar_caso(caso, ctx)
+        ok, listo, bloque, celdas = _procesar_caso(caso, ctx)
         lineas += [*bloque, ""]
+        filas.append((caso, celdas))
         con_error += 0 if ok else 1
         listos += 1 if listo else 0
 
@@ -125,30 +141,33 @@ def ejecutar_demo(
         f"{_cantidad(listos, 'listo', 'listos')} para firma · "
         f"{_cantidad(procesados - listos, 'no listo', 'no listos')} · {con_error} con error"
     )
-    return ResultadoDemo(1 if con_error else 0, "\n".join(lineas))
+    listado_texto = f"{BIEN} {_cantidad(len(disponibles), 'caso', 'casos')}"
+    return ResultadoDemo(1 if con_error else 0, "\n".join(lineas), _matriz(listado_texto, filas))
 
 
-def _procesar_caso(caso: str, ctx: Contexto) -> tuple[bool, bool, list[str]]:
-    """Un caso de punta a punta. Devuelve (todo salió bien, listo para firma, líneas)."""
-    argumentos = {"caso": caso}
-    leido = _llamar("proveedor_leer_solicitud", argumentos, ctx)
-    if not leido.ok:
-        return False, False, [caso, f"  ERROR al leer: {leido.error}"]
-    s = _datos(leido)
-    lineas = [f"{caso} · {s.cliente} · {s.pais_nombre} · {s.formato}"]
+def _procesar_caso(caso: str, ctx: Contexto) -> tuple[bool, bool, list[str], dict[str, str]]:
+    """Un caso de punta a punta: llama a las 4 herramientas de `PASOS`, en orden.
 
-    for nombre, accion in (
-        ("proveedor_mapear_campos", "mapear"),
-        ("proveedor_generar_formulario", "generar el formulario"),
-        ("proveedor_armar_paquete", "armar el paquete"),
-    ):
-        r = _llamar(nombre, argumentos, ctx)
+    Devuelve (todo salió bien, listo para firma, líneas del resumen, celdas de la matriz).
+    Si una herramienta falla, se detiene ahí: las siguientes dependen de ella.
+    """
+    lineas = [caso]
+    celdas: dict[str, str] = {}
+    listo = False
+    for nombre, accion, _ in PASOS:
+        r = _llamar(nombre, {"caso": caso}, ctx)
         if not r.ok:
-            return False, False, [*lineas, f"  ERROR al {accion}: {r.error}"]
-        lineas += _describir(nombre, _datos(r))
+            celdas[nombre] = f"{MAL} error"
+            return False, False, [*lineas, f"  ERROR al {accion}: {r.error}"], celdas
+        datos = _datos(r)
+        celdas[nombre] = f"{BIEN} {_celda(nombre, datos)}"
+        if nombre == "proveedor_leer_solicitud":
+            lineas = [f"{caso} · {datos.cliente} · {datos.pais_nombre} · {datos.formato}"]
+        else:
+            lineas += _describir(nombre, datos)
         if nombre == "proveedor_armar_paquete":
-            return True, bool(_datos(r).listo_para_firma), lineas
-    raise AssertionError("no se llega aquí")  # el ciclo siempre termina en el paquete
+            listo = bool(datos.listo_para_firma)
+    return True, listo, lineas, celdas
 
 
 # `Any`: `registro.ejecutar` devuelve un Resultado de cualquier herramienta (ver base.py).
@@ -186,6 +205,58 @@ def _cantidad(n: int, singular: str, plural: str) -> str:
     return f"{n} {singular if n == 1 else plural}"
 
 
+# ---------- Matriz de llamadas (opción --llamadas) ----------
+
+ARCHIVO_LLAMADAS = "llamadas.md"
+
+
+def _celda(herramienta: str, datos: Any) -> str:
+    """Lo que dice la celda de una herramienta en la matriz: corto, lo esencial."""
+    if herramienta == "proveedor_leer_solicitud":
+        return f"{datos.formato} · {len(datos.campos)} campos · {len(datos.soportes)} soportes"
+    if herramienta == "proveedor_mapear_campos":
+        return (
+            f"{_cantidad(len(datos.llenos), 'lleno', 'llenos')} · "
+            f"{_cantidad(len(datos.faltantes), 'faltante', 'faltantes')} · "
+            f"{len(datos.requiere_confirmacion)} por confirmar"
+        )
+    if herramienta == "proveedor_generar_formulario":
+        return str(datos.archivo).rsplit("/", 1)[-1]  # solo el nombre del archivo
+    if datos.listo_para_firma:
+        return "listo para firma"
+    return f"NO listo ({_cantidad(len(datos.motivos), 'motivo', 'motivos')})"
+
+
+def _matriz(listado: str, filas: list[tuple[str, dict[str, str]]]) -> str:
+    """Una fila por caso y una columna por herramienta, en el orden en que se llaman.
+
+    Es la secuencia que hará el agente con el modelo de lenguaje. Sirve para comprobar el
+    núcleo ANTES de conectar el modelo. La tabla es Markdown válido y además se lee bien
+    en la terminal, porque las columnas se rellenan con espacios. No lleva tiempos, así
+    que con la misma fecha sale siempre igual (y se compara en las pruebas golden).
+    """
+    encabezado = ("Caso", *(titulo for _, _, titulo in PASOS))
+    renglones = [
+        (caso, *(celdas.get(nombre, "—") for nombre, _, _ in PASOS)) for caso, celdas in filas
+    ]
+    return (
+        f"Antes de los casos: proveedor_listar_casos → {listado}\n\n"
+        f"{_tabla([encabezado, *renglones])}\n\n"
+        f"{BIEN} = la herramienta respondió bien · {MAL} = falló · — = no se llegó a llamar"
+    )
+
+
+def _tabla(filas: list[tuple[str, ...]]) -> str:
+    """Tabla Markdown con las columnas alineadas (la primera fila es el encabezado)."""
+    anchos = [max(len(fila[c]) for fila in filas) for c in range(len(filas[0]))]
+
+    def linea(celdas: tuple[str, ...]) -> str:
+        return "| " + " | ".join(t.ljust(a) for t, a in zip(celdas, anchos, strict=True)) + " |"
+
+    separador = "|" + "|".join("-" * (a + 2) for a in anchos) + "|"
+    return "\n".join([linea(filas[0]), separador, *(linea(f) for f in filas[1:])])
+
+
 # ---------- Terminal ----------
 
 
@@ -203,12 +274,27 @@ def main(argumentos: list[str], config: Configuracion | None = None) -> Resultad
     parser.add_argument(
         "--salida", type=Path, default=RAIZ_PROYECTO / NOMBRE_SALIDA, help="Carpeta «out»."
     )
+    parser.add_argument(
+        "--llamadas",
+        action="store_true",
+        help=f"Muestra al final la tabla de llamadas a herramientas (y la guarda en "
+        f"out/{ARCHIVO_LLAMADAS}).",
+    )
     args = parser.parse_args(argumentos)
     try:
         fecha = elegir_fecha(args.fecha, config or Configuracion())
     except ValueError:
         parser.error(f"fecha no válida: «{args.fecha}» (use AAAA-MM-DD u «hoy»)")
     try:
-        return ejecutar_demo(RAIZ_PROYECTO / "datos", args.salida, fecha, args.caso)
+        resultado = ejecutar_demo(RAIZ_PROYECTO / "datos", args.salida, fecha, args.caso)
     except ErrorDeDemo as e:
         return ResultadoDemo(1, f"ERROR: {e}")
+    if not args.llamadas:
+        return resultado
+    (args.salida / ARCHIVO_LLAMADAS).write_text(
+        f"# Llamadas a herramientas · demo del {fecha.isoformat()}\n\n{resultado.matriz}\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    texto = f"{resultado.texto}\n\nLlamadas a herramientas por caso:\n\n{resultado.matriz}"
+    return ResultadoDemo(resultado.codigo, texto, resultado.matriz)

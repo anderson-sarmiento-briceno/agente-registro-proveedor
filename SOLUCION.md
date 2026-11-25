@@ -144,7 +144,8 @@
 - **Fecha fija** 2026-09-01 por defecto, con `--fecha hoy` o `--fecha AAAA-MM-DD` para cambiarla.
 - **Mismo resultado siempre:** dos ejecuciones dan archivos idénticos byte por byte, salvo los `log.jsonl` (guardan cuánto tardó cada llamada). Para lograrlo, el Excel ahora se genera reproducible.
 - **Sin LLM, comprobado:** una prueba ejecuta la demo sin clave y verifica que el SDK de Anthropic nunca se carga.
-- **Pruebas golden** en `tests/golden/`: el resumen de la demo y, por caso, el mapeo, el checklist, el borrador, el manifiesto y las celdas del Excel o el texto del PDF. **Pruebas:** 346 en total; la demo también corre en el CI.
+- **Pruebas golden** en `tests/golden/`: el resumen de la demo y, por caso, el mapeo, el checklist, el borrador, el manifiesto y las celdas del Excel o el texto del PDF. **Pruebas:** 351 en total; la demo también corre en el CI.
+- **`--llamadas`** muestra la matriz de casos y herramientas: las 16 llamadas de los 4 casos responden bien (ver el resultado en B4).
 
 ## Fase F2 · Agente y chat
 
@@ -437,7 +438,18 @@ uv run pytest --actualizar-golden    # después de un cambio intencional; revisa
 
 **En el CI**, en cada cambio: ruff → mypy → pytest → `validar_datos.py` → `demo.py`.
 
-**Resultado actual:** 346 pruebas en verde.
+**Resultado actual:** 351 pruebas en verde.
+
+**Resultado de la demo con los datos de ejemplo** (`demo.py --llamadas`, fecha fija 2026-09-01). Es lo que hará el agente con cada caso, antes de conectar el modelo. Primero se llama `proveedor_listar_casos` → ✓ 4 casos.
+
+| Caso | 1. Leer solicitud | 2. Mapear campos | 3. Generar formulario | 4. Armar paquete |
+|---|---|---|---|---|
+| co-industrias-delta | ✓ xlsx · 17 campos · 4 soportes | ✓ 17 llenos · 0 faltantes · 0 por confirmar | ✓ formulario.xlsx | ✓ listo para firma |
+| ec-corp-andina | ✓ pdf · 15 campos · 5 soportes | ✓ 13 llenos · 1 faltante · 1 por confirmar | ✓ formulario.pdf | ✓ NO listo (2 motivos) |
+| hn-agroexport-sula | ✓ xlsx · 11 campos · 3 soportes | ✓ 9 llenos · 1 faltante · 1 por confirmar | ✓ formulario.xlsx | ✓ NO listo (2 motivos) |
+| pa-logistica-istmo | ✓ portal · 9 campos · 2 soportes | ✓ 8 llenos · 0 faltantes · 1 por confirmar | ✓ valores-portal.md | ✓ NO listo (1 motivo) |
+
+✓ = la herramienta respondió bien. "NO listo" es el resultado correcto, no un error. EC tiene un soporte ausente y el RUC por confirmar, HN tiene parafiscales vencidos y el RTN por confirmar, y PA solo tiene el RUC por confirmar.
 
 ## B5 · Elección del modelo y costo
 **Se alimenta de:** Pasos 10 y 18.
@@ -513,9 +525,11 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 uv run python scripts/demo.py                          # los 4 casos, fecha fija 2026-09-01
 uv run python scripts/demo.py --fecha hoy              # con la fecha real
 uv run python scripts/demo.py --caso ec-corp-andina    # un solo caso
+uv run python scripts/demo.py --llamadas               # + matriz de llamadas a herramientas
 ```
 
 - No necesita clave de Anthropic.
+- Con `--llamadas`, al final muestra una **matriz**: una fila por caso y una columna por herramienta, en el orden en que se llaman (leer → mapear → generar → armar el paquete). Cada celda dice ✓ o ✗ y lo esencial de la respuesta. También la guarda en `out/llamadas.md`. Es la misma secuencia que hará el agente con el modelo, y queda fijada en las pruebas golden.
 - Borra y vuelve a crear `out/`, y deja ahí, por caso, el mapeo, el formulario y el paquete para firma.
 - Termina con código 0 si todo salió bien. Un caso "no listo para firma" no es un error.
 - Con la fecha de hoy, ningún caso está listo, porque la Cámara de Comercio venció el 30 de septiembre.

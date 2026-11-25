@@ -113,6 +113,7 @@ uv run pytest                   # pruebas
 uv run python scripts/validar_datos.py   # valida datos/ (errores y sugerencias)
 uv run ruff check . ; uv run mypy src
 uv run python scripts/demo.py   # todos los casos sin LLM
+uv run python scripts/demo.py --llamadas   # + matriz casos × herramientas (out/llamadas.md)
 uv run uvicorn registro_proveedor.api.app:app --reload   # servidor local
 ```
 

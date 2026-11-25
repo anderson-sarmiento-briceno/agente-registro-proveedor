@@ -93,7 +93,7 @@ def test_mapear_deja_registro(contexto: Contexto) -> None:
     registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, contexto)
     linea = json.loads((contexto.salida / CASO / "log.jsonl").read_text(encoding="utf-8"))
     assert linea["herramienta"] == "proveedor_mapear_campos"
-    assert linea["resumen"] == "13 llenos · 1 faltantes · 1 por confirmar"
+    assert linea["resumen"] == "13 llenos · 1 faltante · 1 por confirmar"
 
 
 def test_mapear_caso_inexistente(contexto: Contexto) -> None:
@@ -146,7 +146,7 @@ def test_aceptar_un_campo_pendiente(ctx_con_pendiente: Contexto) -> None:
     assert CUENTA not in texto
     # Antes: 12 llenos · 1 faltante · 2 por confirmar (RUC y "Num. de cuenta"). Después de
     # aceptar la cuenta, queda solo el RUC pendiente.
-    assert respuesta["data"]["resumen"] == "13 llenos · 1 faltantes · 1 por confirmar"
+    assert respuesta["data"]["resumen"] == "13 llenos · 1 faltante · 1 por confirmar"
 
     # ...pero completo en mapeo.json, con quién y cuándo lo decidió.
     guardado = cargar_mapeo(ctx.salida / CASO)

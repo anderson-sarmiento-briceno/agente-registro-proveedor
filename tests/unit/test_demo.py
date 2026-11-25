@@ -180,6 +180,70 @@ def test_con_la_fecha_de_hoy_nada_esta_listo(tmp_path: Path) -> None:
     assert "0 listos para firma · 4 no listos" in resultado.texto
 
 
+# ---------- Matriz de llamadas (--llamadas) ----------
+
+
+def _celdas(fila: str) -> list[str]:
+    """Las celdas de una fila de tabla Markdown: "| a | b |" → ["a", "b"]."""
+    return [c.strip() for c in fila.strip().strip("|").split("|")]
+
+
+def test_matriz_de_llamadas(tmp_path: Path) -> None:
+    """Una fila por caso y una columna por herramienta, en el orden en que se llaman."""
+    salida = tmp_path / "out"
+    resultado = main(["--llamadas", "--salida", str(salida)])
+    assert resultado.codigo == 0
+    archivo = (salida / "llamadas.md").read_text(encoding="utf-8")
+    assert archivo.startswith("# Llamadas a herramientas · demo del 2026-09-01")
+    assert "proveedor_listar_casos → ✓ 4 casos" in archivo
+
+    filas = [f for f in archivo.splitlines() if f.startswith("| ")]
+    encabezado, *casos = filas
+    assert _celdas(encabezado) == [
+        "Caso",
+        "1. Leer solicitud",
+        "2. Mapear campos",
+        "3. Generar formulario",
+        "4. Armar paquete",
+    ]
+    assert [_celdas(f)[0] for f in casos] == [
+        "co-industrias-delta",
+        "ec-corp-andina",
+        "hn-agroexport-sula",
+        "pa-logistica-istmo",
+    ]
+    assert _celdas(casos[3]) == [
+        "pa-logistica-istmo",
+        "✓ portal · 9 campos · 2 soportes",
+        "✓ 8 llenos · 0 faltantes · 1 por confirmar",
+        "✓ valores-portal.md",
+        "✓ NO listo (1 motivo)",
+    ]
+    # Las 16 llamadas de los casos respondieron bien.
+    assert all(c.startswith("✓") for f in casos for c in _celdas(f)[1:])
+    assert "Llamadas a herramientas por caso:" in resultado.texto  # también en la terminal
+
+
+def test_matriz_cuando_una_herramienta_falla(tmp_path: Path, datos: Path) -> None:
+    """Si leer falla, la fila lo marca con ✗ y las demás herramientas quedan sin llamar (—)."""
+    (datos / "casos/ec-corp-andina/plantilla-campos.json").write_text("[", encoding="utf-8")
+    resultado = ejecutar_demo(datos, tmp_path / "out", FECHA_FIJA)
+    fila = next(f for f in resultado.matriz.splitlines() if f.startswith("| ec-corp-andina"))
+    assert _celdas(fila) == ["ec-corp-andina", "✗ error", "—", "—", "—"]
+
+
+def test_la_matriz_sale_igual_en_dos_ejecuciones(tmp_path: Path) -> None:
+    primera = ejecutar_demo(DATOS_REALES, tmp_path / "a" / "out", FECHA_FIJA)
+    segunda = ejecutar_demo(DATOS_REALES, tmp_path / "b" / "out", FECHA_FIJA)
+    assert primera.matriz == segunda.matriz != ""
+
+
+def test_sin_la_opcion_no_hay_tabla(tmp_path: Path) -> None:
+    resultado = main(["--salida", str(tmp_path / "out")])
+    assert "Llamadas a herramientas" not in resultado.texto
+    assert not (tmp_path / "out" / "llamadas.md").exists()
+
+
 # ---------- scripts/demo.py ----------
 
 

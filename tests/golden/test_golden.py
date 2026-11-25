@@ -35,23 +35,31 @@ CASOS = ["co-industrias-delta", "ec-corp-andina", "hn-agroexport-sula", "pa-logi
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str]:
-    """Ejecuta la demo UNA vez para todas las pruebas de este archivo (scope="module")."""
+def demo(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str, str]:
+    """Ejecuta la demo UNA vez para todas las pruebas de este archivo (scope="module").
+
+    Devuelve (carpeta de salida, resumen, matriz de llamadas).
+    """
     salida = tmp_path_factory.mktemp("golden") / "out"
     resultado = ejecutar_demo(DATOS_REALES, salida, FECHA_FIJA)
     assert resultado.codigo == 0, resultado.texto
-    return salida, resultado.texto + "\n"
+    return salida, resultado.texto + "\n", resultado.matriz + "\n"
 
 
 # ---------- Las pruebas ----------
 
 
-def test_resumen_de_la_demo(demo: tuple[Path, str], actualizar_golden: bool) -> None:
+def test_resumen_de_la_demo(demo: tuple[Path, str, str], actualizar_golden: bool) -> None:
     _comparar("demo.txt", demo[1], actualizar_golden)
 
 
+def test_matriz_de_llamadas(demo: tuple[Path, str, str], actualizar_golden: bool) -> None:
+    """Casos por herramientas: qué llamó la demo y qué respondió cada herramienta."""
+    _comparar("llamadas.md", demo[2], actualizar_golden)
+
+
 @pytest.mark.parametrize("caso", CASOS)
-def test_caso(demo: tuple[Path, str], caso: str, actualizar_golden: bool) -> None:
+def test_caso(demo: tuple[Path, str, str], caso: str, actualizar_golden: bool) -> None:
     fallas = [
         falla
         for nombre, actual in _instantanea(demo[0], caso).items()

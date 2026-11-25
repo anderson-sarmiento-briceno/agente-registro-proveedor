@@ -178,9 +178,15 @@ def _vista(ctx: Contexto, resultado: mapeo.Mapeo, avisos: list[str]) -> VistaMap
     )
 
 
+def _n(cantidad: int, singular: str, plural: str) -> str:
+    """La cantidad con la palabra en singular o plural: "1 faltante", "2 faltantes"."""
+    return f"{cantidad} {singular if cantidad == 1 else plural}"
+
+
 def _contar(vista: VistaMapeo) -> str:
     return (
-        f"{len(vista.llenos)} llenos · {len(vista.faltantes)} faltantes · "
+        f"{_n(len(vista.llenos), 'lleno', 'llenos')} · "
+        f"{_n(len(vista.faltantes), 'faltante', 'faltantes')} · "
         f"{len(vista.requiere_confirmacion)} por confirmar"
     )
 
@@ -308,7 +314,9 @@ AVISO_PORTAL = (
 
 def _resumir_formulario(v: VistaFormulario) -> str:
     return (
-        f"{v.archivo} · {v.escritos} escritos · {v.faltantes} faltantes · {v.pendientes} pendientes"
+        f"{v.archivo} · {_n(v.escritos, 'escrito', 'escritos')} · "
+        f"{_n(v.faltantes, 'faltante', 'faltantes')} · "
+        f"{_n(v.pendientes, 'pendiente', 'pendientes')}"
     )
 
 
@@ -406,7 +414,7 @@ class VistaPaquete(_Vista):
 def _resumir_paquete(v: VistaPaquete) -> str:
     if v.listo_para_firma:
         return f"{v.carpeta} · listo para firma"
-    return f"{v.carpeta} · NO listo: {len(v.motivos)} motivos"
+    return f"{v.carpeta} · NO listo: {_n(len(v.motivos), 'motivo', 'motivos')}"
 
 
 @registro.herramienta(
