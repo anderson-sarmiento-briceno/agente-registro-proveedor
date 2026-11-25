@@ -1,6 +1,7 @@
 """Prueba REAL del adaptador: una sola pregunta al modelo, para ver qué herramienta pide.
 
-Le manda al modelo una pregunta de la analista junto con las herramientas del registro,
+Le manda al modelo una pregunta de la analista junto con las instrucciones reales del
+agente (`agente/prompt.md` + `knowledge/`, Paso 11) y las herramientas del registro,
 y muestra lo que el modelo respondió: qué herramienta PIDIÓ y con qué argumentos. NO la
 ejecuta (eso lo hará el ciclo del Paso 12). Así se comprueba, antes de construir el
 agente, que el modelo entiende las herramientas y elige bien.
@@ -14,6 +15,7 @@ import json
 
 from anthropic import DefaultHttpxClient
 
+from registro_proveedor.agente.instrucciones import InstruccionesSistema, cargar_instrucciones
 from registro_proveedor.agente.llm.adaptador import (
     DefinicionHerramienta,
     ErrorDelModelo,
@@ -25,15 +27,10 @@ from registro_proveedor.agente.llm.adaptador import (
 )
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
 from registro_proveedor.config import Configuracion
+from registro_proveedor.dominio.lectura import ErrorDeDatos
 from registro_proveedor.herramientas.proveedor import registro
 
 PREGUNTA_POR_DEFECTO = "¿Qué solicitudes de registro hay? Busca la del cliente de Ecuador."
-
-# Un sistema mínimo, solo para esta prueba. El prompt de verdad llega en el Paso 11.
-SISTEMA_DE_PRUEBA = (
-    "Eres el asistente de una analista que prepara registros como proveedor. "
-    "Usa las herramientas para obtener la información; no inventes datos."
-)
 
 # Precio de claude-haiku-5-5 (dólares por millón de tokens, prompts de hasta 100K tokens).
 PRECIO_ENTRADA_USD = 0.10
@@ -63,17 +60,23 @@ def probar(
     """
     herramientas = definiciones_desde_registro(registro)
     try:
+        # El sistema real del agente (Paso 11): prompt + conocimiento.
+        instrucciones = cargar_instrucciones()
+    except ErrorDeDatos as e:
+        return 1, f"ERROR (instrucciones): {e}"
+    try:
         adaptador = AdaptadorAnthropic.desde_configuracion(config, http_client=http_client)
         respuesta = adaptador.enviar(
-            SISTEMA_DE_PRUEBA, [Mensaje.del_usuario(pregunta)], herramientas
+            instrucciones.texto, [Mensaje.del_usuario(pregunta)], herramientas
         )
     except ErrorDelModelo as e:
         return 1, f"ERROR ({e.codigo}): {e.mensaje}"
-    return 0, describir(config, pregunta, herramientas, respuesta)
+    return 0, describir(config, instrucciones, pregunta, herramientas, respuesta)
 
 
 def describir(
     config: Configuracion,
+    instrucciones: InstruccionesSistema,
     pregunta: str,
     herramientas: list[DefinicionHerramienta],
     respuesta: RespuestaModelo,
@@ -81,6 +84,7 @@ def describir(
     """El resultado de la prueba, para la terminal."""
     lineas = [
         f"Modelo: {respuesta.modelo} · esfuerzo: {config.llm_esfuerzo}",
+        f"Instrucciones: versión {instrucciones.version} · huella {instrucciones.huella}",
         f"Herramientas ofrecidas ({len(herramientas)}): "
         + ", ".join(h.nombre for h in herramientas),
         f"Pregunta: {pregunta}",

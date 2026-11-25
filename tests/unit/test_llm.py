@@ -24,6 +24,7 @@ import httpx2
 import pytest
 from anthropic import DefaultHttpxClient
 
+from registro_proveedor.agente.instrucciones import cargar_instrucciones
 from registro_proveedor.agente.llm.adaptador import (
     BloqueTexto,
     DefinicionHerramienta,
@@ -409,6 +410,9 @@ def test_prueba_real_muestra_la_herramienta_que_pidio() -> None:
     assert '| 1 | proveedor_listar_casos | {"filtro": "Ecuador"} |' in texto
     assert "Herramientas ofrecidas (6)" in texto
     assert CLAVE not in texto
+    # Envía las instrucciones reales del agente (Paso 11) y muestra su versión.
+    assert red.cuerpo["system"] == cargar_instrucciones().texto
+    assert "Instrucciones: versión 1" in texto
 
 
 def test_costo_con_cache() -> None:

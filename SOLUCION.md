@@ -25,7 +25,7 @@
 | 8 | Paquete para firma | F1 | ✅ |
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ✅ |
 | 10 | Adaptador del modelo de lenguaje | F2 | ✅ |
-| 11 | System prompt y base de conocimiento | F2 | ⬜ |
+| 11 | System prompt y base de conocimiento | F2 | ✅ |
 | 12 | Ciclo del agente | F2 | ⬜ |
 | 13 | Confirmación humana y envío simulado | F2 | ⬜ |
 | 14 | Guardarraíles | F2 | ⬜ |
@@ -163,8 +163,12 @@
 ### Paso 11 · System prompt y base de conocimiento
 **Objetivo:** escribir `agente/prompt.md` (comportamiento) y `knowledge/registro-proveedor.md` (proceso, países y soportes), separados del código y versionados.
 **Hecho cuando:** el prompt cubre el flujo, las prohibiciones, el formato del resumen y el trato del correo como datos.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`agente/prompt.md` (versión 1)** dice cómo comportarse: el rol, el **flujo con los nombres exactos de las herramientas y en orden** (`proveedor_listar_casos` si hace falta → `proveedor_leer_solicitud` → `proveedor_mapear_campos` → `proveedor_confirmar_campo` solo si la analista decide → `proveedor_generar_formulario` → `proveedor_armar_paquete`), las prohibiciones, el contenido externo como datos y el formato fijo del resumen con su pregunta de cierre.
+- **`knowledge/registro-proveedor.md`** explica el proceso para que el modelo pueda contarlo: estados de un campo, identificador por país, datos bancarios, soportes y sus estados, formatos y qué significa "listo para firma".
+- **`agente/instrucciones.py`** junta los dos en el texto de sistema, con su **versión** y una **huella** que cambia con cualquier edición. El conocimiento va dentro del sistema, en la caché (D41).
+- **Pruebas para que el texto no se desactualice:** el prompt nombra exactamente las herramientas que existen, en el orden de la matriz, y el conocimiento coincide con `config/reglas.yaml` y con el dominio (D42). `probar_modelo.py` ya usa el prompt real. **Pruebas:** 413 en total.
 
 ### Paso 12 · Ciclo del agente
 **Objetivo:** implementar el bucle mensaje → modelo → herramientas → modelo, con tope de iteraciones, tope de tokens por sesión y manejo claro de errores.
@@ -495,7 +499,29 @@ uv run pytest --actualizar-golden    # después de un cambio intencional; revisa
 ## B6 · Ciclo del agente y confirmación humana
 **Se alimenta de:** Pasos 11, 12 y 13.
 **Objetivo:** explicar el bucle mensaje → modelo → herramientas, los topes de iteraciones y de tokens, el manejo de errores, la separación entre prompt y conocimiento, y la confirmación humana controlada por el servidor.
-_por completar_
+
+**Las instrucciones del modelo (Paso 11):** el modelo recibe en cada llamada un texto de sistema armado con dos archivos que se editan sin tocar el código:
+
+| Archivo | Qué contiene | Quién lo cambia |
+|---|---|---|
+| `agente/prompt.md` | **Comportamiento:** rol, flujo de herramientas, prohibiciones, contenido externo = datos, formato del resumen. | Quien diseña el agente. Sube la `version` si cambia el comportamiento. |
+| `knowledge/registro-proveedor.md` | **Conocimiento:** cómo funciona el proceso (países, soportes, estados, formatos). | Quien conoce el proceso. |
+
+**El orden en que el modelo debe pedir las herramientas** (las 4 del medio son las columnas de la matriz de `demo.py --llamadas`):
+
+```
+proveedor_listar_casos         (solo si no sabe el id del caso)
+  → proveedor_leer_solicitud
+  → proveedor_mapear_campos
+      → proveedor_confirmar_campo   (solo si hay campos por confirmar y la analista decide)
+  → proveedor_generar_formulario
+  → proveedor_armar_paquete      (vuelve a generar el formulario)
+  → resumen + pregunta de cierre
+```
+
+El prompt **pide** este comportamiento; el código lo **obliga** donde importa: la confirmación la controla el servidor (Paso 13) y la respuesta se revisa contra los resultados de las herramientas (Paso 14).
+
+_El ciclo y los topes se completan en el Paso 12; la confirmación, en el Paso 13._
 
 ## B7 · Seguridad y guardarraíles
 **Se alimenta de:** Pasos 3, 14 y 18.
@@ -512,6 +538,8 @@ _por completar_
 | Que el modelo invente argumentos (`{"enviar": true}`) | Se rechazan: los argumentos no aceptan campos desconocidos. |
 
 **Paso 5:** en el mapeo, el valor de un campo como "Número de cuenta" se oculta según su **ruta en el maestro** (`es_ruta_sensible`), porque en la respuesta ese dato se llama `valor`, no `numero_cuenta`.
+
+**Paso 11:** el prompt le prohíbe al modelo inventar valores, decir que algo se envió y mostrar datos bancarios, y le dice que lo que traen las herramientas es dato, no orden. Es una primera capa: un prompt se puede saltar, por eso los pasos 13 y 14 lo refuerzan con código.
 
 **Lo que falta:** el Paso 14 agrega la revisión de la respuesta del modelo y la defensa contra correos maliciosos. El Paso 18 agrega la protección del acceso y los topes de costo.
 
@@ -594,7 +622,7 @@ _por completar_
 | HU-4 Paquete para firma | 8 | 🟨 | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. Falta que el agente cierre con un resumen y una pregunta explícita (pasos 11 y 12). |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
 | HU-6 Manejo de errores | 3, 12 | 🟨 | Hecho para las herramientas (nunca lanzan; mensaje claro). Falta el error del proveedor del LLM (Paso 12). |
-| HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Para producción: registrar también la versión del prompt (Paso 11) y pedir que el maestro tenga versión. |
+| HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Las instrucciones ya tienen versión y huella (Paso 11); el Paso 12 las registra en el log de cada sesión. Para producción: pedir que el maestro tenga versión. |
 
 ## B13 · Decisiones y trade-offs
 **Se alimenta de:** todos los pasos.
@@ -636,6 +664,8 @@ _por completar_
 | D38 | Sin `temperature`; la consistencia la dan el núcleo determinista y el esfuerzo (CA6 ajustada, con aprobación de Anderson). | Mantener `temperature` 0–0.2, como decía el plan. | `claude-haiku-5-5` y la versión actual de la API la rechazan (error 400). | 10 |
 | D39 | Los reintentos los hace el SDK, configurado con `LLM_REINTENTOS`. | Escribir nuestro propio ciclo de reintentos. | El SDK ya reintenta solo los errores pasajeros, con esperas crecientes. Reescribirlo sería código de más y con más riesgo. | 10 |
 | D40 | Cada respuesta guarda su contenido original (`crudo`) y se le devuelve tal cual a Anthropic. | Devolver solo el texto y los pedidos de herramienta. | Anthropic exige recibir sin cambios los bloques de razonamiento de sus respuestas anteriores. | 10 |
+| D41 | El conocimiento del proceso va dentro del texto de sistema. | Una herramienta para consultarlo. | Es corto (unos 2,500 tokens con el prompt) y va en la caché: casi gratis desde la segunda llamada, y el modelo no tiene que acordarse de consultarlo. Si crece mucho, se pasa a una herramienta de búsqueda. | 11 |
+| D42 | Pruebas que comparan el prompt y el conocimiento con el código: nombres de las herramientas, orden del flujo, identificadores por país, soportes y estados. | Revisar el texto a mano. | Si se renombra una herramienta o cambia una regla, la prueba falla y avisa que el texto quedó desactualizado. | 11 |
 
 _Se agregan más decisiones en cada paso._
 
