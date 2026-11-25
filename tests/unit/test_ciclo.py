@@ -1,4 +1,4 @@
-"""Pruebas del ciclo del agente (Paso 12). Sin red: con el modelo falso y su guion.
+"""Pruebas del ciclo del agente (pasos 12 y 13). Sin red: con el modelo falso y su guion.
 
 Cada prueba escribe el guion de lo que "responde" el modelo y revisa qué hizo el ciclo:
 qué herramientas ejecutó y en qué orden, qué le mandó al modelo y qué le mostró a la
@@ -9,7 +9,8 @@ Cómo está organizado:
     1. El flujo normal: un caso completo, en el orden de la matriz.
     2. Lo que recibe el modelo: sistema, herramientas y resultados enmascarados.
     3. Errores de herramientas: inexistente, argumentos inventados, varias a la vez.
-    4. CA3: una herramienta que requiere aprobación NO se ejecuta.
+    4. CA3 · HU-5 · RN4: lo que requiere aprobación queda pendiente; solo Aprobar lo
+       ejecuta; Rechazar o un mensaje nuevo lo descartan.
     5. CA1: topes de consultas y de tokens.
     6. CA5: errores del modelo y respuestas raras; la sesión sigue viva.
     7. El chat de la terminal.
@@ -23,7 +24,7 @@ import pytest
 from structlog.testing import capture_logs
 
 from registro_proveedor.agente.chat_terminal import conversar
-from registro_proveedor.agente.ciclo import SIN_APROBACION, Agente, FinTurno, Sesion
+from registro_proveedor.agente.ciclo import AVISO, Agente, EstadoLlamada, FinTurno, Sesion
 from registro_proveedor.agente.instrucciones import cargar_instrucciones
 from registro_proveedor.agente.llm.adaptador import (
     BloqueTexto,
@@ -207,41 +208,228 @@ def test_caso_inexistente_vuelve_como_error(contexto: Contexto) -> None:
     assert "proveedor_listar_casos" in turno.llamadas[0].resumen  # le dice cómo seguir
 
 
-# ---------- 4. CA3: lo que requiere aprobación no se ejecuta ----------
+# ---------- 4. CA3 · HU-5 · RN4: confirmación humana controlada por el servidor ----------
 
 
-def test_confirmar_campo_no_se_ejecuta_sin_aprobacion(contexto: Contexto) -> None:
+CONFIRMAR = "proveedor_confirmar_campo"
+ACEPTAR_RUC: dict[str, object] = {"caso": EC, "etiqueta": "RUC", "decision": "aceptar"}
+
+
+def _pedir_confirmar_ruc(*despues: RespuestaModelo) -> AdaptadorFalso:
+    """Guion: el modelo mapea Ecuador, pide aceptar el RUC y avisa; después, `despues`."""
+    return AdaptadorFalso(
+        [
+            pide("proveedor_mapear_campos", {"caso": EC}),
+            pide(CONFIRMAR, ACEPTAR_RUC),
+            responde("Le pedí su aprobación para aceptar el NIT como RUC."),
+            *despues,
+        ]
+    )
+
+
+def _campo(ctx: Contexto, caso: str, etiqueta: str) -> dict[str, object]:
+    """Un campo del mapeo.json GUARDADO (el de verdad, no lo que vio el modelo)."""
+    mapeo = json.loads((ctx.salida / caso / "mapeo.json").read_text(encoding="utf-8"))
+    campo = next(c for c in mapeo["campos"] if c["etiqueta"] == etiqueta)
+    assert isinstance(campo, dict)
+    return campo
+
+
+def _auditoria(ctx: Contexto, caso: str) -> list[dict[str, object]]:
+    texto = (ctx.salida / caso / "log.jsonl").read_text(encoding="utf-8")
+    return [json.loads(linea) for linea in texto.splitlines()]
+
+
+def _ultimo_aviso(falso: AdaptadorFalso, indice: int = -1) -> str:
+    """El último texto del lado del usuario en una consulta al modelo (donde van los avisos)."""
+    bloques = falso.envios[indice].mensajes[-1].bloques
+    textos = [b.texto for b in bloques if isinstance(b, BloqueTexto)]
+    return textos[0]
+
+
+def test_pedir_confirmar_crea_una_pendiente_sin_ejecutar(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc()
+    sesion = Sesion(contexto)
+    turno = _agente(falso).responder(sesion, "Mapea Ecuador; el RUC lo acepto")
+
+    confirmar = turno.llamadas[1]
+    assert confirmar.estado is EstadoLlamada.PENDIENTE
+    assert confirmar.simbolo == "⏳"
+    (pendiente,) = turno.pendientes
+    assert confirmar.resumen == f"pendiente de aprobación (confirmación {pendiente.id})"
+    assert pendiente.herramienta == CONFIRMAR
+    assert pendiente.argumentos == ACEPTAR_RUC
+    assert sesion.pendientes == {pendiente.id: pendiente}
+    # NO se ejecutó: el campo sigue por confirmar y sin decisión.
+    ruc = _campo(contexto, EC, "RUC")
+    assert ruc["estado"] == "requiere_confirmacion"
+    assert ruc.get("confirmacion") is None
+    # El modelo recibe "pendiente" (no es un error) con el id de la confirmación.
+    resultado = _resultados(sesion.mensajes[4])[0]
+    assert not resultado.es_error
+    assert "pendiente_de_aprobacion" in resultado.contenido
+    assert pendiente.id in resultado.contenido
+    # Queda en la auditoría del caso, con el id.
+    ultima = _auditoria(contexto, EC)[-1]
+    assert ultima["herramienta"] == CONFIRMAR
+    assert ultima["ok"] is False
+    assert ultima["aprobacion"] == pendiente.id
+    assert str(ultima["resumen"]).startswith("no ejecutada: pendiente de aprobación")
+
+
+def test_aprobar_ejecuta_con_los_argumentos_guardados(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc(
+        pide("proveedor_armar_paquete", {"caso": EC}),
+        responde("Confirmé el RUC y volví a armar el paquete."),
+    )
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (pendiente,) = agente.responder(sesion, "Mapea Ecuador; el RUC lo acepto").pendientes
+
+    turno = agente.resolver(sesion, pendiente.id, aprobar=True)
+    assert turno.fin is FinTurno.RESPONDIO
+    assert [(ll.nombre, ll.estado) for ll in turno.llamadas] == [
+        (CONFIRMAR, EstadoLlamada.APROBADA),
+        ("proveedor_armar_paquete", EstadoLlamada.EJECUTADA),
+    ]
+    assert turno.llamadas[0].simbolo == "✓ aprobada ·"
+    assert turno.pendientes == ()
+    assert sesion.pendientes == {}
+    # Ahora SÍ se confirmó, con quién y cuándo.
+    ruc = _campo(contexto, EC, "RUC")
+    assert ruc["estado"] == "lleno"
+    assert ruc["confirmacion"] == {
+        "decision": "aceptar",
+        "por": "analista",
+        "en": "2026-09-01T12:00:00Z",
+        "valor_propuesto": ruc["valor"],
+    }
+    # El modelo se enteró con un aviso del sistema, con el resultado.
+    aviso = _ultimo_aviso(falso, -2)
+    assert aviso.startswith(f"{AVISO} La analista APROBÓ la acción pendiente {pendiente.id}")
+    assert '"ok": true' in aviso
+    # La línea de auditoría de la ejecución lleva el id de la aprobación.
+    ejecucion = next(
+        r for r in _auditoria(contexto, EC) if r["herramienta"] == CONFIRMAR and r["ok"] is True
+    )
+    assert ejecucion["aprobacion"] == pendiente.id
+
+
+def test_rechazar_no_ejecuta_nada(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc(responde("Entendido: el RUC sigue por confirmar."))
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (pendiente,) = agente.responder(sesion, "Mapea Ecuador; el RUC lo acepto").pendientes
+
+    turno = agente.resolver(sesion, pendiente.id, aprobar=False)
+    assert [ll.estado for ll in turno.llamadas] == [EstadoLlamada.RECHAZADA]
+    assert not turno.llamadas[0].ok
+    assert _campo(contexto, EC, "RUC")["estado"] == "requiere_confirmacion"
+    assert _ultimo_aviso(falso).startswith(f"{AVISO} La analista RECHAZÓ")
+    assert str(_auditoria(contexto, EC)[-1]["resumen"]).startswith("rechazada por la analista")
+
+
+def test_un_mensaje_nuevo_cancela_las_pendientes(contexto: Contexto) -> None:
+    """RN4: la aprobación debe llegar en el turno inmediatamente siguiente."""
+    falso = _pedir_confirmar_ruc(responde("De acuerdo, revisemos otro caso."))
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (pendiente,) = agente.responder(sesion, "Mapea Ecuador; el RUC lo acepto").pendientes
+
+    turno = agente.responder(sesion, "Mejor revisemos otro caso")
+    assert sesion.pendientes == {}
+    assert turno.pendientes == ()
+    # El modelo recibe el aviso de la cancelación ANTES del mensaje de la analista.
+    bloques = falso.envios[-1].mensajes[-1].bloques
+    assert [b.texto for b in bloques if isinstance(b, BloqueTexto)] == [
+        f"{AVISO} Se cancelaron sin ejecutar las acciones pendientes de aprobación: "
+        f"{pendiente.id} ({pendiente.descripcion}). La analista escribió un mensaje sin "
+        "aprobarlas.",
+        "Mejor revisemos otro caso",
+    ]
+    assert str(_auditoria(contexto, EC)[-1]["resumen"]).startswith("cancelada sin ejecutar")
+    # Aprobarla DESPUÉS ya no sirve: no se ejecuta nada.
+    tarde = agente.resolver(sesion, pendiente.id, aprobar=True)
+    assert tarde.fin is FinTurno.CONFIRMACION_INVALIDA
+    assert tarde.consultas == 0
+    assert _campo(contexto, EC, "RUC")["estado"] == "requiere_confirmacion"
+
+
+def test_no_se_puede_aprobar_dos_veces(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc(responde("Listo."))
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (pendiente,) = agente.responder(sesion, "Mapea Ecuador; el RUC lo acepto").pendientes
+    agente.resolver(sesion, pendiente.id, aprobar=True)
+    otra_vez = agente.resolver(sesion, pendiente.id, aprobar=True)
+    assert otra_vez.fin is FinTurno.CONFIRMACION_INVALIDA
+    assert "No se ejecutó nada" in otra_vez.texto
+    assert otra_vez.llamadas == ()
+
+
+def test_una_confirmacion_inventada_no_hace_nada(contexto: Contexto) -> None:
+    turno = _agente(AdaptadorFalso([])).resolver(Sesion(contexto), "abc123", aprobar=True)
+    assert turno.fin is FinTurno.CONFIRMACION_INVALIDA
+    assert "«abc123»" in turno.texto
+    assert not (contexto.salida / "log.jsonl").exists()  # ni siquiera se intentó
+
+
+@pytest.mark.parametrize(
+    "argumentos",
+    [
+        {"caso": EC, "etiqueta": "RUC", "decision": "tal vez"},  # decisión inválida
+        # El modelo intenta "traer" su propia aprobación: argumento desconocido.
+        {**ACEPTAR_RUC, "aprobacion": {"id": "x", "por": "analista"}},
+    ],
+)
+def test_argumentos_invalidos_no_crean_pendiente(
+    contexto: Contexto, argumentos: dict[str, object]
+) -> None:
+    falso = AdaptadorFalso([pide(CONFIRMAR, argumentos), responde("No se pudo.")])
+    sesion = Sesion(contexto)
+    turno = _agente(falso).responder(sesion, "Acepta el RUC")
+    assert turno.llamadas[0].estado is EstadoLlamada.FALLO
+    assert "argumentos no válidos" in turno.llamadas[0].resumen
+    assert sesion.pendientes == {}
+
+
+def test_pedir_lo_mismo_dos_veces_reutiliza_la_pendiente(contexto: Contexto) -> None:
     falso = AdaptadorFalso(
         [
             pide("proveedor_mapear_campos", {"caso": EC}),
-            pide(
-                "proveedor_confirmar_campo",
-                {"caso": EC, "etiqueta": "RUC", "decision": "aceptar"},
-            ),
-            responde("El campo sigue por confirmar."),
+            pide_varias([(CONFIRMAR, ACEPTAR_RUC, None), (CONFIRMAR, ACEPTAR_RUC, None)]),
+            responde("Le pedí su aprobación."),
         ]
     )
     sesion = Sesion(contexto)
-    turno = _agente(falso).responder(sesion, "Mapea el caso de Ecuador y acepta el RUC")
+    turno = _agente(falso).responder(sesion, "Acepta el RUC")
+    assert len(turno.pendientes) == 1
+    assert [ll.estado for ll in turno.llamadas[1:]] == [EstadoLlamada.PENDIENTE] * 2
 
-    confirmar = turno.llamadas[1]
-    assert confirmar.nombre == "proveedor_confirmar_campo"
-    assert not confirmar.ok
-    assert "no se pueden confirmar campos desde el chat" in confirmar.resumen
-    # El mapeo guardado no tiene ninguna decisión: no se confirmó nada.
-    mapeo = json.loads((contexto.salida / EC / "mapeo.json").read_text(encoding="utf-8"))
-    assert all(campo.get("confirmacion") is None for campo in mapeo["campos"])
-    assert any(campo["estado"] == "requiere_confirmacion" for campo in mapeo["campos"])
-    # El modelo recibe el motivo, como error.
-    resultado = _resultados(sesion.mensajes[4])[0]
-    assert resultado.es_error
-    assert SIN_APROBACION in resultado.contenido
-    # Y queda en la auditoría del caso.
-    lineas = (contexto.salida / EC / "log.jsonl").read_text(encoding="utf-8").splitlines()
-    ultima = json.loads(lineas[-1])
-    assert ultima["herramienta"] == "proveedor_confirmar_campo"
-    assert ultima["ok"] is False
-    assert "requiere aprobación" in ultima["resumen"]
+
+def test_envio_simulado_con_aprobacion(contexto: Contexto) -> None:
+    """De punta a punta: el modelo pide enviar; solo se escribe el archivo tras aprobar."""
+    envio = contexto.salida / CO / "ENVIO-SIMULADO.md"
+    falso = AdaptadorFalso(
+        [
+            pide("proveedor_mapear_campos", {"caso": CO}),
+            pide("proveedor_armar_paquete", {"caso": CO}),
+            pide("proveedor_simular_envio", {"caso": CO}),
+            responde("Pulse Aprobar para simular el envío."),
+            responde("Listo: quedó en out/co-industrias-delta/ENVIO-SIMULADO.md."),
+        ]
+    )
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (pendiente,) = agente.responder(sesion, "Arma y envía el caso de Colombia").pendientes
+    assert not envio.exists()  # pedirlo no basta
+
+    turno = agente.resolver(sesion, pendiente.id, aprobar=True)
+    assert turno.llamadas[0].estado is EstadoLlamada.APROBADA
+    assert envio.is_file()
+    texto = envio.read_text(encoding="utf-8")
+    assert f"aprobación `{pendiente.id}`" in texto
+    assert "03100012345" not in texto  # nunca la cuenta bancaria
 
 
 # ---------- 5. CA1: topes ----------
@@ -472,6 +660,56 @@ def test_chat_sin_clave(monkeypatch: pytest.MonkeyPatch) -> None:
     escrito: list[str] = []
     assert conversar(Configuracion(), leer=input, escribir=escrito.append) == 1
     assert escrito == ["ERROR: no hay una clave"]
+
+
+def _chat(contexto: Contexto, falso: AdaptadorFalso, *mensajes: str) -> str:
+    escrito: list[str] = []
+    persona = _persona(*mensajes, "salir")
+    conversar(
+        Configuracion(),
+        leer=lambda _prompt: next(persona),
+        escribir=escrito.append,
+        adaptador=falso,
+        sesion=Sesion(contexto),
+    )
+    return "\n".join(escrito)
+
+
+def test_chat_aprobar_con_el_comando(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc(responde("Confirmado."))
+    texto = _chat(contexto, falso, "Mapea Ecuador; el RUC lo acepto", "/aprobar")
+    assert "⏳ Pendientes de su aprobación" in texto
+    assert "| 2 | proveedor_confirmar_campo |" in texto
+    assert "| 1 | proveedor_confirmar_campo |" in texto  # el turno de la aprobación
+    assert "✓ aprobada ·" in texto
+    assert _campo(contexto, EC, "RUC")["estado"] == "lleno"
+
+
+def test_chat_rechazar_con_el_comando_y_el_id(contexto: Contexto) -> None:
+    falso = _pedir_confirmar_ruc(responde("Entendido."))
+    sesion = Sesion(contexto)
+    escrito: list[str] = []
+    mensajes = iter(["Mapea Ecuador; el RUC lo acepto"])
+
+    def leer(_prompt: str) -> str:
+        # El id solo se conoce después del primer turno: se arma el comando en ese momento.
+        siguiente = next(mensajes, None)
+        if siguiente is not None:
+            return siguiente
+        if sesion.pendientes:
+            return f"/rechazar {next(iter(sesion.pendientes))}"
+        return "salir"
+
+    conversar(Configuracion(), leer=leer, escribir=escrito.append, adaptador=falso, sesion=sesion)
+    assert "⊘ rechazada ·" in "\n".join(escrito)
+    assert _campo(contexto, EC, "RUC")["estado"] == "requiere_confirmacion"
+
+
+def test_chat_comando_sin_pendientes_no_llama_al_modelo(contexto: Contexto) -> None:
+    falso = AdaptadorFalso([])
+    texto = _chat(contexto, falso, "/aprobar", "/otra-cosa")
+    assert texto.count("No hay acciones pendientes de aprobación.") == 2
+    assert falso.envios == []
 
 
 def test_sesion_nueva_tiene_su_propio_id() -> None:

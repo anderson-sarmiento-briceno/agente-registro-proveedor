@@ -6,10 +6,13 @@
     Lo que las pruebas importan directamente (constantes, tipos y funciones) va aquí.
 """
 
+import dataclasses
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
 from registro_proveedor.config import RAIZ_PROYECTO
+from registro_proveedor.herramientas.base import Aprobacion, Contexto
+from registro_proveedor.herramientas.proveedor import registro
 
 # Los datos reales del proyecto. Las pruebas que solo LEEN los usan directamente.
 # Las que necesitan romper algo usan la fixture `datos`, que es una copia temporal.
@@ -39,3 +42,25 @@ def como_lista(valor: object) -> list[object]:
     """Copia de una lista JSON, comprobando que de verdad sea una lista."""
     assert isinstance(valor, list)
     return list(valor)
+
+
+def aprobado(ctx: Contexto, herramienta: str, argumentos: dict[str, object]) -> Contexto:
+    """Copia del contexto con una aprobación de la analista para ESA herramienta y argumentos.
+
+    Desde el Paso 13, las herramientas que requieren confirmación se niegan a ejecutar
+    sin aprobación (doble candado). Las pruebas de esas herramientas la piden así, de
+    forma explícita, igual que lo hace el ciclo del agente cuando la analista aprueba.
+    Los argumentos se normalizan como lo hace el ciclo (con sus valores por defecto).
+    """
+    validados = registro.validar_argumentos(herramienta, argumentos)
+    assert validados.ok and validados.data is not None, validados.error
+    return dataclasses.replace(
+        ctx,
+        aprobacion=Aprobacion(
+            id="aprobacion-de-prueba",
+            herramienta=herramienta,
+            argumentos=validados.data,
+            por=ctx.usuario,
+            en=HORA_FIJA,
+        ),
+    )

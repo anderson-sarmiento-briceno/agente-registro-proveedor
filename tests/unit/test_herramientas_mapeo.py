@@ -17,9 +17,9 @@ from pathlib import Path
 import pytest
 
 from registro_proveedor.dominio.mapeo import cargar_mapeo
-from registro_proveedor.herramientas.base import Contexto
+from registro_proveedor.herramientas.base import SIN_APROBACION, Contexto
 from registro_proveedor.herramientas.proveedor import AYUDA_CASO, registro
-from tests.ayudas import EditarJson, como_dict, como_lista
+from tests.ayudas import EditarJson, aprobado, como_dict, como_lista
 
 CUENTA = "03100012345"
 CASO = "ec-corp-andina"
@@ -34,6 +34,14 @@ def _ejecutar(nombre: str, argumentos: dict[str, object], ctx: Contexto) -> dict
 
 def _texto(ctx: Contexto, nombre: str, argumentos: dict[str, object]) -> str:
     return registro.ejecutar(nombre, argumentos, ctx).a_json()
+
+
+CONFIRMAR = "proveedor_confirmar_campo"
+
+
+def _confirmar(argumentos: dict[str, object], ctx: Contexto) -> dict[str, object]:
+    """Confirma un campo CON la aprobación de la analista (lo que hace el ciclo al aprobar)."""
+    return _ejecutar(CONFIRMAR, argumentos, aprobado(ctx, CONFIRMAR, argumentos))
 
 
 @pytest.fixture
@@ -116,12 +124,40 @@ def test_mapeo_anterior_danado_no_impide_mapear(contexto: Contexto) -> None:
 # ---------- proveedor_confirmar_campo ----------
 
 
+def test_confirmar_sin_aprobacion_no_hace_nada(ctx_con_pendiente: Contexto) -> None:
+    """Paso 13 · Doble candado: sin aprobación, se niega aunque la llamen directamente."""
+    ctx = ctx_con_pendiente
+    registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, ctx)
+    antes = (ctx.salida / CASO / "mapeo.json").read_text(encoding="utf-8")
+    argumentos = {"caso": CASO, "etiqueta": "Num. de cuenta", "decision": "aceptar"}
+    r = _ejecutar(CONFIRMAR, argumentos, ctx)
+    assert r == {"ok": False, "data": None, "error": SIN_APROBACION}
+    assert (ctx.salida / CASO / "mapeo.json").read_text(encoding="utf-8") == antes
+
+
+@pytest.mark.parametrize(
+    "otra",
+    [
+        # La aprobación es de OTRA decisión sobre el mismo campo...
+        ("proveedor_confirmar_campo", {"etiqueta": "Num. de cuenta", "decision": "dejar_faltante"}),
+        # ...o de OTRA herramienta.
+        ("proveedor_simular_envio", {}),
+    ],
+)
+def test_una_aprobacion_no_sirve_para_otra_accion(
+    ctx_con_pendiente: Contexto, otra: tuple[str, dict[str, object]]
+) -> None:
+    ctx = ctx_con_pendiente
+    registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, ctx)
+    herramienta, extra = otra
+    con_otra_aprobacion = aprobado(ctx, herramienta, {"caso": CASO, **extra})
+    argumentos = {"caso": CASO, "etiqueta": "Num. de cuenta", "decision": "aceptar"}
+    r = _ejecutar(CONFIRMAR, argumentos, con_otra_aprobacion)
+    assert r["error"] == SIN_APROBACION
+
+
 def test_confirmar_sin_mapeo_previo(contexto: Contexto) -> None:
-    r = _ejecutar(
-        "proveedor_confirmar_campo",
-        {"caso": CASO, "etiqueta": "Banco", "decision": "aceptar"},
-        contexto,
-    )
+    r = _confirmar({"caso": CASO, "etiqueta": "Banco", "decision": "aceptar"}, contexto)
     assert r["ok"] is False
     assert "primero use proveedor_mapear_campos" in str(r["error"])
 
@@ -132,11 +168,12 @@ def test_aceptar_un_campo_pendiente(ctx_con_pendiente: Contexto) -> None:
     pendientes = como_lista(como_dict(r["data"])["requiere_confirmacion"])
     assert [como_dict(c)["etiqueta"] for c in pendientes] == ["RUC", "Num. de cuenta"]
 
-    texto = _texto(
-        ctx,
-        "proveedor_confirmar_campo",
-        {"caso": CASO, "etiqueta": "Num. de cuenta", "decision": "aceptar"},
-    )
+    argumentos: dict[str, object] = {
+        "caso": CASO,
+        "etiqueta": "Num. de cuenta",
+        "decision": "aceptar",
+    }
+    texto = _texto(aprobado(ctx, CONFIRMAR, argumentos), CONFIRMAR, argumentos)
     respuesta = json.loads(texto)
     assert respuesta["ok"] is True
     campo = respuesta["data"]["campo"]
@@ -161,11 +198,7 @@ def test_aceptar_un_campo_pendiente(ctx_con_pendiente: Contexto) -> None:
 def test_volver_a_mapear_conserva_la_confirmacion(ctx_con_pendiente: Contexto) -> None:
     ctx = ctx_con_pendiente
     registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, ctx)
-    registro.ejecutar(
-        "proveedor_confirmar_campo",
-        {"caso": CASO, "etiqueta": "Num. de cuenta", "decision": "dejar_faltante"},
-        ctx,
-    )
+    _confirmar({"caso": CASO, "etiqueta": "Num. de cuenta", "decision": "dejar_faltante"}, ctx)
     r = _ejecutar("proveedor_mapear_campos", {"caso": CASO}, ctx)
     faltantes = como_lista(como_dict(r["data"])["faltantes"])
     assert "Num. de cuenta" in [como_dict(c)["etiqueta"] for c in faltantes]
@@ -173,11 +206,7 @@ def test_volver_a_mapear_conserva_la_confirmacion(ctx_con_pendiente: Contexto) -
 
 def test_confirmar_un_campo_lleno_da_error_claro(contexto: Contexto) -> None:
     registro.ejecutar("proveedor_mapear_campos", {"caso": CASO}, contexto)
-    r = _ejecutar(
-        "proveedor_confirmar_campo",
-        {"caso": CASO, "etiqueta": "Banco", "decision": "aceptar"},
-        contexto,
-    )
+    r = _confirmar({"caso": CASO, "etiqueta": "Banco", "decision": "aceptar"}, contexto)
     assert r["ok"] is False
     assert "solo se confirman los campos en requiere_confirmacion" in str(r["error"])
 

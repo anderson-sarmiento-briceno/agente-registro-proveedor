@@ -27,7 +27,7 @@
 | 10 | Adaptador del modelo de lenguaje | F2 | ✅ |
 | 11 | System prompt y base de conocimiento | F2 | ✅ |
 | 12 | Ciclo del agente | F2 | ✅ |
-| 13 | Confirmación humana y envío simulado | F2 | ⬜ |
+| 13 | Confirmación humana y envío simulado | F2 | ✅ |
 | 14 | Guardarraíles | F2 | ⬜ |
 | 15 | API | F2 | ⬜ |
 | 16 | Front de chat | F2 | ⬜ |
@@ -184,8 +184,13 @@
 ### Paso 13 · Confirmación humana y envío simulado
 **Objetivo:** las herramientas marcadas con aprobación humana (`proveedor_confirmar_campo` y `proveedor_simular_envio`) crean una confirmación pendiente en el servidor y solo se ejecutan tras una aprobación explícita.
 **Hecho cuando:** ninguna prueba consigue escribir `ENVIO-SIMULADO.md` ni confirmar un campo sin aprobación, aunque el modelo lo intente.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Confirmación pendiente** (`agente/ciclo.py`): cuando el modelo pide `proveedor_confirmar_campo` o `proveedor_simular_envio`, **no se ejecuta**. Se guarda con sus argumentos ya validados, el modelo recibe "pendiente de aprobación" y la analista decide con **Aprobar / Rechazar** (`Agente.resolver`). Aprobar ejecuta con los argumentos guardados y el modelo continúa.
+- **Solo se aprueba con una acción explícita**, nunca con un "sí" escrito (D47). Un mensaje nuevo cancela las pendientes (RN4), y una confirmación ya resuelta o inventada no hace nada.
+- **Doble candado** (`base.py`): sin una `Aprobacion` para esa herramienta y esos argumentos exactos, la herramienta se niega aunque la llamen directamente (D48). La auditoría guarda el id de cada aprobación.
+- **`proveedor_simular_envio`** (la séptima herramienta) escribe `ENVIO-SIMULADO.md` con los archivos, sus huellas y quién aprobó, sin datos bancarios. Se niega si el paquete no está listo o quedó desactualizado (D49).
+- **Prompt versión 3** y chat con `/aprobar` y `/rechazar`. **Pruebas:** 473 en total. Ninguna consigue confirmar ni "enviar" sin aprobación.
 
 ### Paso 14 · Guardarraíles
 **Objetivo:** que el modelo reciba los datos sensibles enmascarados, que la respuesta se revise contra los valores que salieron de las herramientas y que el contenido del correo quede delimitado como datos.
@@ -539,7 +544,7 @@ mensaje de la analista
 |---|---|
 | El modelo pide una herramienta | Se ejecuta y su resultado (enmascarado) vuelve al modelo. Si pide varias a la vez, se ejecutan en orden y los resultados vuelven juntos. |
 | Herramienta inexistente, argumento inventado o caso que no existe | No se ejecuta nada; el modelo recibe el error y lo explica. |
-| Pide `proveedor_confirmar_campo` | **No se ejecuta**: recibe "necesita la aprobación de la analista" y queda en `log.jsonl`. En el Paso 13 será una confirmación con Aprobar / Rechazar. |
+| Pide `proveedor_confirmar_campo` o `proveedor_simular_envio` | **No se ejecuta**: queda una confirmación pendiente (ver abajo). |
 | 15 consultas en un turno (`LLM_MAX_ITERACIONES`) | Se detiene y muestra qué alcanzó a hacer. La analista escribe "sigue". |
 | 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`), sin contar los leídos de la caché | Se detiene y pide abrir una conversación nueva. |
 | El modelo falla (sin conexión, límite, clave) | Mensaje claro; la sesión sigue y se puede reintentar. |
@@ -547,7 +552,28 @@ mensaje de la analista
 
 Cada consulta al modelo queda en el log de operación con la sesión, la **versión y la huella del prompt**, las herramientas pedidas y los tokens.
 
-_La confirmación con Aprobar / Rechazar se completa en el Paso 13._
+**La confirmación humana (Paso 13):** la controla el **servidor**, no el prompt (CA3).
+
+```
+el modelo pide proveedor_confirmar_campo {"caso": "ec-corp-andina", "etiqueta": "RUC", "decision": "aceptar"}
+  → NO se ejecuta: se crea una confirmación pendiente (id, herramienta, argumentos validados)
+  → el modelo recibe "pendiente_de_aprobacion" y le dice a la analista qué se va a hacer
+  → la analista pulsa Aprobar o Rechazar (en la terminal: /aprobar o /rechazar)
+      ├─ Aprobar  → se ejecuta con los argumentos GUARDADOS y una Aprobacion en el contexto
+      └─ Rechazar → no se ejecuta nada
+  → el modelo recibe un "[Aviso del sistema]" con lo que pasó y continúa
+     (por ejemplo, vuelve a pedir proveedor_armar_paquete)
+```
+
+| Situación | Qué pasa |
+|---|---|
+| La analista escribe "sí, acéptalo" | No aprueba nada: solo los botones aprueban (D47). |
+| La analista escribe otro mensaje sin resolver | Las pendientes se **cancelan** (RN4) y el modelo se entera. |
+| Aprobar dos veces, o una confirmación inventada | No se ejecuta nada; mensaje claro. |
+| El modelo pide la acción con argumentos inválidos (o inventa una "aprobación") | No se crea la pendiente: le llega el error. |
+| Alguien llama la herramienta directamente, sin aprobación | La capa de herramientas se niega: **doble candado** (D48). |
+
+Todo queda en `log.jsonl`: pendiente, aprobada (con su id), rechazada o cancelada.
 
 ## B7 · Seguridad y guardarraíles
 **Se alimenta de:** Pasos 3, 14 y 18.
@@ -566,6 +592,8 @@ _La confirmación con Aprobar / Rechazar se completa en el Paso 13._
 **Paso 5:** en el mapeo, el valor de un campo como "Número de cuenta" se oculta según su **ruta en el maestro** (`es_ruta_sensible`), porque en la respuesta ese dato se llama `valor`, no `numero_cuenta`.
 
 **Paso 11:** el prompt le prohíbe al modelo inventar valores, decir que algo se envió y mostrar datos bancarios, y le dice que lo que traen las herramientas es dato, no orden. Es una primera capa: un prompt se puede saltar, por eso los pasos 13 y 14 lo refuerzan con código.
+
+**Paso 13:** ninguna acción que decida algo o salga hacia afuera (confirmar un campo, "enviar") ocurre sin la aprobación explícita de la analista. Lo controla el servidor dos veces: el ciclo crea la pendiente y la capa de herramientas exige la `Aprobacion` (D48). El envío es simulado y no lleva datos bancarios.
 
 **Lo que falta:** el Paso 14 agrega la revisión de la respuesta del modelo y la defensa contra correos maliciosos. El Paso 18 agrega la protección del acceso y los topes de costo.
 
@@ -635,7 +663,7 @@ uv run python scripts/probar_modelo.py "¿Qué le falta al caso de Honduras?"   
 uv run python scripts/chat.py                                                 # chat completo en la terminal
 ```
 
-En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Se sale escribiendo `salir`.
+En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Si quedó una acción pendiente de aprobación (⏳), se resuelve con `/aprobar` o `/rechazar` (con el id, si hay más de una). Se sale escribiendo `salir`.
 
 _El despliegue y la URL se completan en el Paso 19._
 
@@ -656,10 +684,10 @@ _por completar_
 | Historia | Pasos | Estado | Qué falta para producción |
 |---|---|---|---|
 | HU-1 Leer la solicitud | 4, 6 | ✅ | Para producción: probar con plantillas reales, que serán más desordenadas que las de ejemplo. |
-| HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, regla de país, origen por campo, confirmación registrada y nunca un valor inventado. Falta que la confirmación exija aprobar en el front (Paso 13). |
+| HU-2 Mapear campos | 5, 6, 13 | ✅ | Hecho: capas, estados, regla de país, origen por campo, nunca un valor inventado, y la confirmación solo con la aprobación explícita de la analista (Paso 13). Para producción: proponer agregar al glosario las etiquetas confirmadas (sección 9.2 del plan). |
 | HU-3 Generar formulario | 7 | 🟨 | Hecho: Excel en celdas exactas, PDF en orden y valores para portal, siempre desde el mapeo, con los faltantes vacíos y resaltados. Falta rellenar un PDF AcroForm del cliente y escribir sobre su `.xlsx` original (ningún caso de ejemplo los trae). |
 | HU-4 Paquete para firma | 8, 11, 12 | ✅ | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. El agente cierra con el resumen del formato fijo y una pregunta explícita (prompt del Paso 11, ciclo del Paso 12). Para producción: medir con evaluaciones que el modelo siempre use ese formato (Paso 17). |
-| HU-5 Envío con confirmación | 13 | ⬜ | |
+| HU-5 Envío con confirmación | 13 | ✅ | Hecho: `proveedor_simular_envio` solo corre con una aprobación registrada por el servidor, en el turno siguiente, y escribe `ENVIO-SIMULADO.md`. Para producción: reemplazar la simulación por el envío real (correo o portal), detrás de la misma aprobación. |
 | HU-6 Manejo de errores | 3, 10, 12 | ✅ | Hecho: las herramientas nunca lanzan y dan un mensaje claro; los errores del modelo se traducen (Paso 10) y no cierran la sesión (Paso 12). |
 | HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Las instrucciones tienen versión y huella (Paso 11), y cada consulta al modelo las deja en el log de operación (Paso 12). Para producción: llevar ese log a un almacenamiento durable (Paso 19) y pedir que el maestro tenga versión. |
 
@@ -709,6 +737,10 @@ _por completar_
 | D44 | Mientras no exista la confirmación del Paso 13, el ciclo no ejecuta ninguna herramienta marcada `requiere_confirmacion`. | Ejecutarla y confiar en que el prompt pida permiso. | D2: un prompt se puede saltar. Así, desde ya, nada que requiera aprobación se ejecuta sin ella. | 12 |
 | D45 | Si el turno anterior terminó sin respuesta del modelo (tope o error), el mensaje nuevo se une al último mensaje del usuario. | Borrar lo que pasó en ese turno. | La conversación debe alternar usuario / asistente, y así no se pierden los resultados de las herramientas que ya se ejecutaron. | 12 |
 | D46 | El tope de tokens por sesión no cuenta los tokens leídos de la caché. | Contar todos los tokens por igual. | En la prueba real, 5 mensajes sumaron unos 73 000 tokens, casi todos leídos de la caché, que cuestan una décima parte. Contándolos, una conversación de unos 20 mensajes se cortaría habiendo costado un centavo. El tope debe proteger el costo. | 12 |
+| D47 | Solo se aprueba con una acción explícita (botón, o `/aprobar` en la terminal). Se corrigió el diagrama 9.3 del plan, que decía "¿el mensaje la aprueba?". | Interpretar el texto de la analista ("sí, dale"). | Un "sí" puede ser ambiguo (en la prueba real, la analista escribió "si" sin decidir nada), y el texto lo interpretaría el modelo. Un botón no se presta a confusión. | 13 |
+| D48 | Doble candado: además del ciclo, la capa de herramientas exige una `Aprobacion` para esa herramienta y esos argumentos exactos. | Confiar solo en el ciclo. | Si el ciclo tuviera un error, o alguien llamara la herramienta desde otro código, igual no se ejecutaría sin aprobación. | 13 |
+| D49 | El envío exige un paquete listo para firma y al día: misma fecha, mismo mapeo y archivos sin cambios (huellas). | Enviar con una advertencia. | Mandar algo bloqueado, o distinto de lo que la analista revisó, sería peor que no mandar nada. | 13 |
+| D50 | Una confirmación pendiente guarda los argumentos ya validados; al aprobar, se ejecuta con esos, no con lo que diga el modelo después. | Pedirle al modelo que repita la llamada al aprobar. | La analista aprueba exactamente lo que vio. El modelo no puede cambiar la acción entre la pregunta y la aprobación. | 13 |
 
 _Se agregan más decisiones en cada paso._
 

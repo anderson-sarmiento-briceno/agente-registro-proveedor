@@ -98,6 +98,9 @@ class RegistroLlamada(BaseModel):
     ok: bool
     resumen: str  # una frase; nunca datos sensibles completos
     duracion_ms: int
+    # Id de la aprobación de la analista, si la acción la necesitó (Paso 13). Así se
+    # puede rastrear qué aprobación permitió cada confirmación o envío.
+    aprobacion: str | None = None
 
 
 def escribir_auditoria(salida: Path, registro: RegistroLlamada) -> None:

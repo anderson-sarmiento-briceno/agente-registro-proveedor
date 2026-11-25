@@ -14,7 +14,7 @@ import pytest
 
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import AVISO_PORTAL, registro
-from tests.ayudas import EditarJson, como_dict, como_lista
+from tests.ayudas import EditarJson, aprobado, como_dict, como_lista
 
 
 def _ejecutar(nombre: str, argumentos: dict[str, object], ctx: Contexto) -> dict[str, object]:
@@ -67,11 +67,17 @@ def test_avisos(contexto: Contexto) -> None:
 
 def test_confirmar_y_volver_a_generar(contexto: Contexto) -> None:
     _mapear_y_generar("ec-corp-andina", contexto)
-    _ejecutar(
+    argumentos: dict[str, object] = {
+        "caso": "ec-corp-andina",
+        "etiqueta": "RUC",
+        "decision": "aceptar",
+    }
+    confirmado = _ejecutar(
         "proveedor_confirmar_campo",
-        {"caso": "ec-corp-andina", "etiqueta": "RUC", "decision": "aceptar"},
-        contexto,
+        argumentos,
+        aprobado(contexto, "proveedor_confirmar_campo", argumentos),
     )
+    assert confirmado["ok"] is True
     r = _ejecutar("proveedor_generar_formulario", {"caso": "ec-corp-andina"}, contexto)
     datos = como_dict(r["data"])
     assert (datos["escritos"], datos["pendientes"], datos["avisos"]) == (14, 0, [])

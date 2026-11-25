@@ -27,12 +27,14 @@ def test_herramientas_registradas() -> None:
         "proveedor_leer_solicitud",
         "proveedor_listar_casos",
         "proveedor_mapear_campos",
+        "proveedor_simular_envio",
     ]
     for h in registro.listar():
         assert h.descripcion  # el modelo decide con esta frase cuándo usarla
-    # Solo confirmar un campo necesita aprobación humana (las demás no deciden nada).
+    # Solo confirmar un campo y "enviar" necesitan aprobación humana: son las únicas
+    # que deciden algo o salen hacia afuera.
     con_aprobacion = [h.nombre for h in registro.listar() if h.requiere_confirmacion]
-    assert con_aprobacion == ["proveedor_confirmar_campo"]
+    assert con_aprobacion == ["proveedor_confirmar_campo", "proveedor_simular_envio"]
 
 
 # ---------- proveedor_listar_casos ----------

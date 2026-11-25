@@ -112,6 +112,7 @@ def test_las_herramientas_salen_del_registro() -> None:
         "proveedor_leer_solicitud",
         "proveedor_listar_casos",
         "proveedor_mapear_campos",
+        "proveedor_simular_envio",
     ]
     leer = next(h for h in HERRAMIENTAS if h.nombre == "proveedor_leer_solicitud")
     assert "país, el cliente, el formato" in leer.descripcion
@@ -367,7 +368,7 @@ def test_el_modelo_falso_sigue_su_guion_y_guarda_lo_que_recibe() -> None:
     assert segunda.texto == "Es ec-corp-andina."
     assert len(falso.envios) == 2
     assert falso.envios[0].mensajes[0].bloques == [BloqueTexto(texto="el de Ecuador")]
-    assert len(falso.envios[0].herramientas) == 6
+    assert len(falso.envios[0].herramientas) == len(HERRAMIENTAS)
 
 
 def test_el_modelo_falso_puede_simular_un_error() -> None:
@@ -405,10 +406,10 @@ def test_prueba_real_muestra_la_herramienta_que_pidio() -> None:
     codigo, texto = probar(_config(), "busca el de Ecuador", http_client=http)
     assert codigo == 0
     assert red.cuerpo["messages"][0]["content"][0]["text"] == "busca el de Ecuador"
-    assert len(red.cuerpo["tools"]) == 6  # le ofreció todas las herramientas
+    assert len(red.cuerpo["tools"]) == 7  # le ofreció todas las herramientas
     assert "Resultado: pide herramientas" in texto
     assert '| 1 | proveedor_listar_casos | {"filtro": "Ecuador"} |' in texto
-    assert "Herramientas ofrecidas (6)" in texto
+    assert "Herramientas ofrecidas (7)" in texto
     assert CLAVE not in texto
     # Envía las instrucciones reales del agente (Paso 11) y muestra su versión.
     assert red.cuerpo["system"] == cargar_instrucciones().texto

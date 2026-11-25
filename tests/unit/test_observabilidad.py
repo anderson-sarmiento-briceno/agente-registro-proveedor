@@ -93,6 +93,7 @@ def test_auditoria_global_y_por_caso(tmp_path: Path) -> None:
             "ok": True,
             "resumen": "ok",
             "duracion_ms": 3,
+            "aprobacion": None,  # solo las acciones aprobadas por la analista lo llevan
         }
     ]
 

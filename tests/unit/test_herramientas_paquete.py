@@ -8,7 +8,7 @@ import json
 
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import registro
-from tests.ayudas import como_dict, como_lista
+from tests.ayudas import aprobado, como_dict, como_lista
 
 
 def _ejecutar(nombre: str, argumentos: dict[str, object], ctx: Contexto) -> dict[str, object]:
@@ -52,11 +52,13 @@ def test_la_respuesta_no_trae_valores(contexto: Contexto) -> None:
 
 def test_confirmar_y_volver_a_armar(contexto: Contexto) -> None:
     _mapear_y_armar("pa-logistica-istmo", contexto)
-    _ejecutar(
-        "proveedor_confirmar_campo",
-        {"caso": "pa-logistica-istmo", "etiqueta": "RUC", "decision": "aceptar"},
-        contexto,
-    )
+    argumentos: dict[str, object] = {
+        "caso": "pa-logistica-istmo",
+        "etiqueta": "RUC",
+        "decision": "aceptar",
+    }
+    confirmar = "proveedor_confirmar_campo"
+    assert _ejecutar(confirmar, argumentos, aprobado(contexto, confirmar, argumentos))["ok"]
     r = _ejecutar("proveedor_armar_paquete", {"caso": "pa-logistica-istmo"}, contexto)
     assert como_dict(r["data"])["listo_para_firma"] is True
 

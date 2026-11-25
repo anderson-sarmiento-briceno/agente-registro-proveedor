@@ -77,6 +77,12 @@ Los campos faltantes y por confirmar quedan **vacíos** en el formulario (nunca 
 
 **Listo para firma** significa: ningún soporte vencido o ausente y ningún campo por confirmar. Si no está listo, la herramienta da los motivos: explíquelos uno por uno y diga qué haría falta.
 
-## Después del paquete
+## Después del paquete: el envío simulado
 
-La analista revisa el paquete y lo manda a firma por su cuenta. En esta versión el agente no envía nada.
+La analista revisa el paquete y decide. Si el paquete está **listo para firma** y ella pide enviarlo, `proveedor_simular_envio` (con su aprobación) escribe `out/<caso>/ENVIO-SIMULADO.md`: la lista de archivos que se habrían enviado, con su huella, y quién lo aprobó. **No se envía nada de verdad.**
+
+El envío se niega si el paquete no está listo, o si quedó desactualizado: se confirmó un campo después de armarlo, cambió la fecha de ejecución o cambió algún archivo. En ese caso hay que volver a armar el paquete.
+
+## Aprobaciones
+
+Confirmar un campo y simular el envío necesitan la **aprobación explícita** de la analista con los botones Aprobar / Rechazar. Un "sí" escrito en el chat no aprueba. Si ella escribe otro mensaje sin aprobar, la acción pendiente se cancela. Todo queda registrado en `log.jsonl`: qué se pidió, quién lo aprobó o rechazó, y cuándo.

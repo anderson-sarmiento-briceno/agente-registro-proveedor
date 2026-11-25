@@ -5,6 +5,13 @@ Sirve para probar el agente completo antes de tener la API (Paso 15) y el front
 el modelo, EN ORDEN, con sus argumentos y su resultado. Así se ve exactamente cómo
 decidió el modelo.
 
+Confirmaciones (Paso 13): cuando el modelo pide una acción que requiere aprobación,
+se muestra como pendiente, con su identificador. La analista la resuelve con:
+    /aprobar [id]     /rechazar [id]
+Estos comandos los interpreta ESTE programa, no el modelo: son el equivalente de los
+botones Aprobar / Rechazar del front. Si hay una sola pendiente, el id es opcional.
+Escribir cualquier otro mensaje cancela las pendientes (RN4).
+
 Gasta dinero de verdad (poco: un caso completo son unas 6 consultas a
 claude-haiku-5-5, del orden de un centavo de dólar) y necesita la clave en `.env`.
 Lo que genera queda en `out/`, igual que con la demo.
@@ -26,6 +33,7 @@ from registro_proveedor.dominio.lectura import ErrorDeDatos
 from registro_proveedor.herramientas.proveedor import registro
 
 PALABRAS_PARA_SALIR = {"salir", "exit", "quit"}
+COMANDOS = {"/aprobar": True, "/rechazar": False}
 
 
 def conversar(
@@ -53,7 +61,8 @@ def conversar(
     escribir(
         f"Agente de registro como proveedor · modelo {modelo.modelo} · "
         f"instrucciones v{instrucciones.version} · sesión {sesion.id}\n"
-        "Escriba su mensaje, o «salir» para terminar."
+        "Escriba su mensaje, o «salir» para terminar. "
+        "Para las acciones pendientes: /aprobar o /rechazar."
     )
     while True:
         try:
@@ -64,7 +73,10 @@ def conversar(
             break
         if not mensaje:
             continue
-        turno = agente.responder(sesion, mensaje)
+        turno = _atender(agente, sesion, mensaje)
+        if turno is None:  # un comando mal escrito: ya se explicó, no se llamó al modelo
+            escribir(_ayuda_comandos(sesion))
+            continue
         escribir(f"\nAgente: {turno.texto}\n")
         escribir(describir_turno(turno))
     escribir(
@@ -74,8 +86,37 @@ def conversar(
     return 0
 
 
+def _atender(agente: Agente, sesion: Sesion, mensaje: str) -> Turno | None:
+    """Un mensaje normal va al modelo; `/aprobar` y `/rechazar` resuelven una pendiente.
+
+    Devuelve None si el comando no se puede resolver (por ejemplo, hay dos pendientes y
+    no se dijo cuál): en ese caso no se hace nada.
+    """
+    partes = mensaje.split()
+    comando = partes[0].lower()
+    if comando not in COMANDOS:
+        if comando.startswith("/"):
+            return None
+        return agente.responder(sesion, mensaje)
+    if len(partes) > 1:
+        id_confirmacion = partes[1]
+    elif len(sesion.pendientes) == 1:
+        id_confirmacion = next(iter(sesion.pendientes))
+    else:
+        return None
+    return agente.resolver(sesion, id_confirmacion, aprobar=COMANDOS[comando])
+
+
+def _ayuda_comandos(sesion: Sesion) -> str:
+    if not sesion.pendientes:
+        return "No hay acciones pendientes de aprobación."
+    lineas = ["Diga cuál acción resolver: /aprobar <id> o /rechazar <id>"]
+    lineas += [f"  {p.id} · {p.descripcion}" for p in sesion.pendientes.values()]
+    return "\n".join(lineas)
+
+
 def describir_turno(turno: Turno) -> str:
-    """La tabla de herramientas que pidió el modelo en el turno, y lo que costó."""
+    """La tabla de herramientas que pidió el modelo en el turno, las pendientes y el costo."""
     if turno.llamadas:
         lineas = [
             "Herramientas que pidió el modelo (en orden):",
@@ -84,11 +125,15 @@ def describir_turno(turno: Turno) -> str:
         ]
         lineas += [
             f"| {ll.orden} | {ll.nombre} | {json.dumps(ll.argumentos, ensure_ascii=False)} | "
-            f"{'✓' if ll.ok else '✗'} {ll.resumen} |"
+            f"{ll.simbolo} {ll.resumen} |"
             for ll in turno.llamadas
         ]
     else:
         lineas = ["(El modelo no pidió herramientas en este turno.)"]
+    if turno.pendientes:
+        lineas.append("")
+        lineas.append("⏳ Pendientes de su aprobación (escriba /aprobar o /rechazar):")
+        lineas += [f"  {p.id} · {p.descripcion}" for p in turno.pendientes]
     lineas.append(
         f"Fin: {turno.fin} · {turno.consultas} "
         f"{'consulta' if turno.consultas == 1 else 'consultas'} al modelo · "

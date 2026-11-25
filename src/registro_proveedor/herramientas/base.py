@@ -141,6 +141,22 @@ def _ahora_utc() -> datetime:
 
 
 @dataclass(frozen=True)
+class Aprobacion:
+    """La aprobación de la analista para UNA acción concreta (CA3, Paso 13).
+
+    La crea el ciclo del agente solo cuando la analista pulsa Aprobar, y la pone en el
+    `Contexto` con el que se ejecuta esa acción. Sirve para UNA herramienta con UNOS
+    argumentos exactos: no se puede usar para otra herramienta ni para otros argumentos.
+    """
+
+    id: str  # el de la confirmación pendiente que se aprobó
+    herramienta: str
+    argumentos: Mapping[str, object]  # ya validados (`model_dump(mode="json")`)
+    por: str  # quién aprobó
+    en: datetime  # cuándo
+
+
+@dataclass(frozen=True)
 class Contexto:
     """Lo que toda herramienta necesita, además de sus argumentos.
 
@@ -161,6 +177,10 @@ class Contexto:
     # Función que da la hora actual, para el `ts` del log. En pruebas se reemplaza
     # por una que siempre da la misma hora, y así el log es predecible.
     reloj: Callable[[], datetime] = field(default=_ahora_utc)
+    # Paso 13 · Doble candado: las herramientas marcadas `requiere_confirmacion` solo se
+    # ejecutan si aquí viene una aprobación para ESA herramienta y ESOS argumentos. Lo
+    # normal es None: solo el ciclo del agente la pone, después de que la analista aprueba.
+    aprobacion: Aprobacion | None = None
 
     @classmethod
     def desde_configuracion(cls, config: Configuracion, sesion_id: str = "local") -> "Contexto":
@@ -213,7 +233,8 @@ class Herramienta:
     descripcion: str  # una frase: es lo único que el modelo lee para decidir usarla
     modelo_args: type[ArgumentosHerramienta]
     # Si es True, el servidor no la ejecuta al pedirla, sino que pide aprobación
-    # humana (CA3). En este paso solo se guarda la marca; el bloqueo es del Paso 13.
+    # humana (CA3): el ciclo crea una confirmación pendiente, y la herramienta solo
+    # corre con una `Aprobacion` válida en el contexto (doble candado, Paso 13).
     requiere_confirmacion: bool
     funcion: FuncionSegura
     # La función que resume los datos del resultado en una frase (la del log). El ciclo
@@ -277,7 +298,7 @@ class Registro:
                 raise ValueError(f"nombre de herramienta no válido: «{nombre}»")
             if nombre in self._herramientas:
                 raise ValueError(f"la herramienta «{nombre}» ya está registrada")
-            segura = _envolver(nombre, funcion, resumir)
+            segura = _envolver(nombre, funcion, resumir, requiere_confirmacion)
             self._herramientas[nombre] = Herramienta(
                 nombre=nombre,
                 descripcion=descripcion,
@@ -316,40 +337,75 @@ class Registro:
         sin ejecutar nada (y lo deja en el log).
         """
         inicio = time.perf_counter()
-        encontrada = self.obtener(nombre)
-        if encontrada is None:
-            disponibles = ", ".join(sorted(self._herramientas)) or "ninguna"
-            resultado: Resultado[Any] = Resultado(
-                ok=False,
-                error=f"no existe la herramienta «{nombre}». Disponibles: {disponibles}",
-            )
-            _registrar(ctx, nombre, None, resultado, None, inicio)
-            return resultado
-        try:
-            args = encontrada.modelo_args.model_validate(argumentos)
-        except ValidationError as e:
-            problemas = "; ".join(describir_error_validacion(err) for err in e.errors())
-            resultado = Resultado(ok=False, error=f"argumentos no válidos: {problemas}")
+        encontrada, args, error = self._validar(nombre, argumentos)
+        if encontrada is None or args is None:
+            resultado: Resultado[Any] = Resultado(ok=False, error=error)
             _registrar(ctx, nombre, None, resultado, None, inicio)
             return resultado
         return encontrada.funcion(args, ctx)
 
+    def validar_argumentos(
+        self, nombre: str, argumentos: Mapping[str, object]
+    ) -> Resultado[dict[str, Any]]:
+        """Revisa la herramienta y sus argumentos SIN ejecutarla.
+
+        Devuelve los argumentos normalizados (como quedan después de validarlos, con los
+        valores por defecto incluidos), o un error claro. El ciclo del agente lo usa
+        antes de crear una confirmación pendiente (Paso 13): no tiene sentido pedirle a
+        la analista que apruebe algo que de todas formas fallaría.
+        """
+        _, args, error = self._validar(nombre, argumentos)
+        if args is None:
+            return Resultado(ok=False, error=error)
+        return Resultado(ok=True, data=args.model_dump(mode="json"))
+
+    def _validar(
+        self, nombre: str, argumentos: Mapping[str, object]
+    ) -> tuple[Herramienta | None, ArgumentosHerramienta | None, str]:
+        """(herramienta, argumentos validados, "") o (…, None, mensaje de error)."""
+        encontrada = self.obtener(nombre)
+        if encontrada is None:
+            disponibles = ", ".join(sorted(self._herramientas)) or "ninguna"
+            return None, None, f"no existe la herramienta «{nombre}». Disponibles: {disponibles}"
+        try:
+            return encontrada, encontrada.modelo_args.model_validate(argumentos), ""
+        except ValidationError as e:
+            problemas = "; ".join(describir_error_validacion(err) for err in e.errors())
+            return encontrada, None, f"argumentos no válidos: {problemas}"
+
 
 # ---------- Detalles internos ----------
+
+
+SIN_APROBACION = (
+    "esta acción requiere la aprobación de la analista y no se ejecutó: "
+    "no hay una aprobación válida para esta herramienta con estos argumentos"
+)
 
 
 def _envolver[A: ArgumentosHerramienta, D](
     nombre: str,
     funcion: Callable[[A, Contexto], Resultado[D]],
     resumir: Callable[[D], str] | None,
+    requiere_confirmacion: bool,
 ) -> Callable[[A, Contexto], Resultado[D]]:
-    """Crea la versión "segura" de una herramienta: nunca lanza y siempre deja registro."""
+    """Crea la versión "segura" de una herramienta: nunca lanza y siempre deja registro.
+
+    Si la herramienta requiere confirmación, además exige una aprobación válida en el
+    contexto (el doble candado del Paso 13). Este control está AQUÍ, y no solo en el
+    ciclo del agente, para que nadie pueda saltárselo: ni el modelo, ni un error del
+    ciclo, ni una llamada directa desde otro código.
+    """
 
     # `functools.wraps` copia el nombre y la documentación de la función original,
     # para que la versión envuelta se vea igual al inspeccionarla.
     @functools.wraps(funcion)
     def segura(args: A, ctx: Contexto) -> Resultado[D]:
         inicio = time.perf_counter()
+        if requiere_confirmacion and not _esta_aprobada(ctx, nombre, args):
+            bloqueada: Resultado[D] = Resultado(ok=False, error=SIN_APROBACION)
+            _registrar(ctx, nombre, _caso_de(args), bloqueada, resumir, inicio)
+            return bloqueada
         try:
             resultado = funcion(args, ctx)
         except ErrorDeDatos as e:
@@ -372,6 +428,16 @@ def _envolver[A: ArgumentosHerramienta, D](
         return resultado
 
     return segura
+
+
+def _esta_aprobada(ctx: Contexto, nombre: str, args: ArgumentosHerramienta) -> bool:
+    """¿Hay en el contexto una aprobación para ESTA herramienta con ESTOS argumentos?"""
+    aprobacion = ctx.aprobacion
+    return (
+        aprobacion is not None
+        and aprobacion.herramienta == nombre
+        and dict(aprobacion.argumentos) == args.model_dump(mode="json")
+    )
 
 
 def _caso_de(args: object) -> str | None:
@@ -399,6 +465,7 @@ def _registrar[D](
             ok=resultado.ok,
             resumen=_resumen(herramienta, resultado, resumir),
             duracion_ms=round((time.perf_counter() - inicio) * 1000),
+            aprobacion=ctx.aprobacion.id if ctx.aprobacion else None,
         ),
     )
 

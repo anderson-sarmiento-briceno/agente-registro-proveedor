@@ -19,7 +19,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from registro_proveedor.dominio import casos, mapeo, paquete
+from registro_proveedor.dominio import casos, envio, mapeo, paquete
 from registro_proveedor.dominio.generadores import generar_formulario as generar
 from registro_proveedor.dominio.generadores.comun import (
     ErrorDeGeneracion,
@@ -259,7 +259,8 @@ def _resumir_confirmacion(r: ResultadoConfirmacion) -> str:
 @registro.herramienta(
     nombre="proveedor_confirmar_campo",
     descripcion="Resuelve un campo en requiere_confirmacion del mapeo de un caso: "
-    "aceptar el valor propuesto o dejarlo faltante. Requiere aprobación de la analista.",
+    "aceptar el valor propuesto o dejarlo faltante. Requiere aprobación de la analista: "
+    "al pedirla, queda pendiente hasta que ella la apruebe.",
     argumentos=ConfirmarCampoArgs,
     requiere_confirmacion=True,
     resumir=_resumir_confirmacion,
@@ -454,5 +455,66 @@ def armar_paquete(args: ArmarPaqueteArgs, ctx: Contexto) -> Resultado[VistaPaque
                 SoporteVisto(tipo=s.tipo, estado=s.estado, nota=s.nota) for s in armado.soportes
             ],
             archivos=armado.archivos,
+        ),
+    )
+
+
+# ---------- proveedor_simular_envio ----------
+
+
+class SimularEnvioArgs(ArgumentosHerramienta):
+    caso: IdCasoArg
+
+
+class VistaEnvio(_Vista):
+    caso: str
+    archivo: str
+    archivos_enviados: int
+    aprobacion: str
+
+
+def _resumir_envio(v: VistaEnvio) -> str:
+    return (
+        f"{v.archivo} · {_n(v.archivos_enviados, 'archivo', 'archivos')} · "
+        f"aprobación {v.aprobacion}"
+    )
+
+
+@registro.herramienta(
+    nombre="proveedor_simular_envio",
+    descripcion="Simula el envío del paquete para firma del caso: escribe ENVIO-SIMULADO.md "
+    "(no envía nada de verdad). Solo si el paquete está listo y al día. Requiere aprobación "
+    "de la analista.",
+    argumentos=SimularEnvioArgs,
+    requiere_confirmacion=True,
+    resumir=_resumir_envio,
+)
+def simular_envio(args: SimularEnvioArgs, ctx: Contexto) -> Resultado[VistaEnvio]:
+    # El doble candado de `base.py` ya comprobó que hay una aprobación válida; aquí
+    # solo se usa para anotar quién aprobó y cuándo.
+    aprobacion = ctx.aprobacion
+    if aprobacion is None:  # no debería pasar: el candado lo impide antes
+        raise ErrorDeHerramienta("el envío requiere la aprobación de la analista")
+    caso = _leer_caso(ctx, args.caso)
+    carpeta = ctx.carpeta_de_salida(args.caso)
+    try:
+        enviado = envio.simular_envio(
+            caso=caso,
+            mapeo=_mapeo_guardado(carpeta, args.caso),
+            carpeta_caso=carpeta,
+            fecha=ctx.fecha_ejecucion,
+            aprobacion=aprobacion.id,
+            aprobado_por=aprobacion.por,
+            aprobado_en=aprobacion.en,
+        )
+    except envio.ErrorDeEnvio as e:
+        raise ErrorDeHerramienta(str(e)) from None
+    return Resultado(
+        ok=True,
+        data=VistaEnvio(
+            caso=caso.caso,
+            archivo=f"{ctx.salida.name}/{caso.caso}/{enviado.ruta.name}",
+            archivos_enviados=len(enviado.archivos),
+            aprobacion=aprobacion.id,
         ),
     )

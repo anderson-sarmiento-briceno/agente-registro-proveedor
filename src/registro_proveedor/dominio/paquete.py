@@ -369,11 +369,12 @@ def _manifiesto(
             )
             for c in mapeo.campos
         ],
-        archivos=[_huella(carpeta / nombre) for nombre in archivos],
+        archivos=[huella_de(carpeta / nombre) for nombre in archivos],
     )
 
 
-def _huella(archivo: Path) -> ArchivoDelPaquete:
+def huella_de(archivo: Path) -> ArchivoDelPaquete:
+    """El archivo con su huella SHA-256 y su tamaño. También lo usa el envío (Paso 13)."""
     contenido = archivo.read_bytes()
     return ArchivoDelPaquete(
         nombre=archivo.name, sha256=hashlib.sha256(contenido).hexdigest(), bytes=len(contenido)
