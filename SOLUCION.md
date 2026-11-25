@@ -22,7 +22,7 @@
 | 5 | Mapeo de campos y su confirmación | F1 | ✅ |
 | 6 | Reglas de negocio configurables | F1 | ✅ |
 | 7 | Generación de formularios | F1 | ✅ |
-| 8 | Paquete para firma | F1 | ⬜ |
+| 8 | Paquete para firma | F1 | ✅ |
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ⬜ |
 | 10 | Adaptador del modelo de lenguaje | F2 | ⬜ |
 | 11 | System prompt y base de conocimiento | F2 | ⬜ |
@@ -124,8 +124,16 @@
 ### Paso 8 · Paquete para firma
 **Objetivo:** `proveedor_armar_paquete` crea la carpeta con el formulario, los soportes, `checklist.md`, `borrador-correo.md` y `manifiesto.json`, y calcula `listo_para_firma`.
 **Hecho cuando:** un soporte vencido o ausente bloquea el estado y el borrador nunca contiene datos bancarios.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`proveedor_armar_paquete`** crea `out/<caso>/paquete/` con:
+  - el formulario, generado de nuevo desde el mapeo;
+  - los soportes que existen, incluidos los vencidos, para saber cuál renovar;
+  - `checklist.md`, `borrador-correo.md` y `manifiesto.json`.
+- **Listo para firma** solo si nada lo bloquea. Bloquean un soporte vencido o ausente y un campo por confirmar (decisión de Anderson). Un faltante o un soporte por vencer solo se avisan.
+- **El borrador nunca lleva datos bancarios:** la plantilla no los recibe y, además, el texto se revisa antes de guardarlo. Si apareciera uno, el paquete no se arma.
+- **El manifiesto** guarda la fecha, la versión del maestro, la huella de cada archivo y el origen de cada campo (quién confirmó), sin valores.
+- **A la fecha fija:** CO listo · EC, HN y PA no listos, cada uno con sus motivos. **Pruebas:** 323 en total.
 
 ### Paso 9 · Demostración sin modelo y pruebas *golden*
 **Objetivo:** `scripts/demo.py` procesa todos los casos llamando directamente a las herramientas, y las pruebas *golden* fijan el resultado esperado de cada caso.
@@ -373,7 +381,29 @@ out/<caso>/mapeo.json ──▶ proveedor_generar_formulario ──▶ formulari
 
 **Por qué nunca desde el modelo:** el formulario sale solo de `mapeo.json`, así que el modelo no puede cambiar un valor entre "mapear" y "generar". La respuesta al modelo trae la ruta y los conteos, sin ningún valor.
 
-_El paquete para firma se completa en el Paso 8._
+**5. Armar el paquete para firma (Paso 8)**
+
+```
+out/<caso>/paquete/
+├── formulario.xlsx | .pdf | valores-portal.md   (generado de nuevo desde mapeo.json)
+├── <soportes>.txt                               (copias; los vencidos también)
+├── checklist.md                                 (listo o no, y por qué)
+├── borrador-correo.md                           (sin datos bancarios)
+└── manifiesto.json                              (para auditar: huellas y origen de cada campo)
+```
+
+| ¿Bloquea la firma? | Ejemplo |
+|---|---|
+| ⛔ Sí | Soporte **vencido** (parafiscales de Honduras), soporte **ausente** (certificado tributario de Ecuador), campo **por confirmar** (el RUC). |
+| ⚠️ No, solo se avisa | Campo **faltante** en el maestro, soporte **por vencer** (15 días o menos). |
+
+**A la fecha fija (1 de septiembre de 2026):** CO ✅ listo · EC ⛔ (falta un soporte y el RUC está por confirmar) · HN ⛔ (parafiscales vencidos y RTN por confirmar) · PA ⛔ (solo el RUC por confirmar; al aceptarlo, queda listo).
+
+**Dos protecciones para el borrador (RN2):**
+1. La plantilla del correo no recibe ningún dato bancario.
+2. Antes de guardarlo, se revisa el texto. Si aparece el número de cuenta, el SWIFT o la cédula, el paquete no se arma. Un dato bancario que también es público, como el titular de la cuenta (que es la razón social), sí puede aparecer.
+
+**El paquete se arma completo o no se arma:** primero se crea en una carpeta temporal y, solo si todo salió bien, reemplaza al anterior.
 
 ## B4 · Calidad y pruebas
 **Se alimenta de:** Pasos 9 y 17.
@@ -469,10 +499,10 @@ _por completar_
 | HU-1 Leer la solicitud | 4, 6 | ✅ | Para producción: probar con plantillas reales, que serán más desordenadas que las de ejemplo. |
 | HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, regla de país, origen por campo, confirmación registrada y nunca un valor inventado. Falta que la confirmación exija aprobar en el front (Paso 13). |
 | HU-3 Generar formulario | 7 | 🟨 | Hecho: Excel en celdas exactas, PDF en orden y valores para portal, siempre desde el mapeo, con los faltantes vacíos y resaltados. Falta rellenar un PDF AcroForm del cliente y escribir sobre su `.xlsx` original (ningún caso de ejemplo los trae). |
-| HU-4 Paquete para firma | 8 | ⬜ | |
+| HU-4 Paquete para firma | 8 | 🟨 | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. Falta que el agente cierre con un resumen y una pregunta explícita (pasos 11 y 12). |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
 | HU-6 Manejo de errores | 3, 12 | 🟨 | Hecho para las herramientas (nunca lanzan; mensaje claro). Falta el error del proveedor del LLM (Paso 12). |
-| HU-7 Trazabilidad | 3, 8 | 🟨 | Hecho el `log.jsonl` por llamada, sin datos sensibles. Falta el `manifiesto.json` del paquete (Paso 8). |
+| HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Para producción: registrar también la versión del prompt (Paso 11) y pedir que el maestro tenga versión. |
 
 ## B13 · Decisiones y trade-offs
 **Se alimenta de:** todos los pasos.
@@ -503,6 +533,10 @@ _por completar_
 | D27 | `celda_etiqueta` es obligatoria en `mapeo.json` (sin valor por defecto). | Darle un valor por defecto vacío. | Un mapeo viejo falla al leerse y la herramienta pide volver a mapear, en vez de generar un Excel sin etiquetas. | 7 |
 | D28 | En el Excel, todo se escribe como texto y un `=` no se vuelve fórmula. | Dejar que Excel adivine el tipo. | Excel quitaría el cero de "050021" y podría ejecutar una fórmula maliciosa al abrir el archivo. | 7 |
 | D29 | El PDF rellenable (AcroForm) queda pendiente. | Implementarlo sin un archivo para probar. | Ningún caso de ejemplo trae un AcroForm: sería código que nadie puede verificar. | 7 |
+| D30 | Un campo por confirmar **bloquea** `listo_para_firma` (decisión de Anderson). | Que solo bloqueen los soportes, como dice RN3. | Su celda está vacía en el formulario (D26) y la decisión está en manos de la analista. Un faltante no bloquea porque no hay nada que decidir. | 8 |
+| D31 | El formulario se genera de nuevo al armar el paquete. | Copiar el que generó el Paso 7. | Así nunca va a firma un formulario viejo, por ejemplo uno de antes de confirmar el RUC. | 8 |
+| D32 | RN2 tiene dos protecciones: la plantilla no recibe datos bancarios y el texto se revisa antes de guardarlo. | Confiar solo en la plantilla. | Un dato podría llegar por otro lado, como el asunto del correo del cliente. Los valores que también son públicos (el titular = la razón social) no se consideran secretos. | 8 |
+| D33 | El paquete se arma en una carpeta temporal y reemplaza al anterior al final. | Escribir directo en `paquete/`. | Nunca queda un paquete a medias ni archivos sobrantes de una versión anterior. | 8 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -517,6 +551,8 @@ _Se agregan más decisiones en cada paso._
 - *(Paso 6)* El aviso "por vencer" empieza a los **15 días**, como sugiere el plan. Es la pregunta abierta 5 del plan: el área administrativa puede cambiarlo en `reglas.yaml`.
 - *(Paso 6)* RN1 se aplica a cualquier campo que termine en el NIT, se llame "RUC", "RTN" o "Identificación tributaria": lo que importa es el dato, no el nombre de la etiqueta.
 - *(Paso 7)* El Excel se crea nuevo, porque los casos de ejemplo traen la plantilla en JSON y no el `.xlsx` del cliente. En producción convendría escribir sobre el archivo original para respetar su formato.
+- *(Paso 8)* Los soportes vencidos también se copian al paquete (marcados en el checklist), para que la analista sepa cuál renovar. Los ausentes, obviamente, no.
+- *(Paso 8)* El borrador va dirigido al remitente de la solicitud y responde a su asunto. Se firma como "Área Administrativa" de la empresa.
 - *(Paso 7)* Los valores se escriben tal como están en el maestro. Por ejemplo, "País" sale como `CO`, no como "Colombia". Si un cliente lo pide de otra forma, es un cambio de presentación para decidir con la usuaria.
 
 _Se agregan más supuestos en cada paso._
@@ -539,6 +575,7 @@ _por completar_
 | 5 | Claude Code | Proponer y escribir el mapeo en capas, la confirmación y sus herramientas. | Antes de elegir la medida de parecido se midieron tres con etiquetas reales (D20). Se rehízo el diseño de "cambiar de opinión", porque la primera versión perdía el valor propuesto al dejar un campo faltante (D21). |
 | 6 | Claude Code | Proponer y escribir `reglas.yaml`, RN1, las vigencias y sus pruebas. | La primera versión de la prueba "cambiar el YAML cambia el resultado" no probaba nada real; se reescribió de punta a punta, con la herramienta y dos archivos de reglas. Al agregar la nota de RN1 se vio que la forma de guardar la decisión en la nota podía borrarla, y se cambió (D25). |
 | 7 | Claude Code | Proponer y escribir los generadores de Excel, PDF y portal, y su herramienta. | Al revisar el resultado se encontró que un comentario de la plantilla de Jinja2 se filtraba en el archivo (contenía los símbolos de cierre de comentario), y se corrigió. Se revisó el PDF visualmente, no solo su texto. |
+| 8 | Claude Code | Proponer y escribir el paquete, el checklist, el borrador, el manifiesto y su herramienta. | Anderson decidió que los campos por confirmar bloqueen la firma (D30). La primera versión de la revisión de RN2 bloqueaba todos los paquetes, porque el titular de la cuenta es la razón social, que va en la firma; se afinó para no tratar como secreto un dato público (D32). Al leer los archivos se corrigieron detalles de presentación: paréntesis dobles, "1 días" y líneas en blanco sobrantes. |
 
 _Se agregan filas en cada paso._
 

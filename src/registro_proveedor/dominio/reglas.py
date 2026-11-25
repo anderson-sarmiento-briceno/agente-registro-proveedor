@@ -182,13 +182,18 @@ def evaluar_soporte(
     dias = (soporte.vigencia_hasta - fecha).days
     vence = soporte.vigencia_hasta.isoformat()
     if dias < 0:
-        estado, nota = EstadoSoporte.VENCIDO, f"venció el {vence} (hace {-dias} días)"
+        estado, nota = EstadoSoporte.VENCIDO, f"venció el {vence} (hace {_dias(-dias)})"
     elif dias <= regla.dias_por_vencer:
         estado = EstadoSoporte.POR_VENCER
-        nota = f"vence el {vence}: quedan {dias} días (aviso desde {regla.dias_por_vencer})"
+        nota = f"vence el {vence}: quedan {_dias(dias)} (aviso desde {regla.dias_por_vencer})"
     else:
-        estado, nota = EstadoSoporte.PRESENTE, f"vigente hasta el {vence} ({dias} días)"
+        estado, nota = EstadoSoporte.PRESENTE, f"vigente hasta el {vence} ({_dias(dias)})"
     return _evaluacion(tipo, soporte, dias, estado, nota)
+
+
+def _dias(n: int) -> str:
+    """La cantidad con "día" en singular o plural: "1 día", "29 días"."""
+    return f"{n} día" if n == 1 else f"{n} días"
 
 
 def _evaluacion(

@@ -1,0 +1,45 @@
+{#- Plantilla del checklist del paquete para firma (Paso 8).
+    Lo lee la analista antes de mandar el paquete a firma. -#}
+# Checklist del paquete · {{ cliente }}
+
+Caso: `{{ caso }}` · Revisado al {{ fecha }} · Versión del maestro: {{ version_maestro }}
+
+{% if listo %}
+## ✅ Listo para firma
+{% else %}
+## ⛔ No está listo para firma
+
+Antes de firmar, resuelva:
+
+{% for m in motivos %}
+- [ ] {{ m }}
+{% endfor %}
+{% endif %}
+{% if avisos %}
+
+**Para tener en cuenta (no bloquea):**
+
+{% for a in avisos %}
+- {{ a }}
+{% endfor %}
+{% endif %}
+
+## Soportes exigidos por el cliente
+
+| Soporte | Estado | Vence | Detalle |
+|---|---|---|---|
+{% for s in soportes %}
+| {{ s.nombre }} | {{ s.estado }} | {{ s.vence }} | {{ s.nota | celda_md }} |
+{% endfor %}
+
+## Campos del formulario
+
+- Llenos: {{ llenos }}
+- Por confirmar: {{ pendientes | join(", ") if pendientes else "ninguno" }}
+- Faltantes en el maestro: {{ faltantes | join(", ") if faltantes else "ninguno" }}
+
+## Archivos del paquete
+
+{% for a in archivos %}
+- `{{ a }}`
+{% endfor %}

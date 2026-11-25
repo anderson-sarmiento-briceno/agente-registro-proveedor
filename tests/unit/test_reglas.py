@@ -146,7 +146,7 @@ def test_notas_en_lenguaje_claro() -> None:
     def nota(tipo: TipoSoporte, fecha: date = FECHA_FIJA) -> str:
         return evaluar_soporte(tipo, INDICE, fecha, QUINCE_DIAS).nota
 
-    assert nota(TipoSoporte.PARAFISCALES) == "venció el 2026-08-31 (hace 1 días)"
+    assert nota(TipoSoporte.PARAFISCALES) == "venció el 2026-08-31 (hace 1 día)"
     assert nota(TipoSoporte.RUT) == "no tiene vencimiento"
     assert nota(TipoSoporte.CERTIFICADO_CUMPLIMIENTO_TRIBUTARIO) == "no está en el repositorio"
     assert nota(TipoSoporte.CAMARA_COMERCIO, date(2026, 9, 20)) == (

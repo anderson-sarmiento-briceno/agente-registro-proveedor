@@ -19,20 +19,22 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from registro_proveedor.dominio import casos, mapeo
+from registro_proveedor.dominio import casos, mapeo, paquete
+from registro_proveedor.dominio.generadores import generar_formulario as generar
 from registro_proveedor.dominio.generadores.comun import (
     ErrorDeGeneracion,
     FormularioGenerado,
     verificar_correspondencia,
 )
-from registro_proveedor.dominio.generadores.excel import generar_excel
-from registro_proveedor.dominio.generadores.pdf import generar_pdf
-from registro_proveedor.dominio.generadores.portal import generar_portal
 from registro_proveedor.dominio.lectura import (
+    CARPETA_SOPORTES,
     ErrorDeCaso,
     ErrorDeDatos,
     cargar_glosario,
+    cargar_indice_soportes,
     cargar_maestro,
+    cargar_solicitud,
+    carpeta_de_caso,
 )
 from registro_proveedor.dominio.modelos import Formato
 from registro_proveedor.dominio.reglas import cargar_reglas
@@ -303,12 +305,6 @@ AVISO_PORTAL = (
     "se generaron los valores listos para copiar"
 )
 
-GENERADORES = {
-    Formato.EXCEL: generar_excel,
-    Formato.PDF: generar_pdf,
-    Formato.PORTAL: generar_portal,
-}
-
 
 def _resumir_formulario(v: VistaFormulario) -> str:
     return (
@@ -329,7 +325,7 @@ def generar_formulario(args: GenerarFormularioArgs, ctx: Contexto) -> Resultado[
     guardado = _mapeo_guardado(carpeta, args.caso)
     try:
         verificar_correspondencia(guardado, caso)
-        generado = GENERADORES[caso.formato](guardado, caso, carpeta)
+        generado = generar(guardado, caso, carpeta)
     except ErrorDeGeneracion as e:
         raise ErrorDeHerramienta(str(e)) from None
     return Resultado(ok=True, data=_vista_formulario(ctx, caso, generado))
@@ -376,4 +372,79 @@ def _vista_formulario(
         faltantes=generado.faltantes,
         pendientes=generado.pendientes,
         avisos=avisos,
+    )
+
+
+# ---------- proveedor_armar_paquete ----------
+
+
+class ArmarPaqueteArgs(ArgumentosHerramienta):
+    caso: IdCasoArg
+
+
+class SoporteVisto(_Vista):
+    tipo: str
+    estado: str
+    nota: str
+
+
+class VistaPaquete(_Vista):
+    """Lo que ve el modelo del paquete: si está listo, por qué no, y qué hay dentro.
+
+    Sin valores de los campos: no los necesita para explicar el resultado.
+    """
+
+    caso: str
+    carpeta: str
+    listo_para_firma: bool
+    motivos: list[str]
+    avisos: list[str]
+    soportes: list[SoporteVisto]
+    archivos: list[str]
+
+
+def _resumir_paquete(v: VistaPaquete) -> str:
+    if v.listo_para_firma:
+        return f"{v.carpeta} · listo para firma"
+    return f"{v.carpeta} · NO listo: {len(v.motivos)} motivos"
+
+
+@registro.herramienta(
+    nombre="proveedor_armar_paquete",
+    descripcion="Arma el paquete para firma del caso (formulario, soportes, checklist, borrador "
+    "de correo y manifiesto) y dice si está listo para firma y, si no, por qué.",
+    argumentos=ArmarPaqueteArgs,
+    resumir=_resumir_paquete,
+)
+def armar_paquete(args: ArmarPaqueteArgs, ctx: Contexto) -> Resultado[VistaPaquete]:
+    caso = _leer_caso(ctx, args.caso)
+    carpeta = ctx.carpeta_de_salida(args.caso)
+    try:
+        armado = paquete.armar_paquete(
+            caso=caso,
+            solicitud=cargar_solicitud(carpeta_de_caso(ctx.datos, args.caso)),
+            mapeo=_mapeo_guardado(carpeta, args.caso),
+            maestro=cargar_maestro(ctx.datos),
+            indice=cargar_indice_soportes(ctx.datos),
+            carpeta_soportes=ctx.datos / CARPETA_SOPORTES,
+            reglas=cargar_reglas(ctx.reglas),
+            fecha=ctx.fecha_ejecucion,
+            generado_en=ctx.reloj(),
+            carpeta_caso=carpeta,
+        )
+    except (ErrorDeGeneracion, paquete.ErrorDePaquete) as e:
+        raise ErrorDeHerramienta(str(e)) from None
+    return Resultado(
+        ok=True,
+        data=VistaPaquete(
+            caso=caso.caso,
+            carpeta=f"{ctx.salida.name}/{caso.caso}/{paquete.CARPETA_PAQUETE}",
+            listo_para_firma=armado.listo_para_firma,
+            motivos=armado.motivos,
+            avisos=armado.avisos,
+            soportes=[
+                SoporteVisto(tipo=s.tipo, estado=s.estado, nota=s.nota) for s in armado.soportes
+            ],
+            archivos=armado.archivos,
+        ),
     )

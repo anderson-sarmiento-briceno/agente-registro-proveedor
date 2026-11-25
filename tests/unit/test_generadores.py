@@ -24,11 +24,12 @@ from registro_proveedor.dominio.generadores.comun import (
 )
 from registro_proveedor.dominio.generadores.excel import generar_excel
 from registro_proveedor.dominio.generadores.pdf import generar_pdf, latin1
-from registro_proveedor.dominio.generadores.portal import celda_md, generar_portal
+from registro_proveedor.dominio.generadores.portal import generar_portal
 from registro_proveedor.dominio.lectura import cargar_glosario, cargar_maestro
 from registro_proveedor.dominio.mapeo import Decision, Mapeo, confirmar_campo, mapear_caso
 from registro_proveedor.dominio.modelos import Maestro
 from registro_proveedor.dominio.reglas import cargar_reglas
+from registro_proveedor.dominio.textos import celda_md
 from tests.ayudas import DATOS_REALES, FECHA_FIJA, HORA_FIJA
 
 GLOSARIO = cargar_glosario(DATOS_REALES)

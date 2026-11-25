@@ -21,6 +21,7 @@ def _log(contexto: Contexto) -> list[dict[str, object]]:
 def test_herramientas_registradas() -> None:
     nombres = [h.nombre for h in registro.listar()]
     assert nombres == [
+        "proveedor_armar_paquete",
         "proveedor_confirmar_campo",
         "proveedor_generar_formulario",
         "proveedor_leer_solicitud",

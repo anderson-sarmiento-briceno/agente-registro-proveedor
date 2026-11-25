@@ -1,0 +1,28 @@
+{#- Plantilla del borrador del correo de respuesta al cliente (Paso 8).
+    RN2: este texto NUNCA lleva datos bancarios. No se le pasan, y además el código
+    revisa el resultado antes de guardarlo. -#}
+Para: {{ para }}
+Asunto: Re: {{ asunto }}
+{% if not listo %}
+
+> **BORRADOR · NO ENVIAR TODAVÍA.** Primero resuelva lo pendiente en `checklist.md`.
+{% endif %}
+
+Buenos días,
+
+{% if portal %}
+Les informamos que completamos el registro de {{ razon_social }} como proveedor en su portal. Estos son los documentos solicitados, que también cargamos allí:
+{% else %}
+Adjuntamos el formulario de registro de proveedor de {{ razon_social }}, firmado por el representante legal, junto con estos documentos:
+{% endif %}
+
+{% for a in adjuntos %}
+- {{ a }}
+{% endfor %}
+
+Quedamos atentos a cualquier información adicional.
+
+Cordialmente,
+
+Área Administrativa
+{{ razon_social }}

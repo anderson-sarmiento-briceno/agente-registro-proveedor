@@ -116,6 +116,18 @@ class TipoSoporte(StrEnum):
     CERTIFICADO_CUMPLIMIENTO_TRIBUTARIO = "certificado_cumplimiento_tributario"
 
 
+# Nombre de cada soporte para personas (checklist y correo), en lugar del código.
+NOMBRES_SOPORTE: dict[TipoSoporte, str] = {
+    TipoSoporte.CAMARA_COMERCIO: "Cámara de Comercio",
+    TipoSoporte.RUT: "RUT",
+    TipoSoporte.CERTIFICACION_BANCARIA: "Certificación bancaria",
+    TipoSoporte.PARAFISCALES: "Certificación de parafiscales",
+    TipoSoporte.ESTADOS_FINANCIEROS: "Estados financieros",
+    TipoSoporte.CERTIFICADO_ISO_9001: "Certificado ISO 9001",
+    TipoSoporte.CERTIFICADO_CUMPLIMIENTO_TRIBUTARIO: "Certificado de cumplimiento tributario",
+}
+
+
 # ---------- Bases de los modelos ----------
 
 
