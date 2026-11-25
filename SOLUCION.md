@@ -24,7 +24,7 @@
 | 7 | Generación de formularios | F1 | ✅ |
 | 8 | Paquete para firma | F1 | ✅ |
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ✅ |
-| 10 | Adaptador del modelo de lenguaje | F2 | ⬜ |
+| 10 | Adaptador del modelo de lenguaje | F2 | ✅ |
 | 11 | System prompt y base de conocimiento | F2 | ⬜ |
 | 12 | Ciclo del agente | F2 | ⬜ |
 | 13 | Confirmación humana y envío simulado | F2 | ⬜ |
@@ -152,8 +152,13 @@
 ### Paso 10 · Adaptador del modelo de lenguaje
 **Objetivo:** definir la interfaz `enviar(mensajes, herramientas) → respuesta` (un `Protocol`) y una implementación para el proveedor elegido, con timeout y reintentos.
 **Hecho cuando:** existe un adaptador falso para las pruebas y cambiar de proveedor no toca el ciclo del agente.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Un contrato propio** (`agente/llm/adaptador.py`): `enviar(sistema, mensajes, herramientas) → respuesta`, con nuestros tipos. El modelo responde con texto o con **pedidos de herramienta**: nunca las ejecuta él.
+- **Adaptador de Anthropic** (`proveedor_anthropic.py`), con el SDK oficial: timeout de 30 s, 3 reintentos ante fallas pasajeras (los hace el SDK), caché del prompt, esfuerzo `medium` en vez de `temperature` (CA6 ajustada) y errores traducidos a mensajes claros, sin la clave.
+- **Modelo falso** (`falso.py`): responde con un guion, para probar el ciclo del Paso 12 sin clave ni costo.
+- **Las herramientas que ve el modelo salen solas del registro**: hoy son 6. `proveedor_simular_envio` llega en el Paso 13.
+- **Prueba real manual:** `scripts/probar_modelo.py` muestra qué herramienta pide el modelo ante una pregunta. Queda pendiente correrla cuando Anderson ponga la clave en `.env`. **Pruebas:** 383 en total, sin red.
 
 ### Paso 11 · System prompt y base de conocimiento
 **Objetivo:** escribir `agente/prompt.md` (comportamiento) y `knowledge/registro-proveedor.md` (proceso, países y soportes), separados del código y versionados.
@@ -301,7 +306,26 @@ _por completar_
 | **Decorador** | Una "envoltura" que se pone encima de una función (`@herramienta`) para agregarle comportamiento. |
 | **structlog** | La librería de los logs de operación, que los escribe en JSON. |
 
-_El resto se completa en los pasos 10, 15 y 16._
+**El adaptador del modelo (Paso 10):**
+
+```
+agente (Paso 12)
+   │  enviar(sistema, conversación, herramientas)
+   ▼
+AdaptadorLLM  ◀── contrato propio: el agente solo conoce esto
+   ├── AdaptadorAnthropic  → SDK oficial → API de Claude
+   └── AdaptadorFalso      → guion fijo (pruebas, sin clave ni costo)
+```
+
+| Parte | Qué hace, en una frase |
+|---|---|
+| `agente/llm/adaptador.py` | Nuestros tipos (mensaje, texto, pedido de herramienta, resultado, respuesta) y el contrato `AdaptadorLLM`. |
+| `agente/llm/proveedor_anthropic.py` | Traduce entre nuestros tipos y los de Anthropic, y los errores del SDK a mensajes claros. |
+| `agente/llm/falso.py` | Un modelo con guion, para probar el agente sin red. |
+
+**Cambiar de proveedor** = escribir otra clase con `modelo` y `enviar`. El ciclo del agente no cambia.
+
+_El resto se completa en los pasos 15 y 16._
 
 ## B3 · Núcleo determinista: lectura, mapeo, reglas y generación
 **Se alimenta de:** Pasos 4, 5, 6, 7 y 8.
@@ -454,7 +478,17 @@ uv run pytest --actualizar-golden    # después de un cambio intencional; revisa
 ## B5 · Elección del modelo y costo
 **Se alimenta de:** Pasos 10 y 18.
 **Objetivo:** indicar el proveedor y el modelo, por qué se eligieron, cómo se cambia de proveedor gracias al adaptador y el costo real medido por caso procesado.
-_por completar_
+
+| Tema | Decisión |
+|---|---|
+| Proveedor | **Anthropic**, con su SDK oficial (`anthropic`). |
+| Modelo | **`claude-haiku-5-5`**: el más económico (USD 0.10 por millón de tokens de entrada y 0.50 de salida). El modelo no calcula valores: solo elige herramientas y redacta, porque el núcleo es determinista (principio 1). Se cambia con `LLM_MODELO`, sin tocar código. |
+| Esfuerzo | `medium` (`LLM_ESFUERZO`). Reemplaza a `temperature`, que este modelo y la versión actual de la API rechazan (CA6, ajustada). En el Paso 17 se mide si `low` alcanza. |
+| Caché | Activada: el prompt y las herramientas se repiten en cada llamada y, desde la segunda, se cobran mucho más barato. |
+| Fallas | Timeout de 30 s y 3 reintentos ante fallas pasajeras (los hace el SDK). |
+| Cambiar de proveedor | Una clase nueva que cumpla `AdaptadorLLM` (ver B2). |
+
+**Costo:** se medirá por caso procesado en el Paso 18. Cada respuesta ya registra los tokens de entrada, de salida y de caché.
 
 ## B6 · Ciclo del agente y confirmación humana
 **Se alimenta de:** Pasos 11, 12 y 13.
@@ -596,6 +630,10 @@ _por completar_
 | D34 | El Excel se hace reproducible (fechas fijas dentro del archivo) y todo el texto se escribe con saltos de línea `\n`. | Aceptar que el Excel y las huellas cambien en cada ejecución. | El plan pide "exactamente el mismo resultado". Además, así el resultado es igual en Windows y en Linux (el CI). | 9 |
 | D35 | Los golden comparan el Excel por sus celdas, el PDF por su texto, y sin las huellas de los archivos binarios. | Comparar los archivos byte por byte. | La compresión puede variar entre sistemas. Que las huellas no cambien en la misma máquina se prueba aparte. | 9 |
 | D36 | La demo solo borra una carpeta que se llame `out`. | Borrar la carpeta que se le indique. | Un `--salida` mal escrito no puede borrar algo valioso. | 9 |
+| D37 | Tipos propios para la conversación, no los del SDK de Anthropic. | Usar directamente los tipos del SDK. | D3: cambiar de proveedor no debe tocar el ciclo del agente. Solo el adaptador conoce los tipos de Anthropic. | 10 |
+| D38 | Sin `temperature`; la consistencia la dan el núcleo determinista y el esfuerzo (CA6 ajustada, con aprobación de Anderson). | Mantener `temperature` 0–0.2, como decía el plan. | `claude-haiku-5-5` y la versión actual de la API la rechazan (error 400). | 10 |
+| D39 | Los reintentos los hace el SDK, configurado con `LLM_REINTENTOS`. | Escribir nuestro propio ciclo de reintentos. | El SDK ya reintenta solo los errores pasajeros, con esperas crecientes. Reescribirlo sería código de más y con más riesgo. | 10 |
+| D40 | Cada respuesta guarda su contenido original (`crudo`) y se le devuelve tal cual a Anthropic. | Devolver solo el texto y los pedidos de herramienta. | Anthropic exige recibir sin cambios los bloques de razonamiento de sus respuestas anteriores. | 10 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -636,6 +674,7 @@ _por completar_
 | 7 | Claude Code | Proponer y escribir los generadores de Excel, PDF y portal, y su herramienta. | Al revisar el resultado se encontró que un comentario de la plantilla de Jinja2 se filtraba en el archivo (contenía los símbolos de cierre de comentario), y se corrigió. Se revisó el PDF visualmente, no solo su texto. |
 | 8 | Claude Code | Proponer y escribir el paquete, el checklist, el borrador, el manifiesto y su herramienta. | Anderson decidió que los campos por confirmar bloqueen la firma (D30). La primera versión de la revisión de RN2 bloqueaba todos los paquetes, porque el titular de la cuenta es la razón social, que va en la firma; se afinó para no tratar como secreto un dato público (D32). Al leer los archivos se corrigieron detalles de presentación: paréntesis dobles, "1 días" y líneas en blanco sobrantes. |
 | 9 | Claude Code | Proponer y escribir la demo, las pruebas golden y el Excel reproducible. | Antes de arreglar el determinismo se midió qué archivos cambiaban entre dos ejecuciones, y así apareció que openpyxl sobrescribe la fecha de modificación. **Un error del asistente:** un script de PowerShell para reemplazar texto en varios archivos dañó tres de ellos; se detectó enseguida y se recuperaron desde git sin perder trabajo. Desde entonces se edita archivo por archivo. |
+| 10 | Claude Code | Proponer y escribir el adaptador, el modelo falso, la prueba real y sus pruebas, consultando la referencia actualizada de la API de Anthropic. | Se detectó que CA6 (`temperature`) ya no es posible con el modelo elegido; Anderson aprobó reemplazarla por el esfuerzo (D38). Al probar sin clave apareció que el SDK lanza un `TypeError`, que se habría escapado sin traducir; se corrigió y se agregó una prueba. |
 
 _Se agregan filas en cada paso._
 

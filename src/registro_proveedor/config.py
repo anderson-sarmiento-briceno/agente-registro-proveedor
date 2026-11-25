@@ -55,6 +55,20 @@ class Configuracion(BaseSettings):
     # Modelo de lenguaje. Por defecto uno económico. `min_length=1` evita que quede vacío.
     llm_modelo: str = Field(default="claude-haiku-5-5", min_length=1)
 
+    # Esfuerzo del modelo (CA6, ajustada en el Paso 10): cuánto razona antes de responder.
+    # Reemplaza a `temperature`, que el modelo ya no acepta. "medium" es el valor por
+    # defecto de claude-haiku-5-5; "low" es más barato y más rápido (se mide en el Paso 17).
+    llm_esfuerzo: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
+
+    # Cuánto esperar una respuesta (segundos) y cuántas veces reintentar si el problema
+    # es pasajero (servicio saturado, caída momentánea). El SDK espera cada vez un poco más.
+    llm_timeout_s: float = Field(default=30.0, gt=0, le=600)
+    llm_reintentos: int = Field(default=3, ge=0, le=10)
+
+    # Máximo de tokens que puede escribir el modelo en una respuesta. Si se queda corto,
+    # la respuesta se corta a la mitad; 8000 sobra para un resumen y varias herramientas.
+    llm_max_tokens: int = Field(default=8000, ge=256, le=64000)
+
     # RN7: fecha de ejecución inyectable. Las vigencias de los soportes se comparan
     # con esta fecha. Si se fija (por ejemplo, en pruebas), el resultado no depende
     # del día en que se ejecuta. Si está vacía, se usa la fecha de hoy.

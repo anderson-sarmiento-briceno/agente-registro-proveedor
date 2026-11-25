@@ -22,7 +22,6 @@ Léelo completo antes de trabajar en este proyecto.
 - ✅ `.gitignore` creado y repositorio git en `main`, con un commit local por paso (sin remoto).
 - ✅ **Paso 1 · Preparación del entorno**: uv 0.13.9 instalado, `pyproject.toml` + `uv.lock`, `config.py` (pydantic-settings), `.env.example`, 5 pruebas y CI de GitHub Actions. ruff, mypy y pytest en verde en local. El CI remoto se verá al primer *push* (todavía no hay remoto).
 - ✅ **Paso 2 · Modelos y validación**: `dominio/modelos.py`, `lectura.py` (lanza `ErrorDeDatos` con mensajes en español), `validacion.py` (errores y sugerencias) y `scripts/validar_datos.py` (en el CI). 72 pruebas. El código lleva comentarios detallados (qué y por qué), porque Anderson debe poder explicar cada parte: mantener ese nivel en los pasos siguientes. Datos reales: 0 errores, 1 sugerencia.
-- ⏳ Pendiente de Anderson: más adelante (Paso 10), copiar `.env.example` como `.env` y poner la API key de Anthropic.
 - ✅ **Paso 3 · Base de herramientas**: `herramientas/base.py` (`Resultado`, `Contexto`, `@herramienta`, `Registro`, `ErrorDeHerramienta`, `IdCasoArg`) y `observabilidad.py` (`log.jsonl` global y por caso, structlog, `enmascarar`, `es_ruta_sensible`). 113 pruebas. El NIT no se enmascara (D14).
 - ✅ **Paso 4 · Listado y lectura**: `dominio/texto.py` (`normalizar`, `palabras`), `dominio/casos.py` (`listar_casos`, `leer_caso`) y `herramientas/proveedor.py` (`registro` real con `proveedor_listar_casos` y `proveedor_leer_solicitud`). La lectura no devuelve el cuerpo del correo (D18). 163 pruebas.
 - ✅ **Paso 5 · Mapeo**: `dominio/mapeo.py` (capas exacta → normalizada → `token_sort_ratio`, umbrales en `config/reglas.yaml` desde el Paso 6, `mapeo.json` en `out/<caso>/`, confirmación con `valor_propuesto`) y las herramientas `proveedor_mapear_campos` y `proveedor_confirmar_campo` (`requiere_confirmacion=True`). Lo sensible se oculta por ruta (D22). 222 pruebas.
@@ -30,7 +29,9 @@ Léelo completo antes de trabajar en este proyecto.
 - ✅ **Paso 7 · Generación**: `dominio/generadores/` (`comun.py`, `excel.py`, `pdf.py`, `portal.py`) y `plantillas/valores-portal.md.j2` (Jinja2, dentro del paquete). Herramienta `proveedor_generar_formulario`, que solo lee `mapeo.json`. Lo por confirmar queda vacío y naranja; lo faltante, vacío y amarillo (D26). `celda_etiqueta` es obligatoria en el mapeo (D27). Excel todo como texto y sin fórmulas (D28). AcroForm pendiente (D29). 291 pruebas.
 - ✅ **Paso 8 · Paquete**: `dominio/paquete.py` (`armar_paquete`: formulario regenerado, soportes copiados, `checklist.md`, `borrador-correo.md`, `manifiesto.json`; se arma en temporal y reemplaza al anterior), `dominio/textos.py` (Jinja2 con `trim_blocks`), plantillas `checklist.md.j2` y `borrador-correo.md.j2`, y la herramienta `proveedor_armar_paquete`. Los campos por confirmar **bloquean** la firma (D30, decisión de Anderson). RN2 con doble protección; un dato bancario que también es público (titular = razón social) no es secreto (D32). 323 pruebas.
 - ✅ **Paso 9 · Demo y golden** (**fase F1 cerrada**): `src/registro_proveedor/demo.py` + `scripts/demo.py` (fecha fija 2026-09-01, `--fecha`, `--caso`; solo borra una carpeta llamada `out`), en el CI. Excel reproducible y todo el texto con `\n` (D34). Golden en `tests/golden/` (actualizar con `uv run pytest --actualizar-golden` y revisar con `git diff`). 346 pruebas.
-- ▶ **Siguiente: Paso 10 · Adaptador del modelo de lenguaje** (fase F2, ver `SOLUCION.md`): `Protocol` `enviar(mensajes, herramientas) → respuesta`, implementación Anthropic con timeout y reintentos, y un adaptador falso para las pruebas. Aquí Anderson necesitará la API key en `.env`. Antes de escribir código, explícame qué se va a crear y por qué.
+- ✅ **Paso 10 · Adaptador del LLM**: `agente/llm/adaptador.py` (tipos propios `Mensaje`, `BloqueTexto`, `LlamadaHerramienta`, `ResultadoHerramienta`, `RespuestaModelo` con `crudo`, `ErrorDelModelo`, `Protocol` `AdaptadorLLM`, `definiciones_desde_registro`), `proveedor_anthropic.py` (SDK oficial, esfuerzo en vez de `temperature` — CA6 ajustada con aprobación de Anderson —, caché, reintentos del SDK, errores traducidos; el `TypeError` sin clave también) y `falso.py` (guion: `pide`, `responde`). `scripts/probar_modelo.py` = una llamada real, muestra qué herramienta pide el modelo. 383 pruebas, sin red.
+- ⏳ Pendiente de Anderson: poner la API key en `.env` y correr `uv run python scripts/probar_modelo.py`.
+- ▶ **Siguiente: Paso 11 · System prompt y base de conocimiento** (ver `SOLUCION.md`): `agente/prompt.md` y `knowledge/registro-proveedor.md`. Al explicar el agente, mostrar siempre qué herramientas pide el modelo y en qué orden (matriz de `demo.py --llamadas`). Antes de escribir código, explícame qué se va a crear y por qué.
 
 Actualiza esta sección cada vez que se cierre un paso.
 
@@ -114,6 +115,7 @@ uv run python scripts/validar_datos.py   # valida datos/ (errores y sugerencias)
 uv run ruff check . ; uv run mypy src
 uv run python scripts/demo.py   # todos los casos sin LLM
 uv run python scripts/demo.py --llamadas   # + matriz casos × herramientas (out/llamadas.md)
+uv run python scripts/probar_modelo.py     # UNA llamada real al modelo (necesita la clave; gasta muy poco)
 uv run uvicorn registro_proveedor.api.app:app --reload   # servidor local
 ```
 

@@ -395,7 +395,7 @@ LLM (prompt + historial + herramientas)     cancelar la pendiente
 | CA3 | **La confirmación humana la controla el servidor, no el prompt.** Una herramienta marcada `requiere_confirmacion=True` crea una confirmación pendiente en lugar de ejecutarse. El front muestra los botones Aprobar y Rechazar. Solo una aprobación explícita del usuario la ejecuta. |
 | CA4 | Toda llamada a una herramienta queda visible en el chat y en `out/log.jsonl`. |
 | CA5 | Los errores de una herramienta o del LLM se muestran en lenguaje claro y la sesión sigue viva. Hay reintentos con *backoff* exponencial para los errores transitorios del proveedor (429 y 5xx). |
-| CA6 *(nueva)* | `temperature` baja (0–0.2) para respuestas consistentes. |
+| CA6 *(nueva, ajustada en el Paso 10)* | Sin `temperature`: `claude-haiku-5-5` y la versión actual de la API la rechazan. La consistencia la dan el núcleo determinista (los valores, las reglas y los formularios no dependen del modelo) y el **esfuerzo** (`effort`), `medium` por defecto y configurable con `LLM_ESFUERZO`; en el Paso 17 se mide si `low` alcanza. |
 | CA7 *(nueva)* | Caché de prompts del proveedor para el system prompt y las definiciones de herramientas, que se repiten en cada llamada. Baja el costo y la latencia. |
 
 ### 9.4 Guardarraíles
