@@ -26,7 +26,7 @@
 | 9 | Demostración sin modelo y pruebas *golden* | F1 | ✅ |
 | 10 | Adaptador del modelo de lenguaje | F2 | ✅ |
 | 11 | System prompt y base de conocimiento | F2 | ✅ |
-| 12 | Ciclo del agente | F2 | ⬜ |
+| 12 | Ciclo del agente | F2 | ✅ |
 | 13 | Confirmación humana y envío simulado | F2 | ⬜ |
 | 14 | Guardarraíles | F2 | ⬜ |
 | 15 | API | F2 | ⬜ |
@@ -173,8 +173,12 @@
 ### Paso 12 · Ciclo del agente
 **Objetivo:** implementar el bucle mensaje → modelo → herramientas → modelo, con tope de iteraciones, tope de tokens por sesión y manejo claro de errores.
 **Hecho cuando:** al alcanzar un tope, el agente responde con lo que tiene y lo que falta, y un error del proveedor no cierra la sesión.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`agente/ciclo.py`**: `Agente.responder(sesion, mensaje)` consulta al modelo, **ejecuta las herramientas que pide** y le devuelve los resultados (enmascarados) hasta que responde con texto. El `Turno` trae la **lista de herramientas llamadas, en orden**, con sus argumentos, ✓/✗ y el mismo resumen de `log.jsonl`.
+- **Topes (CA1)**: 15 consultas por turno y 300 000 tokens por sesión, configurables. Al llegar a uno, el **código** (no el modelo) responde con lo que alcanzó a hacer y lo que falta (D43).
+- **Errores (CA5)**: un error del modelo se explica y la sesión sigue; uno de una herramienta le llega al modelo como resultado con error. `proveedor_confirmar_campo` **no se ejecuta** todavía: el modelo recibe "necesita aprobación" (D44).
+- **`scripts/chat.py`**: chat en la terminal con el modelo real; después de cada respuesta muestra la tabla de herramientas que pidió. Cada consulta queda en el log con la versión y la huella del prompt. **Pruebas:** 439 en total, sin red.
 
 ### Paso 13 · Confirmación humana y envío simulado
 **Objetivo:** las herramientas marcadas con aprobación humana (`proveedor_confirmar_campo` y `proveedor_simular_envio`) crean una confirmación pendiente en el servidor y solo se ejecutan tras una aprobación explícita.
@@ -521,7 +525,28 @@ proveedor_listar_casos         (solo si no sabe el id del caso)
 
 El prompt **pide** este comportamiento; el código lo **obliga** donde importa: la confirmación la controla el servidor (Paso 13) y la respuesta se revisa contra los resultados de las herramientas (Paso 14).
 
-_El ciclo y los topes se completan en el Paso 12; la confirmación, en el Paso 13._
+**El ciclo (Paso 12):** un **turno** es todo lo que pasa entre un mensaje de la analista y la respuesta. El modelo nunca ejecuta nada: **pide**, y el ciclo ejecuta.
+
+```
+mensaje de la analista
+  → consulta al modelo (sistema + historial + herramientas)
+      ├─ pide herramientas → el ciclo las ejecuta (en orden) → resultados enmascarados → otra consulta
+      └─ responde con texto → fin del turno
+```
+
+| Situación | Qué pasa |
+|---|---|
+| El modelo pide una herramienta | Se ejecuta y su resultado (enmascarado) vuelve al modelo. Si pide varias a la vez, se ejecutan en orden y los resultados vuelven juntos. |
+| Herramienta inexistente, argumento inventado o caso que no existe | No se ejecuta nada; el modelo recibe el error y lo explica. |
+| Pide `proveedor_confirmar_campo` | **No se ejecuta**: recibe "necesita la aprobación de la analista" y queda en `log.jsonl`. En el Paso 13 será una confirmación con Aprobar / Rechazar. |
+| 15 consultas en un turno (`LLM_MAX_ITERACIONES`) | Se detiene y muestra qué alcanzó a hacer. La analista escribe "sigue". |
+| 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`) | Se detiene y pide abrir una conversación nueva. |
+| El modelo falla (sin conexión, límite, clave) | Mensaje claro; la sesión sigue y se puede reintentar. |
+| Respuesta cortada o rechazo | Aviso claro. |
+
+Cada consulta al modelo queda en el log de operación con la sesión, la **versión y la huella del prompt**, las herramientas pedidas y los tokens.
+
+_La confirmación con Aprobar / Rechazar se completa en el Paso 13._
 
 ## B7 · Seguridad y guardarraíles
 **Se alimenta de:** Pasos 3, 14 y 18.
@@ -578,6 +603,10 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | No (solo para el chat) | — | Clave del modelo. Solo en `.env` o en el gestor de secretos. |
 | `LLM_MODELO` | No | `claude-haiku-5-5` | Modelo de lenguaje. |
+| `LLM_ESFUERZO` | No | `medium` | Cuánto razona el modelo: `low`, `medium`, `high`, `xhigh` o `max`. |
+| `LLM_TIMEOUT_S` · `LLM_REINTENTOS` · `LLM_MAX_TOKENS` | No | 30 · 3 · 8000 | Espera por respuesta, reintentos ante fallas pasajeras y largo máximo de una respuesta. |
+| `LLM_MAX_ITERACIONES` | No | 15 | Tope de consultas al modelo por turno (CA1). |
+| `LLM_TOPE_TOKENS_SESION` | No | 300000 | Tope de tokens por conversación (CA1). |
 | `FECHA_EJECUCION` | No | Fecha de hoy | Fecha fija `AAAA-MM-DD` para pruebas y demostraciones (RN7). |
 | `NIVEL_LOG` | No | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR`. |
 
@@ -597,6 +626,15 @@ uv run python scripts/demo.py --llamadas               # + matriz de llamadas a 
 - Borra y vuelve a crear `out/`, y deja ahí, por caso, el mapeo, el formulario y el paquete para firma.
 - Termina con código 0 si todo salió bien. Un caso "no listo para firma" no es un error.
 - Con la fecha de hoy, ningún caso está listo, porque la Cámara de Comercio venció el 30 de septiembre.
+
+**Con el modelo real (necesitan la clave en `.env`; gastan muy poco):**
+
+```powershell
+uv run python scripts/probar_modelo.py "¿Qué le falta al caso de Honduras?"   # UNA consulta: qué herramienta pide (no la ejecuta)
+uv run python scripts/chat.py                                                 # chat completo en la terminal
+```
+
+En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Se sale escribiendo `salir`.
 
 _El despliegue y la URL se completan en el Paso 19._
 
@@ -619,10 +657,10 @@ _por completar_
 | HU-1 Leer la solicitud | 4, 6 | ✅ | Para producción: probar con plantillas reales, que serán más desordenadas que las de ejemplo. |
 | HU-2 Mapear campos | 5, 6 | 🟨 | Hecho: capas, estados, regla de país, origen por campo, confirmación registrada y nunca un valor inventado. Falta que la confirmación exija aprobar en el front (Paso 13). |
 | HU-3 Generar formulario | 7 | 🟨 | Hecho: Excel en celdas exactas, PDF en orden y valores para portal, siempre desde el mapeo, con los faltantes vacíos y resaltados. Falta rellenar un PDF AcroForm del cliente y escribir sobre su `.xlsx` original (ningún caso de ejemplo los trae). |
-| HU-4 Paquete para firma | 8 | 🟨 | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. Falta que el agente cierre con un resumen y una pregunta explícita (pasos 11 y 12). |
+| HU-4 Paquete para firma | 8, 11, 12 | ✅ | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. El agente cierra con el resumen del formato fijo y una pregunta explícita (prompt del Paso 11, ciclo del Paso 12). Para producción: medir con evaluaciones que el modelo siempre use ese formato (Paso 17). |
 | HU-5 Envío con confirmación | 13 | ⬜ | |
-| HU-6 Manejo de errores | 3, 12 | 🟨 | Hecho para las herramientas (nunca lanzan; mensaje claro). Falta el error del proveedor del LLM (Paso 12). |
-| HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Las instrucciones ya tienen versión y huella (Paso 11); el Paso 12 las registra en el log de cada sesión. Para producción: pedir que el maestro tenga versión. |
+| HU-6 Manejo de errores | 3, 10, 12 | ✅ | Hecho: las herramientas nunca lanzan y dan un mensaje claro; los errores del modelo se traducen (Paso 10) y no cierran la sesión (Paso 12). |
+| HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Las instrucciones tienen versión y huella (Paso 11), y cada consulta al modelo las deja en el log de operación (Paso 12). Para producción: llevar ese log a un almacenamiento durable (Paso 19) y pedir que el maestro tenga versión. |
 
 ## B13 · Decisiones y trade-offs
 **Se alimenta de:** todos los pasos.
@@ -666,6 +704,9 @@ _por completar_
 | D40 | Cada respuesta guarda su contenido original (`crudo`) y se le devuelve tal cual a Anthropic. | Devolver solo el texto y los pedidos de herramienta. | Anthropic exige recibir sin cambios los bloques de razonamiento de sus respuestas anteriores. | 10 |
 | D41 | El conocimiento del proceso va dentro del texto de sistema. | Una herramienta para consultarlo. | Es corto (unos 2,500 tokens con el prompt) y va en la caché: casi gratis desde la segunda llamada, y el modelo no tiene que acordarse de consultarlo. Si crece mucho, se pasa a una herramienta de búsqueda. | 11 |
 | D42 | Pruebas que comparan el prompt y el conocimiento con el código: nombres de las herramientas, orden del flujo, identificadores por país, soportes y estados. | Revisar el texto a mano. | Si se renombra una herramienta o cambia una regla, la prueba falla y avisa que el texto quedó desactualizado. | 11 |
+| D43 | Al llegar a un tope, el mensaje lo arma el código (lo que se hizo y lo que falta). | Una última consulta al modelo para que resuma. | No gasta otra consulta (justo cuando ya se gastó mucho) y no puede inventar nada. Esos mensajes no entran al historial: el modelo no los escribió. | 12 |
+| D44 | Mientras no exista la confirmación del Paso 13, el ciclo no ejecuta ninguna herramienta marcada `requiere_confirmacion`. | Ejecutarla y confiar en que el prompt pida permiso. | D2: un prompt se puede saltar. Así, desde ya, nada que requiera aprobación se ejecuta sin ella. | 12 |
+| D45 | Si el turno anterior terminó sin respuesta del modelo (tope o error), el mensaje nuevo se une al último mensaje del usuario. | Borrar lo que pasó en ese turno. | La conversación debe alternar usuario / asistente, y así no se pierden los resultados de las herramientas que ya se ejecutaron. | 12 |
 
 _Se agregan más decisiones en cada paso._
 

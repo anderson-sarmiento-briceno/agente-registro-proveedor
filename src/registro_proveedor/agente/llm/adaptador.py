@@ -123,6 +123,20 @@ class Uso(_Modelo):
     cache_lectura: int = 0  # leídos de la caché: mucho más baratos
     cache_escritura: int = 0  # guardados en la caché esta vez
 
+    @property
+    def total(self) -> int:
+        """Todos los tokens procesados, de los cuatro tipos (lo que mide el tope por sesión)."""
+        return self.entrada + self.salida + self.cache_lectura + self.cache_escritura
+
+    def sumar(self, otro: "Uso") -> "Uso":
+        """Un uso nuevo con los tokens de los dos (para acumular por turno y por sesión)."""
+        return Uso(
+            entrada=self.entrada + otro.entrada,
+            salida=self.salida + otro.salida,
+            cache_lectura=self.cache_lectura + otro.cache_lectura,
+            cache_escritura=self.cache_escritura + otro.cache_escritura,
+        )
+
 
 class RespuestaModelo(_Modelo):
     bloques: list[Bloque]

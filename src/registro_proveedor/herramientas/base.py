@@ -216,6 +216,9 @@ class Herramienta:
     # humana (CA3). En este paso solo se guarda la marca; el bloqueo es del Paso 13.
     requiere_confirmacion: bool
     funcion: FuncionSegura
+    # La función que resume los datos del resultado en una frase (la del log). El ciclo
+    # del agente (Paso 12) la usa para mostrar qué devolvió cada herramienta.
+    resumir: Callable[[Any], str] | None = None
 
     def esquema_parametros(self) -> dict[str, Any]:
         """JSON Schema de los argumentos, generado por Pydantic.
@@ -281,6 +284,7 @@ class Registro:
                 modelo_args=argumentos,
                 requiere_confirmacion=requiere_confirmacion,
                 funcion=segura,
+                resumir=resumir,
             )
             return segura
 
@@ -288,6 +292,14 @@ class Registro:
 
     def obtener(self, nombre: str) -> Herramienta | None:
         return self._herramientas.get(nombre)
+
+    def resumir(self, nombre: str, resultado: Resultado[Any]) -> str:
+        """La frase que resume un resultado, la misma del log: el error si falló.
+
+        Así el chat muestra exactamente lo mismo que quedó en `log.jsonl`.
+        """
+        encontrada = self.obtener(nombre)
+        return _resumen(nombre, resultado, encontrada.resumir if encontrada else None)
 
     def listar(self) -> list[Herramienta]:
         """Las herramientas, en orden alfabético (así la lista que ve el modelo es estable)."""

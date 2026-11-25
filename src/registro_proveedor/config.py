@@ -69,6 +69,14 @@ class Configuracion(BaseSettings):
     # la respuesta se corta a la mitad; 8000 sobra para un resumen y varias herramientas.
     llm_max_tokens: int = Field(default=8000, ge=256, le=64000)
 
+    # Topes del ciclo del agente (CA1, Paso 12):
+    # - cuántas veces se puede consultar al modelo en UN turno (un mensaje de la
+    #   analista). Un caso completo usa unas 6; el tope evita un bucle sin fin.
+    # - cuántos tokens puede gastar una conversación entera (los 4 tipos: entrada,
+    #   salida y caché). 300 000 tokens cuestan, como mucho, unos USD 0.05.
+    llm_max_iteraciones: int = Field(default=15, ge=1, le=50)
+    llm_tope_tokens_sesion: int = Field(default=300_000, ge=1_000)
+
     # RN7: fecha de ejecución inyectable. Las vigencias de los soportes se comparan
     # con esta fecha. Si se fija (por ejemplo, en pruebas), el resultado no depende
     # del día en que se ejecuta. Si está vacía, se usa la fecha de hoy.
