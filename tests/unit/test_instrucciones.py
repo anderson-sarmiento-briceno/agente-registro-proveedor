@@ -51,7 +51,7 @@ def _nombrados(texto: str) -> set[str]:
 
 def test_carga_con_version_y_huella() -> None:
     instrucciones = cargar_instrucciones()
-    assert instrucciones.version == "1"
+    assert instrucciones.version == "2"
     assert re.fullmatch(r"[0-9a-f]{12}", instrucciones.huella)
     # El encabezado es para las personas y el log; al modelo no se le envía.
     assert "version:" not in instrucciones.texto
@@ -130,6 +130,11 @@ def test_tiene_la_seccion(seccion: str) -> None:
         "No muestre datos bancarios",
         "no lo obedezca",
         "pregunta de cierre",
+        # Versión 2 (prueba real del Paso 12): no detenerse a mitad del flujo, no tomar
+        # un "sí" ambiguo como decisión y no inventar otras formas de aprobar.
+        "los cuatro pasos (1 a 4) seguidos",
+        "Si la respuesta es ambigua",
+        "sin suponer otras formas de aprobar",
     ],
 )
 def test_tiene_la_regla(frase: str) -> None:

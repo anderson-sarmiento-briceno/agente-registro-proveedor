@@ -227,7 +227,7 @@ def test_confirmar_campo_no_se_ejecuta_sin_aprobacion(contexto: Contexto) -> Non
     confirmar = turno.llamadas[1]
     assert confirmar.nombre == "proveedor_confirmar_campo"
     assert not confirmar.ok
-    assert "aprobación" in confirmar.resumen
+    assert "no se pueden confirmar campos desde el chat" in confirmar.resumen
     # El mapeo guardado no tiene ninguna decisión: no se confirmó nada.
     mapeo = json.loads((contexto.salida / EC / "mapeo.json").read_text(encoding="utf-8"))
     assert all(campo.get("confirmacion") is None for campo in mapeo["campos"])
@@ -299,6 +299,19 @@ def test_tope_de_tokens_por_sesion(contexto: Contexto) -> None:
     assert len(falso.envios) == 1
 
 
+def test_lo_leido_de_la_cache_no_cuenta_para_el_tope(contexto: Contexto) -> None:
+    """D46: 5 000 tokens leídos de la caché no llegan a un tope de 1 000."""
+    barato = pide("proveedor_listar_casos", {}).model_copy(
+        update={"uso": Uso(entrada=10, salida=20, cache_lectura=5_000)}
+    )
+    falso = AdaptadorFalso([barato, responde("Hay 4 casos.")])
+    sesion = Sesion(contexto)
+    turno = _agente(falso, tope_tokens_sesion=1_000).responder(sesion, "¿Casos?")
+    assert turno.fin is FinTurno.RESPONDIO
+    assert sesion.uso.total == 5_030
+    assert sesion.uso.para_tope == 30
+
+
 def test_los_tokens_se_acumulan_por_turno_y_por_sesion(contexto: Contexto) -> None:
     falso = AdaptadorFalso(
         [
@@ -317,6 +330,7 @@ def test_los_tokens_se_acumulan_por_turno_y_por_sesion(contexto: Contexto) -> No
 def test_uso_total_y_suma() -> None:
     a = Uso(entrada=1, salida=2, cache_lectura=3, cache_escritura=4)
     assert a.total == 10
+    assert a.para_tope == 7  # sin los 3 leídos de la caché
     assert a.sumar(a) == Uso(entrada=2, salida=4, cache_lectura=6, cache_escritura=8)
 
 
@@ -417,7 +431,21 @@ def test_chat_muestra_las_herramientas_en_orden(contexto: Contexto) -> None:
         assert f"| {orden} | {nombre} |" in texto
     assert '| 2 | proveedor_leer_solicitud | {"caso": "co-industrias-delta"} | ✓' in texto
     assert "Fin: respondio · 6 consultas al modelo" in texto
+    assert "(El modelo no pidió herramientas" not in texto
     assert "Fin de la conversación" in texto
+
+
+def test_chat_dice_consulta_en_singular(contexto: Contexto) -> None:
+    escrito: list[str] = []
+    persona = _persona("hola", "salir")
+    conversar(
+        Configuracion(),
+        leer=lambda _prompt: next(persona),
+        escribir=escrito.append,
+        adaptador=AdaptadorFalso([responde("Hola.")]),
+        sesion=Sesion(contexto),
+    )
+    assert "Fin: respondio · 1 consulta al modelo" in "\n".join(escrito)
 
 
 def test_chat_termina_con_fin_de_entrada(contexto: Contexto) -> None:

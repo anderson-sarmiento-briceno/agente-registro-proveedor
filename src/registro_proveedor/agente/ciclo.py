@@ -66,9 +66,9 @@ from registro_proveedor.observabilidad import (
 # Lo que recibe el modelo cuando pide una herramienta que requiere aprobación (CA3).
 # En el Paso 13 esto se reemplaza por una confirmación pendiente de verdad.
 SIN_APROBACION = (
-    "esta acción necesita la aprobación explícita de la analista, y aprobar desde el "
-    "chat todavía no está disponible. No se hizo ningún cambio: explíquele a la analista "
-    "que el campo sigue por confirmar."
+    "en esta versión no se pueden confirmar campos desde el chat. No se hizo ningún "
+    "cambio: el campo sigue por confirmar y el paquete no queda listo para firma "
+    "mientras siga así."
 )
 
 
@@ -177,7 +177,8 @@ class Agente:
         for consulta in range(1, self._max_iteraciones + 1):
             # El tope de tokens se revisa ANTES de cada consulta. La última puede pasarlo
             # un poco (no se sabe cuánto gastará hasta que responde), pero no hay otra.
-            if sesion.uso.total >= self._tope_tokens:
+            # No cuenta lo leído de la caché, que es casi gratis (D46).
+            if sesion.uso.para_tope >= self._tope_tokens:
                 return turno(
                     _texto_tope_tokens(self._tope_tokens, llamadas),
                     FinTurno.TOPE_TOKENS,
@@ -262,6 +263,7 @@ class Agente:
             tokens_cache_lectura=respuesta.uso.cache_lectura,
             tokens_cache_escritura=respuesta.uso.cache_escritura,
             tokens_sesion=sesion.uso.total,
+            tokens_sesion_para_tope=sesion.uso.para_tope,
             id_solicitud=respuesta.id_solicitud,
         )
 

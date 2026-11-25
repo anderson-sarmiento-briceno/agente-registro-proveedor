@@ -72,8 +72,9 @@ class Configuracion(BaseSettings):
     # Topes del ciclo del agente (CA1, Paso 12):
     # - cuántas veces se puede consultar al modelo en UN turno (un mensaje de la
     #   analista). Un caso completo usa unas 6; el tope evita un bucle sin fin.
-    # - cuántos tokens puede gastar una conversación entera (los 4 tipos: entrada,
-    #   salida y caché). 300 000 tokens cuestan, como mucho, unos USD 0.05.
+    # - cuántos tokens puede gastar una conversación entera: entrada, salida y lo
+    #   guardado en la caché. NO cuenta lo leído de la caché, que cuesta una décima
+    #   parte (D46). 300 000 tokens cuestan, como mucho, unos USD 0.05 a 0.15.
     llm_max_iteraciones: int = Field(default=15, ge=1, le=50)
     llm_tope_tokens_sesion: int = Field(default=300_000, ge=1_000)
 

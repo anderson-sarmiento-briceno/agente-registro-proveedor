@@ -90,7 +90,8 @@ def describir_turno(turno: Turno) -> str:
     else:
         lineas = ["(El modelo no pidió herramientas en este turno.)"]
     lineas.append(
-        f"Fin: {turno.fin} · {turno.consultas} consultas al modelo · "
+        f"Fin: {turno.fin} · {turno.consultas} "
+        f"{'consulta' if turno.consultas == 1 else 'consultas'} al modelo · "
         f"{turno.uso.total} tokens · USD {costo_usd(turno.uso):.4f}"
     )
     return "\n".join(lineas)

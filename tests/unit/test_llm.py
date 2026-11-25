@@ -412,7 +412,7 @@ def test_prueba_real_muestra_la_herramienta_que_pidio() -> None:
     assert CLAVE not in texto
     # Envía las instrucciones reales del agente (Paso 11) y muestra su versión.
     assert red.cuerpo["system"] == cargar_instrucciones().texto
-    assert "Instrucciones: versión 1" in texto
+    assert f"Instrucciones: versión {cargar_instrucciones().version}" in texto
 
 
 def test_costo_con_cache() -> None:

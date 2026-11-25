@@ -66,7 +66,7 @@ class ListarCasosArgs(ArgumentosHerramienta):
 
 
 def _resumir_listado(listado: casos.ListadoCasos) -> str:
-    texto = f"{len(listado.casos)} casos"
+    texto = _n(len(listado.casos), "caso", "casos")
     if listado.filtro:
         texto += f" con el filtro «{listado.filtro}»"
     if listado.casos_con_error:

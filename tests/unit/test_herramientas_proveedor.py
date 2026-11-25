@@ -50,7 +50,7 @@ def test_listar_con_filtro(contexto: Contexto) -> None:
     resultado = registro.ejecutar("proveedor_listar_casos", {"filtro": "Ecuador"}, contexto)
     datos = json.loads(resultado.a_json())["data"]
     assert [c["caso"] for c in datos["casos"]] == ["ec-corp-andina"]
-    assert _log(contexto)[0]["resumen"] == "1 casos con el filtro «Ecuador»"
+    assert _log(contexto)[0]["resumen"] == "1 caso con el filtro «Ecuador»"
 
 
 def test_listar_con_filtro_demasiado_largo(contexto: Contexto) -> None:

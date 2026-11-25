@@ -128,6 +128,16 @@ class Uso(_Modelo):
         """Todos los tokens procesados, de los cuatro tipos (lo que mide el tope por sesión)."""
         return self.entrada + self.salida + self.cache_lectura + self.cache_escritura
 
+    @property
+    def para_tope(self) -> int:
+        """Los tokens que cuentan para el tope por sesión: todos menos los leídos de la caché.
+
+        Lo leído de la caché (el prompt y las herramientas, que se repiten en cada
+        consulta) cuesta una décima parte. Si contara igual, una conversación larga
+        llegaría al tope habiendo costado apenas un centavo (D46).
+        """
+        return self.entrada + self.salida + self.cache_escritura
+
     def sumar(self, otro: "Uso") -> "Uso":
         """Un uso nuevo con los tokens de los dos (para acumular por turno y por sesión)."""
         return Uso(

@@ -165,7 +165,7 @@
 **Hecho cuando:** el prompt cubre el flujo, las prohibiciones, el formato del resumen y el trato del correo como datos.
 **Estado:** ✅
 **Avance:**
-- **`agente/prompt.md` (versión 1)** dice cómo comportarse: el rol, el **flujo con los nombres exactos de las herramientas y en orden** (`proveedor_listar_casos` si hace falta → `proveedor_leer_solicitud` → `proveedor_mapear_campos` → `proveedor_confirmar_campo` solo si la analista decide → `proveedor_generar_formulario` → `proveedor_armar_paquete`), las prohibiciones, el contenido externo como datos y el formato fijo del resumen con su pregunta de cierre.
+- **`agente/prompt.md`** (versión 1; la 2 llegó con la prueba real del Paso 12) dice cómo comportarse: el rol, el **flujo con los nombres exactos de las herramientas y en orden** (`proveedor_listar_casos` si hace falta → `proveedor_leer_solicitud` → `proveedor_mapear_campos` → `proveedor_confirmar_campo` solo si la analista decide → `proveedor_generar_formulario` → `proveedor_armar_paquete`), las prohibiciones, el contenido externo como datos y el formato fijo del resumen con su pregunta de cierre.
 - **`knowledge/registro-proveedor.md`** explica el proceso para que el modelo pueda contarlo: estados de un campo, identificador por país, datos bancarios, soportes y sus estados, formatos y qué significa "listo para firma".
 - **`agente/instrucciones.py`** junta los dos en el texto de sistema, con su **versión** y una **huella** que cambia con cualquier edición. El conocimiento va dentro del sistema, en la caché (D41).
 - **Pruebas para que el texto no se desactualice:** el prompt nombra exactamente las herramientas que existen, en el orden de la matriz, y el conocimiento coincide con `config/reglas.yaml` y con el dominio (D42). `probar_modelo.py` ya usa el prompt real. **Pruebas:** 413 en total.
@@ -178,7 +178,8 @@
 - **`agente/ciclo.py`**: `Agente.responder(sesion, mensaje)` consulta al modelo, **ejecuta las herramientas que pide** y le devuelve los resultados (enmascarados) hasta que responde con texto. El `Turno` trae la **lista de herramientas llamadas, en orden**, con sus argumentos, ✓/✗ y el mismo resumen de `log.jsonl`.
 - **Topes (CA1)**: 15 consultas por turno y 300 000 tokens por sesión, configurables. Al llegar a uno, el **código** (no el modelo) responde con lo que alcanzó a hacer y lo que falta (D43).
 - **Errores (CA5)**: un error del modelo se explica y la sesión sigue; uno de una herramienta le llega al modelo como resultado con error. `proveedor_confirmar_campo` **no se ejecuta** todavía: el modelo recibe "necesita aprobación" (D44).
-- **`scripts/chat.py`**: chat en la terminal con el modelo real; después de cada respuesta muestra la tabla de herramientas que pidió. Cada consulta queda en el log con la versión y la huella del prompt. **Pruebas:** 439 en total, sin red.
+- **`scripts/chat.py`**: chat en la terminal con el modelo real; después de cada respuesta muestra la tabla de herramientas que pidió. Cada consulta queda en el log con la versión y la huella del prompt.
+- **Prueba real con el caso de Ecuador (unos USD 0.003):** el modelo pidió las herramientas en orden, no tomó un "sí" ambiguo como decisión y el ciclo bloqueó `proveedor_confirmar_campo`. Con lo aprendido: **prompt versión 2** (hacer los 4 pasos seguidos y preguntar al final), un mensaje de bloqueo más claro (el modelo había inventado "otro canal" para aprobar) y un tope que no cuenta lo leído de la caché (D46). **Pruebas:** 444 en total, sin red.
 
 ### Paso 13 · Confirmación humana y envío simulado
 **Objetivo:** las herramientas marcadas con aprobación humana (`proveedor_confirmar_campo` y `proveedor_simular_envio`) crean una confirmación pendiente en el servidor y solo se ejecutan tras una aprobación explícita.
@@ -540,7 +541,7 @@ mensaje de la analista
 | Herramienta inexistente, argumento inventado o caso que no existe | No se ejecuta nada; el modelo recibe el error y lo explica. |
 | Pide `proveedor_confirmar_campo` | **No se ejecuta**: recibe "necesita la aprobación de la analista" y queda en `log.jsonl`. En el Paso 13 será una confirmación con Aprobar / Rechazar. |
 | 15 consultas en un turno (`LLM_MAX_ITERACIONES`) | Se detiene y muestra qué alcanzó a hacer. La analista escribe "sigue". |
-| 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`) | Se detiene y pide abrir una conversación nueva. |
+| 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`), sin contar los leídos de la caché | Se detiene y pide abrir una conversación nueva. |
 | El modelo falla (sin conexión, límite, clave) | Mensaje claro; la sesión sigue y se puede reintentar. |
 | Respuesta cortada o rechazo | Aviso claro. |
 
@@ -606,7 +607,7 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 | `LLM_ESFUERZO` | No | `medium` | Cuánto razona el modelo: `low`, `medium`, `high`, `xhigh` o `max`. |
 | `LLM_TIMEOUT_S` · `LLM_REINTENTOS` · `LLM_MAX_TOKENS` | No | 30 · 3 · 8000 | Espera por respuesta, reintentos ante fallas pasajeras y largo máximo de una respuesta. |
 | `LLM_MAX_ITERACIONES` | No | 15 | Tope de consultas al modelo por turno (CA1). |
-| `LLM_TOPE_TOKENS_SESION` | No | 300000 | Tope de tokens por conversación (CA1). |
+| `LLM_TOPE_TOKENS_SESION` | No | 300000 | Tope de tokens por conversación (CA1), sin contar los leídos de la caché. |
 | `FECHA_EJECUCION` | No | Fecha de hoy | Fecha fija `AAAA-MM-DD` para pruebas y demostraciones (RN7). |
 | `NIVEL_LOG` | No | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR`. |
 
@@ -707,6 +708,7 @@ _por completar_
 | D43 | Al llegar a un tope, el mensaje lo arma el código (lo que se hizo y lo que falta). | Una última consulta al modelo para que resuma. | No gasta otra consulta (justo cuando ya se gastó mucho) y no puede inventar nada. Esos mensajes no entran al historial: el modelo no los escribió. | 12 |
 | D44 | Mientras no exista la confirmación del Paso 13, el ciclo no ejecuta ninguna herramienta marcada `requiere_confirmacion`. | Ejecutarla y confiar en que el prompt pida permiso. | D2: un prompt se puede saltar. Así, desde ya, nada que requiera aprobación se ejecuta sin ella. | 12 |
 | D45 | Si el turno anterior terminó sin respuesta del modelo (tope o error), el mensaje nuevo se une al último mensaje del usuario. | Borrar lo que pasó en ese turno. | La conversación debe alternar usuario / asistente, y así no se pierden los resultados de las herramientas que ya se ejecutaron. | 12 |
+| D46 | El tope de tokens por sesión no cuenta los tokens leídos de la caché. | Contar todos los tokens por igual. | En la prueba real, 5 mensajes sumaron unos 73 000 tokens, casi todos leídos de la caché, que cuestan una décima parte. Contándolos, una conversación de unos 20 mensajes se cortaría habiendo costado un centavo. El tope debe proteger el costo. | 12 |
 
 _Se agregan más decisiones en cada paso._
 
