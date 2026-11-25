@@ -161,6 +161,9 @@ class Turno:
     uso: Uso  # tokens gastados en este turno
     # Las confirmaciones que quedaron esperando a la analista (para los botones).
     pendientes: tuple[ConfirmacionPendiente, ...] = ()
+    # Las que se cancelaron al empezar este turno porque la analista escribió un mensaje
+    # sin resolverlas (RN4). Se devuelven para MOSTRARLO: no basta con que lo sepa el modelo.
+    canceladas: tuple[ConfirmacionPendiente, ...] = ()
 
 
 @dataclass
@@ -229,12 +232,12 @@ class Agente:
 
         Si había confirmaciones pendientes, se cancelan (RN4) y el modelo se entera.
         """
+        canceladas = _cancelar_pendientes(sesion)
         textos = [mensaje]
-        cancelada = self._cancelar_pendientes(sesion)
-        if cancelada:
-            textos.insert(0, cancelada)
+        if canceladas:
+            textos.insert(0, _aviso_de_cancelacion(canceladas))
         _agregar_del_usuario(sesion, textos)
-        return self._continuar(sesion, [])
+        return self._continuar(sesion, [], canceladas=tuple(canceladas))
 
     def resolver(self, sesion: Sesion, id_confirmacion: str, *, aprobar: bool) -> Turno:
         """La analista aprobó o rechazó una confirmación pendiente (botón o `/aprobar`).
@@ -263,7 +266,12 @@ class Agente:
 
     # ---------- El ciclo ----------
 
-    def _continuar(self, sesion: Sesion, llamadas: list[LlamadaEjecutada]) -> Turno:
+    def _continuar(
+        self,
+        sesion: Sesion,
+        llamadas: list[LlamadaEjecutada],
+        canceladas: tuple[ConfirmacionPendiente, ...] = (),
+    ) -> Turno:
         """Consulta al modelo y ejecuta lo que pide, hasta que responda con texto o haya un tope."""
         uso = Uso()
 
@@ -275,6 +283,7 @@ class Agente:
                 consultas=consultas,
                 uso=uso,
                 pendientes=tuple(sesion.pendientes.values()),
+                canceladas=canceladas,
             )
 
         for consulta in range(1, self._max_iteraciones + 1):
@@ -428,20 +437,6 @@ class Agente:
         )
         return llamada, aviso
 
-    def _cancelar_pendientes(self, sesion: Sesion) -> str | None:
-        """RN4: un mensaje nuevo sin aprobar cancela las pendientes. Devuelve el aviso al modelo."""
-        if not sesion.pendientes:
-            return None
-        canceladas = list(sesion.pendientes.values())
-        sesion.pendientes.clear()
-        for p in canceladas:
-            _auditar(sesion.contexto, p, f"cancelada sin ejecutar (confirmación {p.id})")
-        lista = "; ".join(f"{p.id} ({p.descripcion})" for p in canceladas)
-        return (
-            f"{AVISO} Se cancelaron sin ejecutar las acciones pendientes de aprobación: "
-            f"{lista}. La analista escribió un mensaje sin aprobarlas."
-        )
-
     # ---------- Log de operación (HU-7) ----------
 
     def _registrar_consulta(
@@ -478,6 +473,24 @@ class Agente:
 
 
 # ---------- Confirmaciones: piezas sueltas ----------
+
+
+def _cancelar_pendientes(sesion: Sesion) -> list[ConfirmacionPendiente]:
+    """RN4: un mensaje nuevo sin aprobar cancela las pendientes. Devuelve las canceladas."""
+    canceladas = list(sesion.pendientes.values())
+    sesion.pendientes.clear()
+    for p in canceladas:
+        _auditar(sesion.contexto, p, f"cancelada sin ejecutar (confirmación {p.id})")
+    return canceladas
+
+
+def _aviso_de_cancelacion(canceladas: list[ConfirmacionPendiente]) -> str:
+    """Lo que recibe el modelo antes del mensaje de la analista, para que sepa qué se canceló."""
+    lista = "; ".join(f"{p.id} ({p.descripcion})" for p in canceladas)
+    return (
+        f"{AVISO} Se cancelaron sin ejecutar las acciones pendientes de aprobación: "
+        f"{lista}. La analista escribió un mensaje sin aprobarlas."
+    )
 
 
 def _rechazar(sesion: Sesion, pendiente: ConfirmacionPendiente) -> tuple[LlamadaEjecutada, str]:

@@ -8,9 +8,11 @@ decidió el modelo.
 Confirmaciones (Paso 13): cuando el modelo pide una acción que requiere aprobación,
 se muestra como pendiente, con su identificador. La analista la resuelve con:
     /aprobar [id]     /rechazar [id]
-Estos comandos los interpreta ESTE programa, no el modelo: son el equivalente de los
-botones Aprobar / Rechazar del front. Si hay una sola pendiente, el id es opcional.
-Escribir cualquier otro mensaje cancela las pendientes (RN4).
+o, sin la barra, con la palabra sola: `aprobar`, `rechazar` (o la palabra y el id de
+una pendiente). Estos comandos los interpreta ESTE programa, no el modelo: son el
+equivalente de los botones Aprobar / Rechazar del front. Si hay una sola pendiente, el
+id es opcional. Una frase como "sí, apruébalo" NO es un comando: va al modelo como
+mensaje normal y, por eso, cancela las pendientes (RN4). La terminal lo avisa (⊘).
 
 Gasta dinero de verdad (poco: un caso completo son unas 6 consultas a
 claude-haiku-5-5, del orden de un centavo de dólar) y necesita la clave en `.env`.
@@ -33,7 +35,10 @@ from registro_proveedor.dominio.lectura import ErrorDeDatos
 from registro_proveedor.herramientas.proveedor import registro
 
 PALABRAS_PARA_SALIR = {"salir", "exit", "quit"}
+# El comando y si aprueba (True) o rechaza (False).
 COMANDOS = {"/aprobar": True, "/rechazar": False}
+# Las mismas palabras sin la barra: solas, o seguidas del id de una pendiente.
+PALABRAS = {"aprobar": True, "rechazar": False}
 
 
 def conversar(
@@ -62,7 +67,7 @@ def conversar(
         f"Agente de registro como proveedor · modelo {modelo.modelo} · "
         f"instrucciones v{instrucciones.version} · sesión {sesion.id}\n"
         "Escriba su mensaje, o «salir» para terminar. "
-        "Para las acciones pendientes: /aprobar o /rechazar."
+        "Para las acciones pendientes: aprobar o rechazar."
     )
     while True:
         try:
@@ -94,9 +99,13 @@ def _atender(agente: Agente, sesion: Sesion, mensaje: str) -> Turno | None:
     """
     partes = mensaje.split()
     comando = partes[0].lower()
-    if comando not in COMANDOS:
-        if comando.startswith("/"):
-            return None
+    if comando in COMANDOS:
+        aprobar = COMANDOS[comando]
+    elif _es_palabra_de_comando(partes, sesion):
+        aprobar = PALABRAS[comando]
+    elif comando.startswith("/"):
+        return None
+    else:
         return agente.responder(sesion, mensaje)
     if len(partes) > 1:
         id_confirmacion = partes[1]
@@ -104,21 +113,37 @@ def _atender(agente: Agente, sesion: Sesion, mensaje: str) -> Turno | None:
         id_confirmacion = next(iter(sesion.pendientes))
     else:
         return None
-    return agente.resolver(sesion, id_confirmacion, aprobar=COMANDOS[comando])
+    return agente.resolver(sesion, id_confirmacion, aprobar=aprobar)
+
+
+def _es_palabra_de_comando(partes: list[str], sesion: Sesion) -> bool:
+    """¿Es "aprobar" / "rechazar" sin barra? Solo si está sola, o seguida del id de una pendiente.
+
+    Así "aprobar" funciona como el botón, pero una frase normal que empiece con esa
+    palabra ("rechazar la propuesta del cliente…") sigue siendo un mensaje para el modelo.
+    """
+    if partes[0].lower() not in PALABRAS:
+        return False
+    return len(partes) == 1 or (len(partes) == 2 and partes[1] in sesion.pendientes)
 
 
 def _ayuda_comandos(sesion: Sesion) -> str:
     if not sesion.pendientes:
         return "No hay acciones pendientes de aprobación."
-    lineas = ["Diga cuál acción resolver: /aprobar <id> o /rechazar <id>"]
+    lineas = ["Diga cuál acción resolver: aprobar <id> o rechazar <id>"]
     lineas += [f"  {p.id} · {p.descripcion}" for p in sesion.pendientes.values()]
     return "\n".join(lineas)
 
 
 def describir_turno(turno: Turno) -> str:
     """La tabla de herramientas que pidió el modelo en el turno, las pendientes y el costo."""
+    lineas: list[str] = [
+        f"⊘ Se canceló la acción pendiente {p.id} ({p.descripcion}) porque escribió otro "
+        "mensaje sin aprobarla. Para aprobar, escriba aprobar o /aprobar."
+        for p in turno.canceladas
+    ]
     if turno.llamadas:
-        lineas = [
+        lineas += [
             "Herramientas que pidió el modelo (en orden):",
             "| # | Herramienta | Argumentos | Resultado |",
             "|---|---|---|---|",
@@ -129,10 +154,10 @@ def describir_turno(turno: Turno) -> str:
             for ll in turno.llamadas
         ]
     else:
-        lineas = ["(El modelo no pidió herramientas en este turno.)"]
+        lineas.append("(El modelo no pidió herramientas en este turno.)")
     if turno.pendientes:
         lineas.append("")
-        lineas.append("⏳ Pendientes de su aprobación (escriba /aprobar o /rechazar):")
+        lineas.append("⏳ Pendientes de su aprobación (escriba aprobar o rechazar):")
         lineas += [f"  {p.id} · {p.descripcion}" for p in turno.pendientes]
     lineas.append(
         f"Fin: {turno.fin} · {turno.consultas} "

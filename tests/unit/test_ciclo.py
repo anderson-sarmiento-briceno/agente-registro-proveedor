@@ -339,6 +339,7 @@ def test_un_mensaje_nuevo_cancela_las_pendientes(contexto: Contexto) -> None:
     turno = agente.responder(sesion, "Mejor revisemos otro caso")
     assert sesion.pendientes == {}
     assert turno.pendientes == ()
+    assert turno.canceladas == (pendiente,)  # para MOSTRARLE a la analista que se canceló
     # El modelo recibe el aviso de la cancelación ANTES del mensaje de la analista.
     bloques = falso.envios[-1].mensajes[-1].bloques
     assert [b.texto for b in bloques if isinstance(b, BloqueTexto)] == [
@@ -703,6 +704,32 @@ def test_chat_rechazar_con_el_comando_y_el_id(contexto: Contexto) -> None:
     conversar(Configuracion(), leer=leer, escribir=escrito.append, adaptador=falso, sesion=sesion)
     assert "⊘ rechazada ·" in "\n".join(escrito)
     assert _campo(contexto, EC, "RUC")["estado"] == "requiere_confirmacion"
+
+
+def test_chat_aprobar_sin_la_barra(contexto: Contexto) -> None:
+    """La palabra sola funciona como el botón (en la prueba real, la pendiente se canceló)."""
+    falso = _pedir_confirmar_ruc(responde("Confirmado."))
+    texto = _chat(contexto, falso, "Mapea Ecuador; el RUC lo acepto", "Aprobar")
+    assert "✓ aprobada ·" in texto
+    assert _campo(contexto, EC, "RUC")["estado"] == "lleno"
+
+
+def test_chat_una_frase_no_aprueba_y_se_ve_la_cancelacion(contexto: Contexto) -> None:
+    """ "sí, apruébalo" no es un comando: va al modelo, cancela la pendiente y se AVISA."""
+    falso = _pedir_confirmar_ruc(responde("Se canceló; si quiere, lo pido otra vez."))
+    texto = _chat(contexto, falso, "Mapea Ecuador; el RUC lo acepto", "sí, apruébalo")
+    assert "⊘ Se canceló la acción pendiente" in texto
+    assert "porque escribió otro mensaje sin aprobarla" in texto
+    assert _campo(contexto, EC, "RUC")["estado"] == "requiere_confirmacion"
+
+
+def test_chat_frase_que_empieza_con_rechazar_va_al_modelo(contexto: Contexto) -> None:
+    falso = AdaptadorFalso([responde("Entiendo.")])
+    _chat(contexto, falso, "rechazar la propuesta del cliente sería un error")
+    assert len(falso.envios) == 1
+    assert falso.envios[0].mensajes[-1] == Mensaje.del_usuario(
+        "rechazar la propuesta del cliente sería un error"
+    )
 
 
 def test_chat_comando_sin_pendientes_no_llama_al_modelo(contexto: Contexto) -> None:

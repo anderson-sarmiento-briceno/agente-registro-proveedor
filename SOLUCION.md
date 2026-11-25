@@ -190,7 +190,8 @@
 - **Solo se aprueba con una acción explícita**, nunca con un "sí" escrito (D47). Un mensaje nuevo cancela las pendientes (RN4), y una confirmación ya resuelta o inventada no hace nada.
 - **Doble candado** (`base.py`): sin una `Aprobacion` para esa herramienta y esos argumentos exactos, la herramienta se niega aunque la llamen directamente (D48). La auditoría guarda el id de cada aprobación.
 - **`proveedor_simular_envio`** (la séptima herramienta) escribe `ENVIO-SIMULADO.md` con los archivos, sus huellas y quién aprobó, sin datos bancarios. Se niega si el paquete no está listo o quedó desactualizado (D49).
-- **Prompt versión 3** y chat con `/aprobar` y `/rechazar`. **Pruebas:** 473 en total. Ninguna consigue confirmar ni "enviar" sin aprobación.
+- **Prompt versión 3** y chat con `/aprobar` y `/rechazar`. Ninguna prueba consigue confirmar ni "enviar" sin aprobación.
+- **Prueba real con Ecuador:** el modelo hizo los 4 pasos seguidos y la confirmación quedó pendiente, pero se **canceló** al escribir otro mensaje, y la terminal no lo mostraba. Ahora también vale `aprobar` / `rechazar` sin barra (solo la palabra sola, o con el id), y la terminal avisa con ⊘ cada cancelación (`Turno.canceladas`). **Pruebas:** 476 en total.
 
 ### Paso 14 · Guardarraíles
 **Objetivo:** que el modelo reciba los datos sensibles enmascarados, que la respuesta se revise contra los valores que salieron de las herramientas y que el contenido del correo quede delimitado como datos.
@@ -568,7 +569,7 @@ el modelo pide proveedor_confirmar_campo {"caso": "ec-corp-andina", "etiqueta": 
 | Situación | Qué pasa |
 |---|---|
 | La analista escribe "sí, acéptalo" | No aprueba nada: solo los botones aprueban (D47). |
-| La analista escribe otro mensaje sin resolver | Las pendientes se **cancelan** (RN4) y el modelo se entera. |
+| La analista escribe otro mensaje sin resolver | Las pendientes se **cancelan** (RN4); el modelo se entera y la pantalla lo avisa (⊘). |
 | Aprobar dos veces, o una confirmación inventada | No se ejecuta nada; mensaje claro. |
 | El modelo pide la acción con argumentos inválidos (o inventa una "aprobación") | No se crea la pendiente: le llega el error. |
 | Alguien llama la herramienta directamente, sin aprobación | La capa de herramientas se niega: **doble candado** (D48). |
@@ -663,7 +664,7 @@ uv run python scripts/probar_modelo.py "¿Qué le falta al caso de Honduras?"   
 uv run python scripts/chat.py                                                 # chat completo en la terminal
 ```
 
-En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Si quedó una acción pendiente de aprobación (⏳), se resuelve con `/aprobar` o `/rechazar` (con el id, si hay más de una). Se sale escribiendo `salir`.
+En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Si quedó una acción pendiente de aprobación (⏳), se resuelve escribiendo `aprobar` o `rechazar` (o `/aprobar`, `/rechazar`; con el id, si hay más de una). Una frase como "sí, apruébalo" no aprueba: cancela la pendiente y la terminal lo avisa (⊘). Se sale escribiendo `salir`.
 
 _El despliegue y la URL se completan en el Paso 19._
 
