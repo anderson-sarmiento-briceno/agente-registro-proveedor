@@ -52,7 +52,7 @@ def _nombrados(texto: str) -> set[str]:
 
 def test_carga_con_version_y_huella() -> None:
     instrucciones = cargar_instrucciones()
-    assert instrucciones.version == "6"
+    assert instrucciones.version == "7"
     assert re.fullmatch(r"[0-9a-f]{12}", instrucciones.huella)
     # El encabezado es para las personas y el log; al modelo no se le envía.
     assert "version:" not in instrucciones.texto
@@ -153,6 +153,9 @@ def test_tiene_la_seccion(seccion: str) -> None:
         'No use las palabras "simular", "simulado" ni "simulación"',
         "**Soportes que exige el cliente (<n>):**",
         "**Archivo generado:**",
+        # Versión 7 (evaluación E5 del Paso 17): ante "¿qué le falta?", armar el paquete,
+        # porque solo él dice si un soporte está vencido.
+        "pregunta **qué le falta** a un caso",
     ],
 )
 def test_tiene_la_regla(frase: str) -> None:

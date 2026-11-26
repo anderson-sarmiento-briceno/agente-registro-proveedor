@@ -414,8 +414,9 @@ def escenarios(datos: Path) -> list[Escenario]:
             titulo="Honduras: solo una pregunta («¿qué le falta?»)",
             acciones=(Escribe("¿Qué le falta al caso de Honduras?"),),
             criterios=(
-                pide_en_orden(LEER),
-                menciona("parafiscales", "rtn"),
+                # Prompt v7: solo el paquete dice que los parafiscales están VENCIDOS.
+                pide_en_orden(LEER, ARMAR),
+                menciona("parafiscales", "vencid", "rtn"),
                 no_pide(CONFIRMAR),
                 no_pide(ENVIAR),
             ),
