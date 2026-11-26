@@ -1,0 +1,28 @@
+# Despliegue en Render, plan gratuito (Paso 19). Render lo lee como "Blueprint":
+# New → Blueprint → elegir este repositorio.
+#
+# Render construye la imagen con el Dockerfile y la vuelve a desplegar en cada push a
+# main. La clave de Anthropic NO va aquí: `sync: false` hace que Render la pida en su
+# panel al crear el servicio, y la guarda como secreto.
+#
+# Plan gratuito: se apaga tras 15 minutos sin visitas y tarda cerca de un minuto en
+# volver. Al apagarse se pierden out/, las conversaciones abiertas y el conteo diario:
+# por eso hay que poner también un límite de gasto en la consola de Anthropic.
+
+services:
+  - type: web
+    name: agente-registro-proveedor
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SALIDA_POR_CONVERSACION
+        value: "true"
+      - key: FECHA_EJECUCION
+        value: "2026-09-20"
+      - key: NIVEL_LOG
+        value: INFO

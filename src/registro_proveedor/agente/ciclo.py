@@ -59,6 +59,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from pathlib import Path
 
 from registro_proveedor.agente.guardarrailes import (
     TipoDato,
@@ -241,6 +242,7 @@ class Agente:
         max_iteraciones: int = 15,
         tope_tokens_sesion: int = 300_000,
         max_mensajes_sesion: int = 30,
+        carpeta_costos: Path | None = None,
     ) -> None:
         self._adaptador = adaptador
         self._registro = registro
@@ -249,6 +251,10 @@ class Agente:
         self._max_iteraciones = max_iteraciones
         self._tope_tokens = tope_tokens_sesion
         self._max_mensajes = max_mensajes_sesion
+        # Paso 19 · Dónde va costos.jsonl. None = en el `out/` de cada sesión (terminal,
+        # pruebas). La API lo fija en el `out/` raíz: aunque cada conversación tenga su
+        # carpeta, los costos de todas quedan juntos para `scripts/costos.py`.
+        self._carpeta_costos = carpeta_costos
 
     @property
     def modelo(self) -> str:
@@ -262,12 +268,14 @@ class Agente:
         adaptador: AdaptadorLLM,
         registro: Registro,
         instrucciones: InstruccionesSistema,
+        carpeta_costos: Path | None = None,
     ) -> "Agente":
         """El agente con los topes de `.env` (LLM_MAX_ITERACIONES, LLM_TOPE_TOKENS_SESION)."""
         return cls(
             adaptador=adaptador,
             registro=registro,
             instrucciones=instrucciones,
+            carpeta_costos=carpeta_costos,
             max_iteraciones=config.llm_max_iteraciones,
             tope_tokens_sesion=config.llm_tope_tokens_sesion,
             max_mensajes_sesion=config.llm_max_mensajes_sesion,
@@ -584,7 +592,7 @@ class Agente:
             return
         modelo = self._adaptador.modelo
         escribir_costo(
-            sesion.contexto.salida,
+            self._carpeta_costos or sesion.contexto.salida,
             RegistroCosto(
                 ts=sesion.contexto.reloj(),
                 sesion=sesion.id,

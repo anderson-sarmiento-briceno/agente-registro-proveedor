@@ -93,6 +93,11 @@ class Configuracion(BaseSettings):
     tope_conversaciones_dia: int = Field(default=100, ge=1)
     tope_usd_dia: float = Field(default=2.0, gt=0)
 
+    # Paso 19 · En la demo publicada, cada conversación escribe en `out/sesiones/<id>/`,
+    # para que dos visitantes que preparan el mismo caso no se pisen los archivos. En
+    # local se deja apagado: todo queda en `out/<caso>/`, como siempre.
+    salida_por_conversacion: bool = False
+
     # RN7: fecha de ejecución inyectable. Las vigencias de los soportes se comparan
     # con esta fecha. Si se fija (por ejemplo, en pruebas), el resultado no depende
     # del día en que se ejecuta. Si está vacía, se usa la fecha de hoy.

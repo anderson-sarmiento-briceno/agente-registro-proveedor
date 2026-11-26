@@ -1,0 +1,33 @@
+# Lo que NUNCA entra a la imagen (Paso 19).
+# Ojo: un patrón sin "**/" vale solo para la raíz del proyecto. Por ejemplo, "*.html"
+# deja fuera SOLUCION.html y el plan, pero no web/index.html, que sí se necesita.
+
+# Secretos: la clave se pasa al arrancar, nunca dentro de la imagen.
+.env
+.env.*
+**/.env
+
+# Lo generado: cada contenedor empieza con su out/ vacío.
+out/
+
+# Entorno local y cachés, en cualquier carpeta.
+.venv/
+**/__pycache__/
+**/*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Lo que el servidor no necesita para correr (documentos de la raíz, pruebas, scripts).
+.git/
+.github/
+.vscode/
+.idea/
+tests/
+evals/
+scripts/
+*.html
+*.md
+Dockerfile
+docker-compose.yml
+render.yaml

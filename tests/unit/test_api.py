@@ -17,6 +17,7 @@ import dataclasses
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,7 +26,7 @@ from pydantic import SecretStr
 from registro_proveedor.agente.ciclo import Sesion
 from registro_proveedor.agente.llm.adaptador import RespuestaModelo, Uso
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, pide, responde
-from registro_proveedor.api.aplicacion import crear_app
+from registro_proveedor.api.aplicacion import contexto_de_conversacion, crear_app
 from registro_proveedor.api.limites import LimitadorPorVisitante, UsoDiario
 from registro_proveedor.api.sesiones import AlmacenDeSesiones
 from registro_proveedor.config import Configuracion
@@ -509,3 +510,55 @@ def test_valores_del_portal_errores(contexto: Contexto) -> None:
     r = otro.get(f"/api/cases/{PA}/portal-values", params={"session_id": sesion_vacia})
     assert r.status_code == 404
     assert "primero pídale al agente que lo prepare" in r.json()["detail"]
+
+
+# ---------- 10. Paso 19 · Una carpeta por conversación ----------
+
+
+def test_cada_conversacion_tiene_su_carpeta(tmp_path: Path) -> None:
+    config = Configuracion(salida_por_conversacion=True)
+    a = contexto_de_conversacion(config, "a" * 32, tmp_path / "out")
+    b = contexto_de_conversacion(config, "b" * 32, tmp_path / "out")
+    assert a.salida == tmp_path / "out" / "sesiones" / ("a" * 32)
+    assert a.salida != b.salida
+    # Ante el modelo y la analista, la ruta sigue diciendo "out/<caso>/…", sin el id.
+    assert a.ruta_en_salida(PA, "paquete") == f"out/{PA}/paquete"
+
+
+def test_en_local_todo_va_a_out(tmp_path: Path) -> None:
+    contexto = contexto_de_conversacion(Configuracion(), "a" * 32, tmp_path / "out")
+    assert contexto.salida == tmp_path / "out"
+
+
+def test_dos_conversaciones_no_se_pisan(tmp_path: Path) -> None:
+    """De punta a punta: dos visitantes preparan Panamá; cada uno tiene su paquete."""
+    config = Configuracion(anthropic_api_key=SecretStr(CLAVE), salida_por_conversacion=True)
+    raiz = tmp_path / "out"
+
+    def crear_contexto(sesion_id: str) -> Contexto:
+        return dataclasses.replace(
+            contexto_de_conversacion(config, sesion_id, raiz), datos=DATOS_REALES
+        )
+
+    guion = [
+        pide("proveedor_leer_solicitud", {"caso": PA}),
+        pide("proveedor_mapear_campos", {"caso": PA}),
+        responde("Listo."),
+    ]
+    app = crear_app(
+        config,
+        adaptador=AdaptadorFalso([*guion, *guion]),
+        crear_contexto=crear_contexto,
+        uso_diario=UsoDiario(raiz, tope_conversaciones=100, tope_usd=2.0),
+    )
+    cliente = TestClient(app)
+    sesiones = [
+        cliente.post("/api/chat", json={"message": "Prepara Panamá"}).json()["session_id"]
+        for _ in range(2)
+    ]
+    for sesion in sesiones:
+        assert (raiz / "sesiones" / sesion / PA / "mapeo.json").is_file()
+    assert not (raiz / PA).exists()  # nada quedó en la carpeta compartida
+    # Lo que ve la analista no lleva el id de la conversación en las rutas.
+    resumen = cliente.get(f"/api/sessions/{sesiones[0]}").json()
+    assert sesiones[0] not in json.dumps(resumen["turns"][0]["response"]["tool_calls"])

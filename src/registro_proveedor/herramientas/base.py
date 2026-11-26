@@ -226,6 +226,15 @@ class Contexto:
         carpeta.mkdir(parents=True, exist_ok=True)
         return carpeta
 
+    def ruta_en_salida(self, *partes: str) -> str:
+        """Cómo se nombra un archivo generado ante el modelo y la analista: "out/<caso>/…".
+
+        Siempre empieza por "out/", aunque la carpeta real sea otra: en la demo publicada
+        cada conversación escribe en `out/sesiones/<id>/` (Paso 19), y mostrar ese id
+        largo en el chat solo confunde. Lo que importa es el caso y el archivo.
+        """
+        return "/".join(("out", *partes))
+
     def ruta_legible(self, ruta: Path) -> str:
         """Ruta corta para mensajes: "datos/casos/x/solicitud.json" en vez de "C:/Users/...".
 

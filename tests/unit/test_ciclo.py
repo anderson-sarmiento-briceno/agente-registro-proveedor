@@ -922,6 +922,20 @@ def test_cada_turno_deja_su_costo_con_el_caso(contexto: Contexto) -> None:
     assert segundo["casos"] == []  # "gracias" no trabajó ningún caso
 
 
+def test_los_costos_pueden_ir_a_una_carpeta_comun(contexto: Contexto, tmp_path: Path) -> None:
+    """Paso 19: con una carpeta por conversación, los costos de todas quedan juntos."""
+    comun = tmp_path / "comun"
+    agente = Agente(
+        adaptador=AdaptadorFalso([responde("Hola.")]),
+        registro=registro,
+        instrucciones=INSTRUCCIONES,
+        carpeta_costos=comun,
+    )
+    agente.responder(Sesion(contexto), "hola")
+    assert (comun / "costos.jsonl").is_file()
+    assert not (contexto.salida / "costos.jsonl").exists()
+
+
 def test_un_turno_sin_consultas_no_deja_costo(contexto: Contexto) -> None:
     sesion = Sesion(contexto)
     _agente(AdaptadorFalso([])).resolver(sesion, "no-existe", aprobar=True)

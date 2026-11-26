@@ -1,0 +1,28 @@
+# El agente en un contenedor, en local (Paso 19).
+#
+#   docker compose up --build      → http://localhost:8000
+#   docker compose down            → lo detiene
+#
+# La clave se lee de .env (que nunca entra a la imagen). Las dos variables de abajo
+# imitan la demo publicada en Render.
+
+services:
+  agente:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false  # sin .env arranca igual: el chat dice que falta la clave
+    environment:
+      # Cada conversación con su carpeta en out/sesiones/<id>/ (como en Render).
+      SALIDA_POR_CONVERSACION: "true"
+      # Fecha de la demo: con ella Colombia y Panamá pueden quedar listos para firma.
+      FECHA_EJECUCION: "2026-09-20"
+    volumes:
+      # out/ en un volumen: no se borra al reiniciar el contenedor (el conteo diario
+      # de la demo y los costos se conservan).
+      - salida:/app/out
+
+volumes:
+  salida:

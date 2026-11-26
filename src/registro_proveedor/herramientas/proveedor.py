@@ -169,7 +169,7 @@ def _vista(ctx: Contexto, resultado: mapeo.Mapeo, avisos: list[str]) -> VistaMap
 
     return VistaMapeo(
         caso=resultado.caso,
-        archivo=f"{ctx.salida.name}/{resultado.caso}/{mapeo.ARCHIVO_MAPEO}",
+        archivo=ctx.ruta_en_salida(resultado.caso, mapeo.ARCHIVO_MAPEO),
         version_maestro=resultado.version_maestro or "sin versión",
         llenos=grupo(mapeo.Estado.LLENO),
         faltantes=grupo(mapeo.Estado.FALTANTE),
@@ -378,7 +378,7 @@ def _vista_formulario(
         caso=caso.caso,
         formato=caso.formato,
         formato_nombre=caso.formato_nombre,
-        archivo=f"{ctx.salida.name}/{caso.caso}/{generado.ruta.name}",
+        archivo=ctx.ruta_en_salida(caso.caso, generado.ruta.name),
         escritos=generado.escritos,
         faltantes=generado.faltantes,
         pendientes=generado.pendientes,
@@ -472,7 +472,7 @@ def armar_paquete(args: ArmarPaqueteArgs, ctx: Contexto) -> Resultado[VistaPaque
         ok=True,
         data=VistaPaquete(
             caso=caso.caso,
-            carpeta=f"{ctx.salida.name}/{caso.caso}/{paquete.CARPETA_PAQUETE}",
+            carpeta=ctx.ruta_en_salida(caso.caso, paquete.CARPETA_PAQUETE),
             listo_para_firma=armado.listo_para_firma,
             motivos=armado.motivos,
             avisos=armado.avisos,
@@ -542,7 +542,7 @@ def registrar_envio(args: RegistrarEnvioArgs, ctx: Contexto) -> Resultado[VistaE
         ok=True,
         data=VistaEnvio(
             caso=caso.caso,
-            archivo=f"{ctx.salida.name}/{caso.caso}/{enviado.ruta.name}",
+            archivo=ctx.ruta_en_salida(caso.caso, enviado.ruta.name),
             archivos_enviados=len(enviado.archivos),
             aprobacion=aprobacion.id,
         ),

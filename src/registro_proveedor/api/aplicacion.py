@@ -25,7 +25,9 @@ Seguridad (el "hecho cuando" del paso):
       responde 500 con un mensaje corto; el detalle va al log de operación.
 """
 
+import dataclasses
 from collections.abc import Awaitable, Callable
+from pathlib import Path as FsPath  # `Path` ya es el de FastAPI (parámetros de la URL)
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request, Response, status
@@ -96,6 +98,8 @@ NOTA_PORTAL = (
 
 # Paso 18 · El conteo diario de la demo vive junto a los demás archivos generados.
 CARPETA_SALIDA = RAIZ_PROYECTO / "out"
+# Paso 19 · Con SALIDA_POR_CONVERSACION, cada conversación tiene out/sesiones/<id>/.
+CARPETA_SESIONES = "sesiones"
 
 # Las respuestas de error, para la documentación de cada endpoint.
 ERRORES: dict[int | str, dict[str, object]] = {
@@ -131,13 +135,18 @@ def crear_app(
     modelo_configurado = adaptador is not None or config.hay_clave_llm()
     modelo = adaptador or AdaptadorAnthropic.desde_configuracion(config)
     agente = Agente.desde_configuracion(
-        config, adaptador=modelo, registro=registro, instrucciones=instrucciones
+        config,
+        adaptador=modelo,
+        registro=registro,
+        instrucciones=instrucciones,
+        # Paso 19 · Los costos de todas las conversaciones, juntos en el `out/` raíz.
+        carpeta_costos=None if crear_contexto is not None else CARPETA_SALIDA,
     )
 
     def sesion_nueva(sesion_id: str) -> Sesion:
         if crear_contexto is not None:
             return Sesion(crear_contexto(sesion_id))
-        return Sesion.nueva(config, sesion_id=sesion_id)
+        return Sesion(contexto_de_conversacion(config, sesion_id))
 
     # `is None` y no `or`: un almacén vacío tiene largo 0 y Python lo trataría como "falso".
     sesiones = almacen if almacen is not None else AlmacenDeSesiones(sesion_nueva)
@@ -303,6 +312,22 @@ def crear_app(
     app.middleware("http")(_encabezados_de_seguridad)
     app.mount("/", StaticFiles(directory=CARPETA_WEB, html=True), name="web")
     return app
+
+
+def contexto_de_conversacion(
+    config: Configuracion, sesion_id: str, carpeta_salida: FsPath = CARPETA_SALIDA
+) -> Contexto:
+    """El contexto de una conversación nueva de la API.
+
+    Con `SALIDA_POR_CONVERSACION=true` (la demo publicada, Paso 19), cada conversación
+    escribe en `out/sesiones/<id>/`: así dos visitantes que preparan Panamá a la vez no
+    se pisan el mapeo ni el paquete. El id es un uuid que ya validó la API, así que no
+    puede salirse de `out/`. Sin la opción (en local), todo va a `out/<caso>/`.
+    """
+    contexto = Contexto.desde_configuracion(config, sesion_id=sesion_id)
+    if not config.salida_por_conversacion:
+        return dataclasses.replace(contexto, salida=carpeta_salida)
+    return dataclasses.replace(contexto, salida=carpeta_salida / CARPETA_SESIONES / sesion_id)
 
 
 # ---------- Piezas de las rutas ----------
