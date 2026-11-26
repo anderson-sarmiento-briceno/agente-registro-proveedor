@@ -142,6 +142,11 @@ def describir_turno(turno: Turno) -> str:
         "mensaje sin aprobarla. Para aprobar, escriba aprobar o /aprobar."
         for p in turno.canceladas
     ]
+    lineas += [
+        f"⚠️ El resultado de {a.herramienta} trae texto que parece una instrucción "
+        f"({', '.join(a.tipos)}). Se trató como dato del cliente, no como orden."
+        for a in turno.alertas
+    ]
     if turno.llamadas:
         lineas += [
             "Herramientas que pidió el modelo (en orden):",
