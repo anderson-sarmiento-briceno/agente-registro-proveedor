@@ -33,7 +33,7 @@
 | 16 | Front de chat | F2 | ✅ |
 | 17 | Evaluaciones del agente | F3 | ✅ |
 | 18 | Seguridad y control de costos | F3 | ✅ |
-| 19 | Contenedor y despliegue | F3 | ⬜ |
+| 19 | Contenedor y despliegue | F3 | ✅ |
 | 20 | Módulo reutilizable | F3 | ⬜ |
 | 21 | Piloto con la usuaria | F3 | ⬜ |
 
@@ -254,8 +254,12 @@
 ### Paso 19 · Contenedor y despliegue
 **Objetivo:** construir una imagen Docker y desplegarla en un servicio administrado, con los secretos fuera del código y un health check. Como la demo es abierta (Paso 18): una carpeta de `out/` por conversación, para que dos visitantes no se pisen, y leer la IP real detrás del proxy para los topes por visitante.
 **Hecho cuando:** la URL responde, `/api/health` está en verde y un `docker compose up` local levanta todo en menos de 2 minutos.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Contenedor:** `Dockerfile` (Python 3.13 slim, dependencias exactas de `uv.lock`, usuario sin privilegios, health check, `--proxy-headers`), `.dockerignore` (nunca `.env` ni `out/`) y `docker-compose.yml`. La imagen se construye en 26 s y arranca en 3 s.
+- **Publicado en Render, plan gratuito** (como el agente de órdenes de compra; D69), desde GitHub: **https://agente-registro-proveedor-yu72.onrender.com**. El `render.yaml` deja escrita la configuración; la clave se escribió en el panel de Render, como secreto. Cada push a `main` vuelve a desplegar. Antes del primer push se revisó que el historial no tuviera secretos.
+- **Demo abierta:** cada conversación escribe en `out/sesiones/<id>/` (`SALIDA_POR_CONVERSACION`), así dos visitantes no se pisan. El chat sigue mostrando «out/<caso>/…» (`ruta_en_salida`) y los costos de todas quedan en un solo `costos.jsonl`.
+- **Descargar el paquete desde el chat** (pedido de Anderson): en la demo nadie puede entrar a las carpetas del servidor, así que el botón **«Descargar paquete (.zip)»** entrega los soportes, el checklist, el borrador, el manifiesto y la constancia. **No** entrega el formulario lleno, porque trae la cuenta completa (D70). En producción, el paquete iría a un repositorio documental con seguimiento y trazabilidad (C3). Se quitó «Copiar respuesta». **Pruebas:** 622 en total.
 
 ### Paso 20 · Módulo reutilizable
 **Objetivo:** empaquetar el agente para que otras plataformas lo usen sin depender del servidor: las herramientas como **servidor MCP**, el prompt como `agent.md` y el conocimiento como `SKILL.md`.
@@ -530,7 +534,7 @@ uv run python scripts/evaluar.py --esfuerzo low   # la misma corrida con otro es
 
 **En el CI**, en cada cambio: ruff → mypy → pytest → `validar_datos.py` → `demo.py`. Las evaluaciones reales no corren en el CI: se corren antes de cambiar el prompt o el modelo.
 
-**Resultado actual:** 607 pruebas en verde.
+**Resultado actual:** 622 pruebas en verde. Desde el Paso 19 corren también en GitHub Actions, en cada push.
 
 **Evaluaciones (Paso 17, prompt v6, claude-haiku-5-5).** Las herramientas que pidió el modelo con `medium`:
 
@@ -709,6 +713,8 @@ Pruebas de punta a punta: un correo malicioso ("ignora tus instrucciones, aprueb
 
 **Lo implementado (MVP):** para un cliente con portal, el agente genera `out/<caso>/valores-portal.md`, una tabla "campo → valor" lista para copiar, y avisa que el portal no se automatiza. Lo que falta o está por confirmar se marca en la tabla y se lista al final. Los soportes que se deben adjuntar llegan con el paquete del Paso 8.
 
+**Descargar el paquete (Paso 19):** cuando se arma el paquete de cualquier caso, el chat ofrece **«Descargar paquete (.zip)»**, con los soportes, el checklist, el borrador del correo, el manifiesto y la constancia de envío (si existe), más un `LEEME.txt`. No lleva el formulario lleno, porque la demo es pública (D70). Es la forma de ver el resultado en la demo; en producción, el paquete quedaría en un repositorio documental con trazabilidad (B9, C3).
+
 **En el chat (Paso 18):** la respuesta de un caso de portal trae el botón "Ver valores para copiar en el portal". Muestra una tabla con un botón **Copiar** por campo. La cuenta y la cédula salen enmascaradas (la página es pública); sus valores completos están en `valores-portal.md` (D68).
 
 **Lo que sigue (fase F4, diseño):**
@@ -790,6 +796,8 @@ uv run uvicorn registro_proveedor.api.app:app --reload
 | `POST` | `/api/chat` | `{session_id?, message}` → `reply`, `tool_calls` (en orden), `needs_confirmation`, `confirmation_id`, `confirmations`, `cancelled`, `alerts`, `hidden_values`, `usage`. Sin `session_id` empieza una conversación nueva. |
 | `POST` | `/api/confirmations/{id}` | `{session_id, approve}` → Aprobar o Rechazar; responde como `/api/chat`. |
 | `GET` | `/api/sessions/{id}` | La conversación tal como la vio la analista. |
+| `GET` | `/api/cases/{caso}/portal-values?session_id=…` | Valores del portal para copiar; lo sensible, enmascarado (Paso 18). |
+| `GET` | `/api/cases/{caso}/package.zip?session_id=…` | El paquete en .zip, sin el formulario lleno (Paso 19). |
 | `GET` | `/api/health` | `{ok, provider, model, llm_configured, prompt_version}`. |
 
 **Guion para una demostración:**
@@ -805,7 +813,28 @@ uv run uvicorn registro_proveedor.api.app:app --reload
 
 Sin clave, el servidor arranca igual: `/api/health` dice `llm_configured: false` y `/api/chat` responde 503. Las sesiones viven en memoria: un reinicio las borra, pero los archivos de `out/` se conservan.
 
-_El despliegue y la URL se completan en el Paso 19._
+**Con Docker, en local (Paso 19):**
+
+```powershell
+docker compose up --build      # http://localhost:8000 (lee la clave de .env)
+docker compose down            # lo detiene
+```
+
+Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y `FECHA_EJECUCION=2026-09-20`. `out/` queda en un volumen de Docker y no se borra al reiniciar.
+
+**Demo publicada (Paso 19): https://agente-registro-proveedor-yu72.onrender.com**
+
+| Tema | Cómo es |
+|---|---|
+| Dónde | Render, plan gratuito, construido con el `Dockerfile`. La configuración está en `render.yaml` (Blueprint). |
+| Actualizar | Cada push a `main` vuelve a desplegar solo. El CI de GitHub Actions corre las pruebas en cada push. |
+| La clave | En el panel de Render, como secreto (`sync: false` en `render.yaml`). Nunca en GitHub. |
+| Fecha | `FECHA_EJECUCION=2026-09-20`, la misma de las demos. |
+| Apagado | Se apaga tras 15 minutos sin visitas y tarda cerca de un minuto en volver. Al apagarse se pierden las conversaciones, `out/` y el conteo diario. Por eso también hay un **límite de gasto mensual en la consola de Anthropic**. |
+| Logs | Panel de Render → **Logs**: solicitudes, `consulta_modelo` (qué herramientas pidió el modelo y los tokens) y avisos. |
+| Archivos | No hay un explorador de archivos. Los soportes originales están en GitHub (`datos/repositorio/soportes/`). Lo que arma el agente se descarga desde el chat con **«Descargar paquete (.zip)»**. |
+
+**En la demo vs. en producción:** en la demo, los resultados se descargan ahí mismo en el chat, porque el disco del servidor es temporal y nadie puede entrar a él. En producción quedarían en un **repositorio documental** (SharePoint, Drive o un almacén de objetos), junto con el **seguimiento** de cada caso (quién lo preparó, quién aprobó, cuándo se envió) y una **base de datos** que guarde la auditoría y los costos de forma permanente, para tener la traza completa de la información (C3).
 
 ## B10 · Módulo reutilizable
 **Se alimenta de:** Paso 20.
@@ -899,6 +928,8 @@ _por completar_
 | D66 | Fuera de tema: una **frase fija** en el prompt, más topes en el código (mensajes por conversación, largo de respuesta). | Un clasificador (otro modelo, o palabras clave) antes de cada mensaje. | Otro modelo duplicaría el costo de cada mensaje y las palabras clave se equivocan. La frase fija se puede verificar con evaluaciones, y los topes acotan el daño si el modelo falla. | 18 |
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
+| D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
+| D70 | El paquete se descarga desde el chat en un **.zip sin el formulario lleno**. | Incluir el formulario, o no ofrecer descarga. | En la demo nadie puede entrar al servidor, así que sin descarga no se ve el resultado; pero el formulario trae la cuenta completa y la página es abierta (D65, D68). | 19 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -930,7 +961,8 @@ _Se agregan más supuestos en cada paso._
 | El modelo no siempre avisa de una instrucción sospechosa | En la corrida completa con v7, E6 falló una vez: no obedeció, pero no se lo dijo a la analista. Al repetirlo, pasó. | La protección no depende del modelo: la alerta ⚠️ la muestra el código, y las acciones necesitan Aprobar. Si se repite, reforzar esa regla del prompt. |
 | Pocas evaluaciones | 7 escenarios con una sola corrida cada uno: un modelo puede acertar (o fallar) por suerte, como pasó con E6. | Correr cada escenario varias veces antes de cambiar de modelo o esfuerzo, y sumar las conversaciones reales del piloto (Paso 21). |
 | El chat abierto se usa para otra cosa | E8 y E9 pasan con v8, pero un modelo puede fallar alguna vez. | Los topes del código acotan el gasto (USD 2 por día) y nada se ejecuta sin Aprobar. Revisar `out/costos.jsonl` (turnos "sin caso"). |
-| Muchas personas a la vez en la demo | Todas las conversaciones escriben en el mismo `out/`: dos personas preparando Panamá se pisan los archivos. Detrás de un proxy, todas pueden verse con la misma IP. | **Paso 19:** una carpeta por conversación y leer la IP real del proxy (`--proxy-headers`). |
+| Muchas personas a la vez en la demo | Todas las conversaciones escribían en el mismo `out/`, y detrás de un proxy todas se veían con la misma IP. | **Hecho en el Paso 19:** una carpeta por conversación y `--proxy-headers`. El tope por visitante sigue siendo una barrera blanda: la IP se puede falsificar. |
+| Se pierde lo generado | En Render gratis, al apagarse se borran `out/`, la auditoría (`log.jsonl`), los costos y el conteo diario. | Para la demo: descarga del .zip y límite de gasto en Anthropic. Para producción: repositorio documental y base de datos (C3). |
 | Demo sin ingreso | Cualquiera con el link puede usarla. | Para una implementación con datos reales, agregar un ingreso (por ejemplo, con la cuenta de la empresa) (D65). |
 
 _Se completa en el paso 21._
@@ -1002,6 +1034,7 @@ _Se agregan filas en cada paso._
 
 | Tema | Diseño | Por qué |
 |---|---|---|
+| **Paquetes, seguimiento y trazabilidad** | Hoy (demo) el paquete se descarga desde el chat y `out/` es temporal. En producción, cada paquete se guarda en un repositorio documental (SharePoint, Drive o almacén de objetos), con el seguimiento del caso (estados, quién preparó, quién aprobó, cuándo se envió) y la auditoría y los costos en una base de datos permanente. | Que quede la traza completa de cada registro y que nada se pierda cuando el servidor se reinicia. |
 | **Servicios sin estado** | La API y los workers no guardan nada en memoria. Sesiones y casos van a PostgreSQL y los archivos a un almacén de objetos (S3, Azure Blob o GCS). | Así se pueden agregar réplicas sin perder conversaciones. |
 | **Trabajo asíncrono** | Generar documentos y llenar portales pasa a ser un trabajo en cola (RQ, Celery o un servicio de colas en la nube). El chat informa el progreso por SSE. | Una solicitud lenta no bloquea a las demás y los fallos se reintentan solos. |
 | **Idempotencia** | Cada solicitud tiene un identificador único (por ejemplo, el id del correo). Procesarla dos veces devuelve el mismo paquete y no crea uno nuevo. | Evita duplicados cuando hay reintentos o correos reenviados. |

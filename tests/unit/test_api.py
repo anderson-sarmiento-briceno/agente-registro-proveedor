@@ -14,8 +14,10 @@ Cómo está organizado:
 """
 
 import dataclasses
+import io
 import json
 import re
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -30,6 +32,7 @@ from registro_proveedor.api.aplicacion import contexto_de_conversacion, crear_ap
 from registro_proveedor.api.limites import LimitadorPorVisitante, UsoDiario
 from registro_proveedor.api.sesiones import AlmacenDeSesiones
 from registro_proveedor.config import Configuracion
+from registro_proveedor.dominio.descarga import zip_del_paquete
 from registro_proveedor.herramientas.base import Contexto
 from tests.ayudas import DATOS_REALES
 
@@ -384,7 +387,7 @@ def test_ninguna_respuesta_expone_la_clave_ni_la_cuenta(contexto: Contexto) -> N
 # ---------- 7. OpenAPI ----------
 
 
-def test_openapi_documenta_las_5_rutas(contexto: Contexto) -> None:
+def test_openapi_documenta_las_6_rutas(contexto: Contexto) -> None:
     esquema = _cliente(contexto).get("/openapi.json").json()
     rutas = esquema["paths"]
     assert set(rutas) == {
@@ -392,6 +395,7 @@ def test_openapi_documenta_las_5_rutas(contexto: Contexto) -> None:
         "/api/confirmations/{confirmation_id}",
         "/api/sessions/{session_id}",
         "/api/cases/{case_id}/portal-values",  # Paso 18 (D57)
+        "/api/cases/{case_id}/package.zip",  # Paso 19
         "/api/health",
     }
     assert "ChatResponse" in esquema["components"]["schemas"]
@@ -512,7 +516,67 @@ def test_valores_del_portal_errores(contexto: Contexto) -> None:
     assert "primero pídale al agente que lo prepare" in r.json()["detail"]
 
 
-# ---------- 10. Paso 19 · Una carpeta por conversación ----------
+# ---------- 10. Paso 19 · Descargar el paquete (.zip) ----------
+
+
+def test_descargar_el_paquete_sin_el_formulario(contexto: Contexto) -> None:
+    cliente = _cliente(
+        contexto,
+        pide("proveedor_leer_solicitud", {"caso": PA}),
+        pide("proveedor_mapear_campos", {"caso": PA}),
+        pide("proveedor_armar_paquete", {"caso": PA}),
+        responde("Listo."),
+    )
+    sesion = cliente.post("/api/chat", json={"message": "Prepara Panamá"}).json()["session_id"]
+    r = cliente.get(f"/api/cases/{PA}/package.zip", params={"session_id": sesion})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    assert f'filename="paquete-{PA}.zip"' in r.headers["content-disposition"]
+    assert r.headers["cache-control"] == "no-store"
+
+    with zipfile.ZipFile(io.BytesIO(r.content)) as zip_:
+        nombres = set(zip_.namelist())
+        contenido = b"".join(zip_.read(n) for n in nombres)
+    assert {f"{PA}/checklist.md", f"{PA}/borrador-correo.md", f"{PA}/LEEME.txt"} <= nombres
+    assert f"{PA}/manifiesto.json" in nombres
+    # Los soportes exigidos por Panamá van en el zip.
+    assert any(n.startswith(f"{PA}/rut") for n in nombres)
+    # El formulario lleno NO (trae la cuenta completa), y la cuenta no aparece en nada.
+    assert f"{PA}/valores-portal.md" not in nombres
+    maestro = json.loads((DATOS_REALES / "repositorio" / "maestro.json").read_text("utf-8"))
+    assert maestro["banco"]["numero_cuenta"].encode() not in contenido
+    assert "descarga_paquete" in (contexto.salida / PA / "log.jsonl").read_text("utf-8")
+
+
+def test_descargar_sin_paquete_o_caso_inexistente(contexto: Contexto) -> None:
+    cliente = _cliente(contexto, responde("Hola."))
+    sesion = cliente.post("/api/chat", json={"message": "hola"}).json()["session_id"]
+    sin_paquete = cliente.get(f"/api/cases/{PA}/package.zip", params={"session_id": sesion})
+    assert sin_paquete.status_code == 404
+    assert "primero pídale al agente" in sin_paquete.json()["detail"]
+    no_existe = cliente.get("/api/cases/no-existe/package.zip", params={"session_id": sesion})
+    assert no_existe.status_code == 404
+    otra_sesion = cliente.get(f"/api/cases/{PA}/package.zip", params={"session_id": "0" * 32})
+    assert otra_sesion.status_code == 404
+
+
+def test_el_zip_lleva_la_constancia_si_se_registro_el_envio(tmp_path: Path) -> None:
+    carpeta = tmp_path / PA
+    (carpeta / "paquete").mkdir(parents=True)
+    (carpeta / "paquete" / "checklist.md").write_text("ok", encoding="utf-8")
+    (carpeta / "paquete" / "formulario.xlsx").write_bytes(b"datos completos")
+    (carpeta / "constancia-envio.md").write_text("constancia", encoding="utf-8")
+    contenido = zip_del_paquete(carpeta)
+    assert contenido is not None
+    with zipfile.ZipFile(io.BytesIO(contenido)) as zip_:
+        nombres = set(zip_.namelist())
+        leeme = zip_.read(f"{PA}/LEEME.txt").decode("utf-8")
+    assert nombres == {f"{PA}/checklist.md", f"{PA}/constancia-envio.md", f"{PA}/LEEME.txt"}
+    assert "formulario.xlsx" in leeme  # explica qué se dejó fuera
+    assert zip_del_paquete(tmp_path / "sin-paquete") is None
+
+
+# ---------- 11. Paso 19 · Una carpeta por conversación ----------
 
 
 def test_cada_conversacion_tiene_su_carpeta(tmp_path: Path) -> None:

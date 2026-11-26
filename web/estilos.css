@@ -181,7 +181,9 @@ td.nombre, td.argumentos { font-family: ui-monospace, "Cascadia Mono", Consolas,
 /* Paso 18 · Valores del portal para copiar. */
 .tarjeta.portal { background: var(--aviso-fondo); border: 1px solid var(--borde); }
 .tarjeta.portal .tabla-contenedor { margin: 8px 0; }
-.mensaje > .acciones { display: flex; gap: 8px; margin-top: 10px; }
+.mensaje > .acciones { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+/* Paso 19 · El enlace de descarga del paquete se ve como un botón. */
+a.boton { display: inline-block; text-decoration: none; }
 
 /* ---------- Botones ---------- */
 

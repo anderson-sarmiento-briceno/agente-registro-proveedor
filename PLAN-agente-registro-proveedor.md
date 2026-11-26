@@ -474,6 +474,7 @@ El prompt se **versiona** y cada cambio se valida con las evaluaciones (sección
 | `POST` | `/api/confirmations/{id}` | `{session_id, approve: bool}` → ejecuta o cancela la acción pendiente *(el `session_id` se agregó en el Paso 15: así nadie aprueba la confirmación de otra conversación adivinando su id)* |
 | `GET` | `/api/sessions/{id}` | Historial de la sesión |
 | `GET` | `/api/cases/{caso}/portal-values?session_id=…` | Valores del portal para copiar; lo sensible va enmascarado (Paso 18) |
+| `GET` | `/api/cases/{caso}/package.zip?session_id=…` | El paquete en .zip para la demo, sin el formulario lleno (Paso 19) |
 | `GET` | `/api/health` | `{ok, provider, model}`, sin exponer claves |
 
 La documentación OpenAPI se genera sola en `/docs` gracias a FastAPI.

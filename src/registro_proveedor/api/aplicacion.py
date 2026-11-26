@@ -60,6 +60,7 @@ from registro_proveedor.api.limites import LimitadorPorVisitante, UsoDiario
 from registro_proveedor.api.sesiones import AlmacenDeSesiones, DemasiadasSesiones, SesionApi
 from registro_proveedor.config import RAIZ_PROYECTO, Configuracion, cargar_configuracion
 from registro_proveedor.dominio.casos import leer_caso
+from registro_proveedor.dominio.descarga import zip_del_paquete
 from registro_proveedor.dominio.generadores.portal import valores_para_copiar
 from registro_proveedor.dominio.lectura import ErrorDeDatos, describir_error_validacion
 from registro_proveedor.dominio.mapeo import cargar_mapeo
@@ -91,6 +92,7 @@ DEMASIADAS = "Hay demasiadas conversaciones abiertas en el servidor. Intente má
 CASO_NO_EXISTE = "No existe ese caso."
 NO_ES_PORTAL = "Ese caso no se llena en un portal web: su formulario es un archivo (Excel o PDF)."
 SIN_MAPEO = "Todavía no hay valores para ese caso: primero pídale al agente que lo prepare."
+SIN_PAQUETE = "Todavía no hay paquete para ese caso: primero pídale al agente que lo prepare."
 NOTA_PORTAL = (
     "Los datos sensibles (cuenta bancaria, identificación) se muestran enmascarados en "
     "esta página. Sus valores completos están en el archivo valores-portal.md del caso."
@@ -293,6 +295,50 @@ def crear_app(
                 for v in valores
             ],
             note=NOTA_PORTAL,
+        )
+
+    @app.get(
+        "/api/cases/{case_id}/package.zip",
+        response_class=Response,
+        responses={200: {"content": {"application/zip": {}}}, **ERRORES},
+    )
+    def descargar_paquete(
+        case_id: Annotated[str, Path(pattern=PATRON_ID_CASO)],
+        session_id: Annotated[str, Query(pattern=PATRON_SESION)],
+    ) -> Response:
+        """Paso 19 · El paquete del caso en un .zip, SIN el formulario lleno (datos completos).
+
+        Para la demo abierta: nadie puede entrar a las carpetas del servidor, así que el
+        resultado se descarga desde el chat. Queda en log.jsonl que se descargó.
+        """
+        actual = _obtener(sesiones, session_id)
+        ctx = actual.sesion.contexto
+        try:
+            leer_caso(ctx.datos, case_id)
+        except ErrorDeDatos:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, CASO_NO_EXISTE) from None
+        contenido = zip_del_paquete(ctx.salida / case_id)
+        if contenido is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, SIN_PAQUETE)
+        escribir_auditoria(
+            ctx.salida,
+            RegistroLlamada(
+                ts=ctx.reloj(),
+                sesion=ctx.sesion_id,
+                herramienta="descarga_paquete",
+                caso=case_id,
+                ok=True,
+                resumen=f"paquete descargado en .zip ({len(contenido) // 1024 + 1} KB)",
+                duracion_ms=0,
+            ),
+        )
+        return Response(
+            content=contenido,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="paquete-{case_id}.zip"',
+                "Cache-Control": "no-store",
+            },
         )
 
     @app.get("/api/health", response_model=HealthResponse)

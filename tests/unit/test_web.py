@@ -146,6 +146,12 @@ def test_app_js_usa_el_contrato_de_los_valores_del_portal() -> None:
     assert "campo.masked" in APP_JS  # lo enmascarado no se puede copiar
 
 
+def test_app_js_descarga_el_paquete_y_no_copia_respuestas() -> None:
+    """Paso 19: el .zip se baja con un enlace; "Copiar respuesta" se quitó (Anderson)."""
+    assert "/package.zip?session_id=" in APP_JS
+    assert "Copiar respuesta" not in APP_JS
+
+
 def test_app_js_conoce_todos_los_estados_de_una_herramienta() -> None:
     for estado in ("executed", "failed", "pending", "approved", "rejected"):
         assert f"{estado}:" in APP_JS

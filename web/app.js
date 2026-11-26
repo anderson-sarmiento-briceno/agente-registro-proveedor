@@ -17,6 +17,10 @@
   botón Copiar por campo. Lo sensible llega enmascarado y no se puede copiar. Los topes
   de la demo (429) se muestran como un aviso, con el mensaje del servidor.
 
+  Paso 19: cuando se arma el paquete de un caso, la respuesta trae "Descargar paquete
+  (.zip)" (GET /api/cases/{caso}/package.zip): soportes, checklist, borrador y
+  constancia, SIN el formulario lleno. En la demo nadie puede entrar al servidor.
+
   Seguridad: NUNCA se usa `innerHTML`. Todo lo que llega del servidor (la respuesta del
   modelo, las etiquetas del cliente) se agrega como TEXTO (`textContent`), así que un
   `<script>` dentro de una respuesta se ve como texto y no se ejecuta. Las negritas y
@@ -194,6 +198,8 @@ function agregarRespuesta(r) {
   for (const c of r.confirmations) burbuja.appendChild(tarjetaPendiente(c));
   const portal = casoDePortal(r.tool_calls);
   if (portal) burbuja.appendChild(botonValoresPortal(portal));
+  const conPaquete = casoConPaquete(r.tool_calls);
+  if (conPaquete) burbuja.appendChild(enlaceDescarga(conPaquete));
   if (r.tool_calls.length) burbuja.appendChild(tablaHerramientas(r.tool_calls));
   burbuja.appendChild(pie(r));
   return agregar(burbuja);
@@ -237,6 +243,35 @@ function botonValoresPortal(caso) {
     }
   });
   contenedor.appendChild(boton);
+  return contenedor;
+}
+
+// ---------- Paso 19 · Descargar el paquete (.zip) ----------
+
+/** El caso cuyo paquete se armó (o cuyo envío se registró) en este turno, o null. */
+function casoConPaquete(llamadas) {
+  let caso = null;
+  for (const ll of llamadas) {
+    const arma = ll.name === "proveedor_armar_paquete" || ll.name === "proveedor_registrar_envio";
+    if (ll.ok && arma && typeof ll.arguments.caso === "string") caso = ll.arguments.caso;
+  }
+  return caso;
+}
+
+/**
+ * Un enlace de descarga (no un script): el navegador baja el .zip de la API. Lleva los
+ * soportes, el checklist, el borrador, el manifiesto y la constancia; NO el formulario
+ * lleno, que trae la cuenta completa (la demo es pública).
+ */
+function enlaceDescarga(caso) {
+  const contenedor = crear("div", "acciones");
+  const enlace = crear("a", "boton secundario", "Descargar paquete (.zip)");
+  enlace.href = `/api/cases/${encodeURIComponent(caso)}/package.zip?session_id=${encodeURIComponent(sesionId || "")}`;
+  enlace.setAttribute("download", `paquete-${caso}.zip`);
+  contenedor.appendChild(enlace);
+  contenedor.appendChild(
+    crear("span", "argumentos", "Soportes, checklist, borrador y constancia (sin el formulario lleno).")
+  );
   return contenedor;
 }
 
@@ -339,8 +374,8 @@ function pie(r) {
   const consumo = r.usage.input_tokens + r.usage.output_tokens + r.usage.cache_read_tokens + r.usage.cache_write_tokens;
   let texto = `${consumo.toLocaleString("es-CO")} tokens`;
   if (r.finish_reason in MOTIVOS) texto = `${MOTIVOS[r.finish_reason]} · ${texto}`;
+  // Sin botón para copiar la respuesta (revisión de Anderson): no se necesitaba.
   contenedor.appendChild(crear("span", "", texto));
-  contenedor.appendChild(botonCopiar(r.reply, "Copiar respuesta"));
   return contenedor;
 }
 
