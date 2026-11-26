@@ -269,7 +269,8 @@ def crear_app(
                 herramienta="vista_valores_portal",
                 caso=case_id,
                 ok=True,
-                resumen=f"{len(valores)} valores mostrados ({enmascarados} enmascarados)",
+                resumen=f"{len(valores)} valores mostrados ({enmascarados} "
+                f"{'enmascarado' if enmascarados == 1 else 'enmascarados'})",
                 duracion_ms=0,
             ),
         )

@@ -273,7 +273,7 @@ function tablaHerramientas(llamadas) {
   const contenedor = crear("div", "tabla-contenedor");
   const tabla = crear("table");
   const encabezado = crear("tr");
-  for (const titulo of ["#", "Herramienta", "Argumentos", "Resultado", ""]) {
+  for (const titulo of ["#", "Herramienta", "Argumentos", "Resultado"]) {
     encabezado.appendChild(crear("th", "", titulo));
   }
   tabla.appendChild(crear("thead")).appendChild(encabezado);
@@ -284,8 +284,9 @@ function tablaHerramientas(llamadas) {
     fila.appendChild(crear("td", "", String(ll.order)));
     fila.appendChild(crear("td", "nombre", ll.name));
     fila.appendChild(crear("td", "argumentos", describirArgumentos(ll.arguments)));
+    // Sin botón Copiar por fila (revisión de Anderson): la tabla es para VER qué pidió el
+    // modelo y en qué orden. Lo que sí se copia: los valores del portal y la respuesta.
     fila.appendChild(crear("td", forma.clase, `${forma.simbolo} ${ll.summary}`));
-    fila.appendChild(crear("td")).appendChild(botonCopiar(ll.summary, "Copiar"));
     filas.appendChild(fila);
   }
   contenedor.appendChild(tabla);
