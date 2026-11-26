@@ -95,7 +95,7 @@ def test_health_con_modelo(contexto: Contexto) -> None:
         "provider": "anthropic",
         "model": "modelo-falso",
         "llm_configured": True,
-        "prompt_version": "3",
+        "prompt_version": "6",
     }
 
 

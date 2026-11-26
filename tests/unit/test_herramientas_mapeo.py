@@ -141,7 +141,7 @@ def test_confirmar_sin_aprobacion_no_hace_nada(ctx_con_pendiente: Contexto) -> N
         # La aprobación es de OTRA decisión sobre el mismo campo...
         ("proveedor_confirmar_campo", {"etiqueta": "Num. de cuenta", "decision": "dejar_faltante"}),
         # ...o de OTRA herramienta.
-        ("proveedor_simular_envio", {}),
+        ("proveedor_registrar_envio", {}),
     ],
 )
 def test_una_aprobacion_no_sirve_para_otra_accion(

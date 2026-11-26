@@ -167,7 +167,7 @@ Llenar los campos y revisar los soportes es trabajo **determinista**: es mejor r
 **Como** analista, **quiero** que nada salga sin mi aprobación **para** mantener el control.
 
 - La herramienta de envío solo se ejecuta si hay una confirmación pendiente **registrada por el servidor** y el usuario la aprueba en el turno siguiente.
-- En el MVP, "enviar" solo escribe `out/<caso>/ENVIO-SIMULADO.md`.
+- En el MVP, "enviar" solo escribe `out/<caso>/constancia-envio.md`: una constancia con el destinatario, los archivos y sus huellas y quién aprobó, que dice que en modo piloto la entrega al cliente se hace fuera del sistema. *(Antes se llamaba `ENVIO-SIMULADO.md`; se cambió después del Paso 16, decisión de Anderson.)*
 
 ### HU-6 · Manejo de errores
 **Como** analista, **quiero** que el agente falle de forma clara **para** no perder tiempo depurando.
@@ -349,7 +349,7 @@ def leer_solicitud(args: LeerSolicitudArgs, ctx: Contexto) -> Resultado[Solicitu
 | `proveedor_confirmar_campo` ⚠ | `caso`, `etiqueta`, `decision` (`aceptar` \| `dejar_faltante`) | campo actualizado y resumen del mapeo; **requiere aprobación humana** |
 | `proveedor_generar_formulario` | `caso` | `ruta`, `formato` |
 | `proveedor_armar_paquete` | `caso` | `ruta`, `listo_para_firma`, `checklist` |
-| `proveedor_simular_envio` ⚠ | `caso` | `ruta`, o un error si no hay confirmación válida; **requiere aprobación humana** |
+| `proveedor_registrar_envio` ⚠ | `caso` | `ruta` de la constancia de envío, o un error si no hay confirmación válida; **requiere aprobación humana** *(se llamaba `proveedor_simular_envio`; se renombró en el Paso 16 para la demo, decisión de Anderson)* |
 
 ⚠ = la herramienta está marcada `requiere_confirmacion=True`: el servidor no la ejecuta al pedirla, sino que crea una confirmación pendiente que la persona aprueba o rechaza en el front.
 
@@ -581,4 +581,4 @@ actualizar. No envíes nada todavía.
 
 **Resultado esperado:** un resumen estructurado, las llamadas a herramientas visibles, la ruta de `out/<caso>/`, la lista de faltantes y de campos por confirmar, el estado `listo_para_firma` con el motivo si está bloqueado, y una pregunta de cierre con los botones Aprobar y Rechazar.
 
-Si el usuario aprueba el envío, el sistema solo genera `ENVIO-SIMULADO.md`.
+Si el usuario aprueba el envío, el sistema solo genera la constancia `constancia-envio.md` (modo piloto).

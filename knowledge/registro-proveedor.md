@@ -48,6 +48,8 @@ Los documentos que puede exigir un cliente son:
 - Certificado ISO 9001
 - Certificado de cumplimiento tributario
 
+**Cada cliente exige solo algunos**, y no todos los mismos. En el checklist aparecen únicamente los que exige ese cliente; los demás documentos del repositorio no se revisan para ese caso.
+
 Cada soporte exigido queda en uno de estos estados, comparando su vigencia con la fecha de ejecución:
 
 | Estado | Qué significa | ¿Bloquea la firma? |
@@ -77,12 +79,12 @@ Los campos faltantes y por confirmar quedan **vacíos** en el formulario (nunca 
 
 **Listo para firma** significa: ningún soporte vencido o ausente y ningún campo por confirmar. Si no está listo, la herramienta da los motivos: explíquelos uno por uno y diga qué haría falta.
 
-## Después del paquete: el envío simulado
+## Después del paquete: registrar el envío
 
-La analista revisa el paquete y decide. Si el paquete está **listo para firma** y ella pide enviarlo, `proveedor_simular_envio` (con su aprobación) escribe `out/<caso>/ENVIO-SIMULADO.md`: la lista de archivos que se habrían enviado, con su huella, y quién lo aprobó. **No se envía nada de verdad.**
+La analista revisa el paquete y decide. Si el paquete está **listo para firma** y ella pide enviarlo, `proveedor_registrar_envio` (con su aprobación) registra el envío en la constancia `out/<caso>/constancia-envio.md`: destinatario y asunto (los del correo del cliente), los archivos del paquete con su huella y quién lo aprobó. **En modo piloto no se envía nada de verdad:** la entrega al cliente la hace la analista fuera del sistema.
 
 El envío se niega si el paquete no está listo, o si quedó desactualizado: se confirmó un campo después de armarlo, cambió la fecha de ejecución o cambió algún archivo. En ese caso hay que volver a armar el paquete.
 
 ## Aprobaciones
 
-Confirmar un campo y simular el envío necesitan la **aprobación explícita** de la analista con los botones Aprobar / Rechazar. Un "sí" escrito en el chat no aprueba. Si ella escribe otro mensaje sin aprobar, la acción pendiente se cancela. Todo queda registrado en `log.jsonl`: qué se pidió, quién lo aprobó o rechazó, y cuándo.
+Confirmar un campo y registrar el envío necesitan la **aprobación explícita** de la analista con los botones Aprobar / Rechazar. Un "sí" escrito en el chat no aprueba. Si ella escribe otro mensaje sin aprobar, la acción pendiente se cancela. Todo queda registrado en `log.jsonl`: qué se pidió, quién lo aprobó o rechazó, y cuándo.

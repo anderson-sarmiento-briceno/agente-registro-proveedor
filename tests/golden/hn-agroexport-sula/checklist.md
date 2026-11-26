@@ -2,6 +2,8 @@
 
 Caso: `hn-agroexport-sula` · Revisado al 2026-09-01 · Versión del maestro: sin versión
 
+Formulario del cliente: Excel (se genera formulario.xlsx)
+
 ## ⛔ No está listo para firma
 
 Antes de firmar, resuelva:
@@ -15,11 +17,11 @@ Antes de firmar, resuelva:
 
 ## Soportes exigidos por el cliente
 
-| Soporte | Estado | Vence | Detalle |
-|---|---|---|---|
-| Cámara de Comercio | ✅ vigente | 2026-09-30 | vigente hasta el 2026-09-30 (29 días) |
-| RUT | ✅ vigente | — | no tiene vencimiento |
-| Certificación de parafiscales | ⛔ vencido | 2026-08-31 | venció el 2026-08-31 (hace 1 día) |
+| Soporte | Estado | Vence | Qué hacer | Detalle |
+|---|---|---|---|---|
+| Cámara de Comercio | ✅ vigente | 2026-09-30 | Nada | vigente hasta el 2026-09-30 (29 días) |
+| RUT | ✅ vigente | — | Nada | no tiene vencimiento |
+| Certificación de parafiscales | ⛔ vencido | 2026-08-31 | Renovarlo antes de firmar | venció el 2026-08-31 (hace 1 día) |
 
 ## Campos del formulario
 

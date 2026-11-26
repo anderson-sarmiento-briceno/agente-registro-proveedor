@@ -102,6 +102,18 @@ class Formato(StrEnum):
     PORTAL = "portal"  # no se automatiza en el MVP: se generan valores para copiar
 
 
+# Cómo se le explica cada formato a una persona (en el chat, el checklist y la
+# constancia). El código ("xlsx", "portal") no le dice nada a quien no programa.
+NOMBRES_FORMATO: dict[Formato, str] = {
+    Formato.EXCEL: "Excel (se genera formulario.xlsx)",
+    Formato.PDF: "PDF (se genera formulario.pdf)",
+    Formato.PORTAL: (
+        "Portal web del cliente (no se llena solo: los valores quedan listos para "
+        "copiar en valores-portal.md)"
+    ),
+}
+
+
 class TipoSoporte(StrEnum):
     """Documentos que un cliente puede exigir y que la empresa tiene (o no) en su repositorio."""
 

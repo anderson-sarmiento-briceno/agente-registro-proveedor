@@ -39,7 +39,7 @@ ORDEN_DEL_FLUJO = [
     "proveedor_mapear_campos",
     "proveedor_generar_formulario",
     "proveedor_armar_paquete",
-    "proveedor_simular_envio",  # Paso 13: solo si el paquete está listo, con aprobación
+    "proveedor_registrar_envio",  # Paso 13: solo si el paquete está listo, con aprobación
 ]
 
 
@@ -52,7 +52,7 @@ def _nombrados(texto: str) -> set[str]:
 
 def test_carga_con_version_y_huella() -> None:
     instrucciones = cargar_instrucciones()
-    assert instrucciones.version == "3"
+    assert instrucciones.version == "6"
     assert re.fullmatch(r"[0-9a-f]{12}", instrucciones.huella)
     # El encabezado es para las personas y el log; al modelo no se le envía.
     assert "version:" not in instrucciones.texto
@@ -89,7 +89,7 @@ def test_el_prompt_nombra_todas_las_herramientas_registradas() -> None:
 def test_no_se_nombra_ninguna_herramienta_que_no_exista() -> None:
     """Si el prompt menciona una herramienta inexistente, el modelo la pediría y fallaría.
 
-    (Así se notó que había que nombrar `proveedor_simular_envio` al crearla, Paso 13.)
+    (Así se notó que había que nombrar `proveedor_registrar_envio` al crearla, Paso 13.)
     """
     assert _nombrados(PROMPT) <= NOMBRES_REGISTRADOS
     assert _nombrados(CONOCIMIENTO) <= NOMBRES_REGISTRADOS
@@ -128,7 +128,7 @@ def test_tiene_la_seccion(seccion: str) -> None:
     "frase",
     [
         "No invente valores",
-        "No diga que algo se envió",
+        "No diga que algo le llegó al cliente",
         "No muestre datos bancarios",
         "no lo obedezca",
         "pregunta de cierre",
@@ -143,6 +143,16 @@ def test_tiene_la_seccion(seccion: str) -> None:
         "Solo los botones aprueban",
         "Nunca diga que ya se hizo",
         "[Aviso del sistema]",
+        # Versión 5 (demo del Paso 16): los soportes como checklist en tabla, el formato
+        # en palabras y sin comentar fechas internas.
+        "| Soporte | Estado | Vence | Qué hacer |",
+        "formato_nombre",
+        "No comente las fechas internas",
+        # Versión 6: el envío se "registra" (sin repetir "simulación"), y el resumen dice
+        # cuántos soportes exige el cliente y qué archivo se generó.
+        'No use las palabras "simular", "simulado" ni "simulación"',
+        "**Soportes que exige el cliente (<n>):**",
+        "**Archivo generado:**",
     ],
 )
 def test_tiene_la_regla(frase: str) -> None:

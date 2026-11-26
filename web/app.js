@@ -279,8 +279,9 @@ function actualizarPendientes(pendientes) {
 // ---------- Markdown mínimo, sin HTML ----------
 
 /*
-  Convierte el texto del modelo en elementos: párrafos, listas ("- "), bloques de código
-  (```), **negritas** y `código`. Cada pedazo de texto se agrega con `textContent`.
+  Convierte el texto del modelo en elementos: párrafos, listas ("- "), tablas
+  ("| a | b |"), bloques de código (```), **negritas** y `código`. Cada pedazo de texto
+  se agrega con `textContent`.
 */
 function pintarMarkdown(texto) {
   const fragmento = document.createDocumentFragment();
@@ -288,6 +289,7 @@ function pintarMarkdown(texto) {
   let parrafo = [];
   let lista = null;
   let codigo = null;
+  let tabla = null; // las líneas "| … |" seguidas
 
   const cerrarParrafo = () => {
     if (!parrafo.length) return;
@@ -303,8 +305,19 @@ function pintarMarkdown(texto) {
     if (lista) fragmento.appendChild(lista);
     lista = null;
   };
+  const cerrarTabla = () => {
+    if (tabla) fragmento.appendChild(armarTabla(tabla));
+    tabla = null;
+  };
 
   for (const linea of lineas) {
+    if (codigo === null && /^\s*\|.*\|\s*$/.test(linea)) {
+      cerrarParrafo();
+      cerrarLista();
+      (tabla = tabla || []).push(linea);
+      continue;
+    }
+    cerrarTabla();
     if (linea.trim().startsWith("```")) {
       if (codigo === null) {
         cerrarParrafo();
@@ -334,9 +347,63 @@ function pintarMarkdown(texto) {
     }
   }
   if (codigo !== null) fragmento.appendChild(crear("pre", "", codigo.join("\n")));
+  cerrarTabla();
   cerrarParrafo();
   cerrarLista();
   return fragmento;
+}
+
+/** Las celdas de una línea "| a | b |" (un "\|" dentro de una celda es un "|" de verdad). */
+function celdas(linea) {
+  return linea
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split(/(?<!\\)\|/)
+    .map((celda) => celda.trim().replace(/\\\|/g, "|"));
+}
+
+/** ¿Es la línea que separa el encabezado del cuerpo? ("|---|:---:|") */
+function esSeparador(linea) {
+  return celdas(linea).every((celda) => /^:?-{3,}:?$/.test(celda));
+}
+
+/**
+ * Una tabla de markdown como tabla de verdad. Las celdas con ✅, ⚠️ o ⛔ toman el color
+ * de su estado (como el checklist de soportes: así se ve de un vistazo qué está bien).
+ * Si las líneas no forman una tabla (falta el separador), se muestran como texto.
+ */
+function armarTabla(lineas) {
+  if (lineas.length < 2 || !esSeparador(lineas[1])) {
+    const p = crear("p");
+    lineas.forEach((linea, i) => {
+      if (i) p.appendChild(document.createElement("br"));
+      p.appendChild(enLinea(linea));
+    });
+    return p;
+  }
+  const contenedor = crear("div", "tabla-contenedor");
+  const tabla = crear("table", "tabla-md");
+  const encabezado = crear("tr");
+  for (const celda of celdas(lineas[0])) encabezado.appendChild(crear("th")).appendChild(enLinea(celda));
+  tabla.appendChild(crear("thead")).appendChild(encabezado);
+  const cuerpo = tabla.appendChild(crear("tbody"));
+  for (const linea of lineas.slice(2)) {
+    const fila = crear("tr");
+    for (const celda of celdas(linea)) {
+      fila.appendChild(crear("td", claseDeEstado(celda))).appendChild(enLinea(celda));
+    }
+    cuerpo.appendChild(fila);
+  }
+  contenedor.appendChild(tabla);
+  return contenedor;
+}
+
+function claseDeEstado(texto) {
+  if (texto.includes("⛔")) return "mal";
+  if (texto.includes("⚠️")) return "espera";
+  if (texto.includes("✅")) return "ok";
+  return "";
 }
 
 function enLinea(texto) {

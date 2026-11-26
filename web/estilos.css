@@ -159,6 +159,8 @@ table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
 th { color: var(--suave); font-weight: 600; }
 td.nombre, td.argumentos { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+.tabla-md { margin: 8px 0; }
+.tabla-md th { background: var(--aviso-fondo); }
 .ok { color: var(--ok); }
 .mal { color: var(--error); }
 .espera { color: var(--pendiente); }

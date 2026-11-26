@@ -2,6 +2,8 @@
 
 Caso: `pa-logistica-istmo` · Revisado al 2026-09-01 · Versión del maestro: sin versión
 
+Formulario del cliente: Portal web del cliente (no se llena solo: los valores quedan listos para copiar en valores-portal.md)
+
 ## ⛔ No está listo para firma
 
 Antes de firmar, resuelva:
@@ -10,10 +12,10 @@ Antes de firmar, resuelva:
 
 ## Soportes exigidos por el cliente
 
-| Soporte | Estado | Vence | Detalle |
-|---|---|---|---|
-| Cámara de Comercio | ✅ vigente | 2026-09-30 | vigente hasta el 2026-09-30 (29 días) |
-| RUT | ✅ vigente | — | no tiene vencimiento |
+| Soporte | Estado | Vence | Qué hacer | Detalle |
+|---|---|---|---|---|
+| Cámara de Comercio | ✅ vigente | 2026-09-30 | Nada | vigente hasta el 2026-09-30 (29 días) |
+| RUT | ✅ vigente | — | Nada | no tiene vencimiento |
 
 ## Campos del formulario
 

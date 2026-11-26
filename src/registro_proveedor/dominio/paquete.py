@@ -32,6 +32,7 @@ from registro_proveedor.dominio.generadores import generar_formulario
 from registro_proveedor.dominio.generadores.comun import verificar_correspondencia
 from registro_proveedor.dominio.mapeo import Estado, Mapeo, Metodo, valor_en_maestro
 from registro_proveedor.dominio.modelos import (
+    NOMBRES_FORMATO,
     NOMBRES_SOPORTE,
     Formato,
     Maestro,
@@ -58,6 +59,21 @@ TEXTO_SOPORTE = {
     EstadoSoporte.VENCIDO: "⛔ vencido",
     EstadoSoporte.AUSENTE: "⛔ ausente",
 }
+
+# Qué tiene que hacer la analista con cada soporte, según su estado. Va en el
+# checklist y en lo que ve el modelo, para que el chat lo muestre igual (Paso 16).
+QUE_HACER = {
+    EstadoSoporte.PRESENTE: "Nada",
+    EstadoSoporte.POR_VENCER: "Pedir la renovación pronto (no bloquea la firma)",
+    EstadoSoporte.VENCIDO: "Renovarlo antes de firmar",
+    EstadoSoporte.AUSENTE: "Conseguirlo: el cliente lo exige",
+}
+
+
+def vence(evaluacion: EvaluacionSoporte) -> str:
+    """La fecha de vencimiento para personas, o "—" si no vence o no existe."""
+    return evaluacion.vigencia_hasta.isoformat() if evaluacion.vigencia_hasta else "—"
+
 
 # Un valor muy corto ("COP", "7") podría aparecer en cualquier texto por casualidad;
 # solo se buscan en el borrador los valores de este largo o más.
@@ -312,7 +328,8 @@ def _checklist(
         {
             "nombre": NOMBRES_SOPORTE[e.tipo],
             "estado": TEXTO_SOPORTE[e.estado],
-            "vence": e.vigencia_hasta.isoformat() if e.vigencia_hasta else "—",
+            "vence": vence(e),
+            "que_hacer": QUE_HACER[e.estado],
             "nota": e.nota,
         }
         for e in evaluaciones
@@ -321,6 +338,7 @@ def _checklist(
         f"{ARCHIVO_CHECKLIST}.j2",
         cliente=caso.cliente,
         caso=caso.caso,
+        formato=NOMBRES_FORMATO[caso.formato],
         fecha=fecha.isoformat(),
         version_maestro=mapeo.version_maestro or "sin versión",
         listo=listo,

@@ -12,7 +12,7 @@ Herramientas (se irán agregando paso a paso):
     Paso 5: proveedor_mapear_campos, proveedor_confirmar_campo
     Paso 7: proveedor_generar_formulario
     Paso 8: proveedor_armar_paquete
-    Paso 13: proveedor_simular_envio
+    Paso 13: proveedor_registrar_envio (antes proveedor_simular_envio)
 """
 
 from pathlib import Path
@@ -36,8 +36,8 @@ from registro_proveedor.dominio.lectura import (
     cargar_solicitud,
     carpeta_de_caso,
 )
-from registro_proveedor.dominio.modelos import Formato
-from registro_proveedor.dominio.reglas import cargar_reglas
+from registro_proveedor.dominio.modelos import NOMBRES_SOPORTE, Formato
+from registro_proveedor.dominio.reglas import EvaluacionSoporte, cargar_reglas
 from registro_proveedor.herramientas.base import (
     ArgumentosHerramienta,
     Contexto,
@@ -300,6 +300,7 @@ class VistaFormulario(_Vista):
 
     caso: str
     formato: str
+    formato_nombre: str  # para personas: "Excel (se genera formulario.xlsx)"
     archivo: str
     escritos: int
     faltantes: int
@@ -376,6 +377,7 @@ def _vista_formulario(
     return VistaFormulario(
         caso=caso.caso,
         formato=caso.formato,
+        formato_nombre=caso.formato_nombre,
         archivo=f"{ctx.salida.name}/{caso.caso}/{generado.ruta.name}",
         escritos=generado.escritos,
         faltantes=generado.faltantes,
@@ -392,8 +394,18 @@ class ArmarPaqueteArgs(ArgumentosHerramienta):
 
 
 class SoporteVisto(_Vista):
+    """Una fila del checklist de soportes, lista para mostrar (Paso 16).
+
+    Trae el nombre, el estado y "qué hacer" ya escritos para personas, los mismos del
+    checklist.md: el modelo los copia en su tabla en vez de traducir códigos.
+    """
+
     tipo: str
-    estado: str
+    nombre: str  # "Cámara de Comercio"
+    estado: str  # código: presente, por_vencer, vencido, ausente
+    estado_texto: str  # "⚠️ por vencer"
+    vence: str  # "2026-09-30" o "—"
+    que_hacer: str  # "Pedir la renovación pronto (no bloquea la firma)"
     nota: str
 
 
@@ -405,11 +417,24 @@ class VistaPaquete(_Vista):
 
     caso: str
     carpeta: str
+    formato_nombre: str
     listo_para_firma: bool
     motivos: list[str]
     avisos: list[str]
     soportes: list[SoporteVisto]
     archivos: list[str]
+
+
+def _soporte_visto(e: EvaluacionSoporte) -> SoporteVisto:
+    return SoporteVisto(
+        tipo=e.tipo,
+        nombre=NOMBRES_SOPORTE[e.tipo],
+        estado=e.estado,
+        estado_texto=paquete.TEXTO_SOPORTE[e.estado],
+        vence=paquete.vence(e),
+        que_hacer=paquete.QUE_HACER[e.estado],
+        nota=e.nota,
+    )
 
 
 def _resumir_paquete(v: VistaPaquete) -> str:
@@ -451,18 +476,20 @@ def armar_paquete(args: ArmarPaqueteArgs, ctx: Contexto) -> Resultado[VistaPaque
             listo_para_firma=armado.listo_para_firma,
             motivos=armado.motivos,
             avisos=armado.avisos,
-            soportes=[
-                SoporteVisto(tipo=s.tipo, estado=s.estado, nota=s.nota) for s in armado.soportes
-            ],
+            formato_nombre=caso.formato_nombre,
+            soportes=[_soporte_visto(s) for s in armado.soportes],
             archivos=armado.archivos,
         ),
     )
 
 
-# ---------- proveedor_simular_envio ----------
+# ---------- proveedor_registrar_envio ----------
+# Antes se llamaba `proveedor_simular_envio`. Se renombró para la demo (Paso 16):
+# "registrar" dice exactamente lo que hace (deja la constancia), sin repetir
+# "simulación" en cada respuesta. La constancia aclara UNA vez que es modo piloto.
 
 
-class SimularEnvioArgs(ArgumentosHerramienta):
+class RegistrarEnvioArgs(ArgumentosHerramienta):
     caso: IdCasoArg
 
 
@@ -481,15 +508,16 @@ def _resumir_envio(v: VistaEnvio) -> str:
 
 
 @registro.herramienta(
-    nombre="proveedor_simular_envio",
-    descripcion="Simula el envío del paquete para firma del caso: escribe ENVIO-SIMULADO.md "
-    "(no envía nada de verdad). Solo si el paquete está listo y al día. Requiere aprobación "
-    "de la analista.",
-    argumentos=SimularEnvioArgs,
+    nombre="proveedor_registrar_envio",
+    descripcion="Registra el envío del paquete para firma del caso en la constancia "
+    "constancia-envio.md. En modo piloto no envía nada al cliente: la entrega la hace la "
+    "analista fuera del sistema. Solo si el paquete está listo y al día. Requiere "
+    "aprobación de la analista.",
+    argumentos=RegistrarEnvioArgs,
     requiere_confirmacion=True,
     resumir=_resumir_envio,
 )
-def simular_envio(args: SimularEnvioArgs, ctx: Contexto) -> Resultado[VistaEnvio]:
+def registrar_envio(args: RegistrarEnvioArgs, ctx: Contexto) -> Resultado[VistaEnvio]:
     # El doble candado de `base.py` ya comprobó que hay una aprobación válida; aquí
     # solo se usa para anotar quién aprobó y cuándo.
     aprobacion = ctx.aprobacion
@@ -498,8 +526,9 @@ def simular_envio(args: SimularEnvioArgs, ctx: Contexto) -> Resultado[VistaEnvio
     caso = _leer_caso(ctx, args.caso)
     carpeta = ctx.carpeta_de_salida(args.caso)
     try:
-        enviado = envio.simular_envio(
+        enviado = envio.registrar_envio(
             caso=caso,
+            solicitud=cargar_solicitud(carpeta_de_caso(ctx.datos, args.caso)),
             mapeo=_mapeo_guardado(carpeta, args.caso),
             carpeta_caso=carpeta,
             fecha=ctx.fecha_ejecucion,

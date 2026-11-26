@@ -182,14 +182,14 @@
 - **Prueba real con el caso de Ecuador (unos USD 0.003):** el modelo pidió las herramientas en orden, no tomó un "sí" ambiguo como decisión y el ciclo bloqueó `proveedor_confirmar_campo`. Con lo aprendido: **prompt versión 2** (hacer los 4 pasos seguidos y preguntar al final), un mensaje de bloqueo más claro (el modelo había inventado "otro canal" para aprobar) y un tope que no cuenta lo leído de la caché (D46). **Pruebas:** 444 en total, sin red.
 
 ### Paso 13 · Confirmación humana y envío simulado
-**Objetivo:** las herramientas marcadas con aprobación humana (`proveedor_confirmar_campo` y `proveedor_simular_envio`) crean una confirmación pendiente en el servidor y solo se ejecutan tras una aprobación explícita.
-**Hecho cuando:** ninguna prueba consigue escribir `ENVIO-SIMULADO.md` ni confirmar un campo sin aprobación, aunque el modelo lo intente.
+**Objetivo:** las herramientas marcadas con aprobación humana (`proveedor_confirmar_campo` y `proveedor_simular_envio`, hoy `proveedor_registrar_envio`) crean una confirmación pendiente en el servidor y solo se ejecutan tras una aprobación explícita.
+**Hecho cuando:** ninguna prueba consigue escribir `ENVIO-SIMULADO.md` (hoy `constancia-envio.md`, D58) ni confirmar un campo sin aprobación, aunque el modelo lo intente.
 **Estado:** ✅
 **Avance:**
 - **Confirmación pendiente** (`agente/ciclo.py`): cuando el modelo pide `proveedor_confirmar_campo` o `proveedor_simular_envio`, **no se ejecuta**. Se guarda con sus argumentos ya validados, el modelo recibe "pendiente de aprobación" y la analista decide con **Aprobar / Rechazar** (`Agente.resolver`). Aprobar ejecuta con los argumentos guardados y el modelo continúa.
 - **Solo se aprueba con una acción explícita**, nunca con un "sí" escrito (D47). Un mensaje nuevo cancela las pendientes (RN4), y una confirmación ya resuelta o inventada no hace nada.
 - **Doble candado** (`base.py`): sin una `Aprobacion` para esa herramienta y esos argumentos exactos, la herramienta se niega aunque la llamen directamente (D48). La auditoría guarda el id de cada aprobación.
-- **`proveedor_simular_envio`** (la séptima herramienta) escribe `ENVIO-SIMULADO.md` con los archivos, sus huellas y quién aprobó, sin datos bancarios. Se niega si el paquete no está listo o quedó desactualizado (D49).
+- **`proveedor_simular_envio`** (la séptima herramienta; desde el Paso 16, `proveedor_registrar_envio`, D61) escribe `ENVIO-SIMULADO.md` (desde el Paso 16, la constancia `constancia-envio.md`, D58) con los archivos, sus huellas y quién aprobó, sin datos bancarios. Se niega si el paquete no está listo o quedó desactualizado (D49).
 - **Prompt versión 3** y chat con `/aprobar` y `/rechazar`. Ninguna prueba consigue confirmar ni "enviar" sin aprobación.
 - **Prueba real con Ecuador:** el modelo hizo los 4 pasos seguidos y la confirmación quedó pendiente, pero se **canceló** al escribir otro mensaje, y la terminal no lo mostraba. Ahora también vale `aprobar` / `rechazar` sin barra (solo la palabra sola, o con el id), y la terminal avisa con ⊘ cada cancelación (`Turno.canceladas`). **Pruebas:** 476 en total.
 
@@ -221,7 +221,10 @@
 - **`web/`** (`index.html`, `app.js`, `estilos.css` e `icono.svg`), servida por FastAPI en `/`. Muestra el historial (se conserva al recargar), "pensando…", la tabla de herramientas **en orden** en cada respuesta, las tarjetas ⏳ con **Aprobar / Rechazar**, las alertas ⚠️, las canceladas ⊘ y botones de copiar.
 - **Seguridad:** `app.js` nunca usa `innerHTML`: todo se agrega como texto, así que un `<script>` en una respuesta no se ejecuta. La política CSP solo permite archivos del propio servidor y ningún script en línea (D56).
 - **Prueba real en el navegador (Anderson):** Ecuador de punta a punta. Los 4 pasos seguidos; el RUC quedó pendiente y se confirmó al pulsar Aprobar (con el id de la aprobación en `log.jsonl`), y el paquete pasó de 3 a 2 motivos.
-- Los valores completos del portal, con su botón de copiar, se dejan para el Paso 18, cuando haya inicio de sesión (D57). **Pruebas:** 561 en total.
+- Los valores completos del portal, con su botón de copiar, se dejan para el Paso 18, cuando haya inicio de sesión (D57).
+- **Después de probar Panamá completo:** el envío deja una **constancia formal** (`constancia-envio.md`) con destinatario y asunto del correo del cliente, en lugar de `ENVIO-SIMULADO.md`. Dice una sola vez que es modo piloto (D58), y el prompt pasa a la versión 4. Las pruebas ya no leen el `.env` local: antes, una fecha puesta para probar hacía fallar la demo.
+- **Para que la demo se entienda (Anderson):** el formato del formulario se dice en palabras ("Portal web del cliente…", no `portal`). Los soportes van en un **checklist en tabla** (Soporte · Estado · Vence · Qué hacer), armado por las herramientas y dibujado por la página (D60; prompt versión 5). Con una fecha fija, el reloj también usa ese día, así que no hay aprobaciones "en noviembre" en un caso de septiembre (D59). `datos/` no se tocó.
+- **Segunda revisión de Anderson:** la herramienta pasa a llamarse `proveedor_registrar_envio` y el modelo ya no dice "simular": habla de "registrar el envío" y aclara una sola vez que la entrega se hace fuera del sistema (D61; prompt versión 6). El resumen dice **cuántos soportes exige ese cliente** (Panamá exige 2: no faltaba ninguno) y **qué archivo se generó**. **Pruebas:** 569 en total.
 
 ## Fase F3 · Despliegue y operación
 
@@ -579,7 +582,7 @@ mensaje de la analista
 |---|---|
 | El modelo pide una herramienta | Se ejecuta y su resultado (enmascarado) vuelve al modelo. Si pide varias a la vez, se ejecutan en orden y los resultados vuelven juntos. |
 | Herramienta inexistente, argumento inventado o caso que no existe | No se ejecuta nada; el modelo recibe el error y lo explica. |
-| Pide `proveedor_confirmar_campo` o `proveedor_simular_envio` | **No se ejecuta**: queda una confirmación pendiente (ver abajo). |
+| Pide `proveedor_confirmar_campo` o `proveedor_registrar_envio` | **No se ejecuta**: queda una confirmación pendiente (ver abajo). |
 | 15 consultas en un turno (`LLM_MAX_ITERACIONES`) | Se detiene y muestra qué alcanzó a hacer. La analista escribe "sigue". |
 | 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`), sin contar los leídos de la caché | Se detiene y pide abrir una conversación nueva. |
 | El modelo falla (sin conexión, límite, clave) | Mensaje claro; la sesión sigue y se puede reintentar. |
@@ -736,6 +739,17 @@ uv run uvicorn registro_proveedor.api.app:app --reload
 | `GET` | `/api/sessions/{id}` | La conversación tal como la vio la analista. |
 | `GET` | `/api/health` | `{ok, provider, model, llm_configured, prompt_version}`. |
 
+**Guion para una demostración:**
+
+1. En `.env`: `FECHA_EJECUCION=2026-09-20`. Hasta el 30 de septiembre la Cámara de Comercio sigue vigente; con el 20 aparece "por vencer", sin bloquear.
+2. `uv run python scripts/demo.py`: deja `out/` limpio, sin confirmaciones de pruebas anteriores.
+3. Arrancar (o reiniciar) `uvicorn`. `--reload` no lee los cambios de `.env`, hay que reiniciarlo.
+4. En `http://127.0.0.1:8000/`, mostrar los casos:
+   - **Colombia:** listo para firma; aprobar el envío.
+   - **Panamá:** aceptar el RUC con **Aprobar** → listo → «Envíalo» → **Aprobar**.
+   - **Ecuador** o **Honduras:** lo que no se arregla en el chat (soporte ausente o vencido).
+5. Al terminar, dejar `FECHA_EJECUCION=` vacía.
+
 Sin clave, el servidor arranca igual: `/api/health` dice `llm_configured: false` y `/api/chat` responde 503. Las sesiones viven en memoria: un reinicio las borra, pero los archivos de `out/` se conservan.
 
 _El despliegue y la URL se completan en el Paso 19._
@@ -760,7 +774,7 @@ _por completar_
 | HU-2 Mapear campos | 5, 6, 13 | ✅ | Hecho: capas, estados, regla de país, origen por campo, nunca un valor inventado, y la confirmación solo con la aprobación explícita de la analista (Paso 13). Para producción: proponer agregar al glosario las etiquetas confirmadas (sección 9.2 del plan). |
 | HU-3 Generar formulario | 7 | 🟨 | Hecho: Excel en celdas exactas, PDF en orden y valores para portal, siempre desde el mapeo, con los faltantes vacíos y resaltados. Falta rellenar un PDF AcroForm del cliente y escribir sobre su `.xlsx` original (ningún caso de ejemplo los trae). |
 | HU-4 Paquete para firma | 8, 11, 12 | ✅ | Hecho: carpeta con formulario, soportes, checklist (presente, ausente, vencido o por vencer), borrador sin datos bancarios y `listo_para_firma`. El agente cierra con el resumen del formato fijo y una pregunta explícita (prompt del Paso 11, ciclo del Paso 12). Para producción: medir con evaluaciones que el modelo siempre use ese formato (Paso 17). |
-| HU-5 Envío con confirmación | 13 | ✅ | Hecho: `proveedor_simular_envio` solo corre con una aprobación registrada por el servidor, en el turno siguiente, y escribe `ENVIO-SIMULADO.md`. Para producción: reemplazar la simulación por el envío real (correo o portal), detrás de la misma aprobación. |
+| HU-5 Envío con confirmación | 13 | ✅ | Hecho: `proveedor_registrar_envio` solo corre con una aprobación registrada por el servidor, en el turno siguiente, y escribe la constancia `constancia-envio.md` (D58). Para producción: reemplazar la simulación por el envío real (correo o portal), detrás de la misma aprobación. |
 | HU-6 Manejo de errores | 3, 10, 12 | ✅ | Hecho: las herramientas nunca lanzan y dan un mensaje claro; los errores del modelo se traducen (Paso 10) y no cierran la sesión (Paso 12). |
 | HU-7 Trazabilidad | 3, 8 | ✅ | Hecho: `log.jsonl` por llamada y `manifiesto.json` con fecha, versión del maestro, huellas y origen de cada campo. Las instrucciones tienen versión y huella (Paso 11), y cada consulta al modelo las deja en el log de operación (Paso 12). Para producción: llevar ese log a un almacenamiento durable (Paso 19) y pedir que el maestro tenga versión. |
 
@@ -821,6 +835,10 @@ _por completar_
 | D55 | Sesiones en memoria, con candado por sesión, vencimiento a las 2 horas y un máximo de 100. Si se llega al máximo, la sesión nueva se rechaza. | Guardarlas en disco o en una base de datos; borrar la más vieja. | Basta para el piloto y es simple. Borrar una conversación activa de otra persona sería peor que pedir que intente más tarde. Guardarlas fuera de la memoria es parte del Paso 19. | 15 |
 | D56 | El front es HTML + JS sin librerías; nunca usa `innerHTML` (el markdown se arma elemento por elemento) y tiene una CSP estricta. | Una librería de markdown o un framework (React, Vue). | Con el texto siempre como texto, un `<script>` en una respuesta del modelo o en una etiqueta del cliente no se puede ejecutar. Sin librerías no hay nada externo que cargar, actualizar ni auditar. | 16 |
 | D57 | Los valores completos del portal (para copiar y pegar) no se muestran en el navegador hasta el Paso 18; por ahora, el agente indica el archivo `valores-portal.md`. | Un endpoint con los valores completos desde ya. | Sin inicio de sesión, cualquiera que abra la página vería la cuenta bancaria completa. El Paso 15 exige que ninguna respuesta exponga datos completos. | 16 |
+| D58 | El envío deja `constancia-envio.md`, una constancia formal (destinatario, asunto, aprobación, archivos con huellas) que dice **una sola vez**, al final, que en modo piloto la entrega se hace fuera del sistema. La herramienta y el prompt siguen diciendo "simular" al modelo. | Quitar toda mención a que no se envía (para que parezca producción), o mantener `ENVIO-SIMULADO.md` con el aviso destacado. | Debe verse profesional, pero sin engañar a quien lo revise: hoy no se envía nada. Si se necesita un envío real (correo o portal), se hace en el Paso 19, detrás de la misma aprobación. | 16 |
+| D59 | Con `FECHA_EJECUCION` fija, el reloj del contexto usa ese mismo día con la hora actual (`reloj_para`). | Dejar el reloj real, o cambiar las fechas de `datos/`. | En una demo, una aprobación con fecha de noviembre en un caso que se trabaja "el 20 de septiembre" genera dudas; el modelo incluso la señaló. Cambiar `datos/` no sirve: con el tiempo, las fechas volverían a quedar viejas. | 16 |
+| D60 | El checklist de soportes (nombre, estado, vence, qué hacer) y el nombre del formato los arman las **herramientas**; el modelo los copia en una tabla fija y la página dibuja tablas. | Que el modelo traduzca los códigos (`por_vencer`, `portal`) con sus palabras. | Principio 1: es información de negocio, debe ser determinista. Así la analista ve lo mismo en el chat, en `checklist.md` y en la constancia. | 16 |
+| D61 | `proveedor_simular_envio` se renombra `proveedor_registrar_envio`, y el prompt prohíbe decir "simular" en el chat; la aclaración de que la entrega se hace fuera del sistema va una sola vez, al registrar. Se actualizó la tabla de herramientas del plan. | Mantener el nombre del plan. | En la demo, la palabra "simulación" se repetía en cada respuesta y en la tabla de herramientas, y generaba dudas. "Registrar" describe exactamente lo que hace (deja la constancia), y sigue siendo honesto. | 16 |
 
 _Se agregan más decisiones en cada paso._
 

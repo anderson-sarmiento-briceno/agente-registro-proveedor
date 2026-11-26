@@ -1,7 +1,17 @@
-"""Envío SIMULADO del paquete para firma (HU-5, Paso 13).
+"""Envío del paquete para firma, en modo piloto (HU-5, Paso 13).
 
-En el MVP "enviar" no manda nada a nadie: escribe `out/<caso>/ENVIO-SIMULADO.md`, que
-deja constancia de qué archivos se habrían enviado (con su huella) y quién lo aprobó.
+En el MVP "enviar" no manda nada a nadie: escribe `out/<caso>/constancia-envio.md`, una
+constancia formal con el destinatario y el asunto (los del correo del cliente), los
+archivos del paquete con su huella y quién aprobó el envío. La entrega al cliente se
+hace fuera del sistema; la constancia lo dice una vez, en su última línea.
+
+¿Por qué no se llama "ENVIO-SIMULADO.md"? (decisión de Anderson, opción A)
+    La constancia debe verse como un documento de trabajo profesional, sin repetir
+    "simulado" por todas partes, pero SIN fingir que se envió algo: la última línea dice
+    que es modo piloto. La herramienta (`proveedor_registrar_envio`) y el prompt le dicen
+    al modelo que no se envía nada al cliente, para que nunca diga que el paquete ya
+    llegó; pero le piden decirlo UNA vez, sin repetir "simulación" en cada respuesta.
+    Para un envío real (correo o portal), ver el Paso 19.
 
 ¿Cuándo se niega?
     Enviar un paquete que no corresponde a lo que la analista revisó sería peor que no
@@ -17,10 +27,11 @@ deja constancia de qué archivos se habrían enviado (con su huella) y quién lo
 La aprobación de la analista NO se revisa aquí: la exige el doble candado de la capa de
 herramientas (Paso 13). Este módulo solo recibe quién aprobó, para anotarlo.
 
-Datos sensibles: el archivo lista nombres, tamaños y huellas, nunca valores.
+Datos sensibles: el archivo lista nombres, tamaños y huellas, nunca valores del
+formulario. El destinatario es el correo del cliente, que ya venía en su solicitud.
 """
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -28,6 +39,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from registro_proveedor.dominio.casos import CasoLeido
 from registro_proveedor.dominio.generadores.comun import escribir_atomico
 from registro_proveedor.dominio.mapeo import Estado, Mapeo
+from registro_proveedor.dominio.modelos import Solicitud
 from registro_proveedor.dominio.paquete import (
     ARCHIVO_MANIFIESTO,
     CARPETA_PAQUETE,
@@ -37,53 +49,61 @@ from registro_proveedor.dominio.paquete import (
 )
 from registro_proveedor.dominio.textos import renderizar
 
-ARCHIVO_ENVIO = "ENVIO-SIMULADO.md"
+ARCHIVO_ENVIO = "constancia-envio.md"
 VOLVER_A_ARMAR = "vuelva a usar proveedor_armar_paquete"
 
 
 class ErrorDeEnvio(Exception):
-    """No se puede simular el envío; el mensaje dice por qué y qué hacer."""
+    """No se puede registrar el envío; el mensaje dice por qué y qué hacer."""
 
 
-class EnvioSimulado(BaseModel):
+class EnvioRegistrado(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     ruta: Path
     archivos: list[ArchivoDelPaquete]  # los del paquete, más el manifiesto
 
 
-def simular_envio(
+def registrar_envio(
     *,
     caso: CasoLeido,
+    solicitud: Solicitud,
     mapeo: Mapeo,
     carpeta_caso: Path,
     fecha: date,
     aprobacion: str,
     aprobado_por: str,
     aprobado_en: datetime,
-) -> EnvioSimulado:
-    """Escribe `ENVIO-SIMULADO.md` si el paquete está listo y al día. Lanza `ErrorDeEnvio` si no."""
+) -> EnvioRegistrado:
+    """Escribe la constancia si el paquete está listo y al día. Lanza `ErrorDeEnvio` si no."""
     paquete = carpeta_caso / CARPETA_PAQUETE
     manifiesto = _leer_manifiesto(paquete, caso.caso)
     _revisar_que_este_listo(manifiesto)
     _revisar_que_este_al_dia(manifiesto, mapeo, fecha, paquete)
     archivos = [*manifiesto.archivos, huella_de(paquete / ARCHIVO_MANIFIESTO)]
     texto = renderizar(
-        f"{ARCHIVO_ENVIO.lower()}.j2",
+        f"{ARCHIVO_ENVIO}.j2",
         caso=caso.caso,
         cliente=caso.cliente,
         pais=caso.pais_nombre,
-        formato=caso.formato,
+        formato=caso.formato_nombre,
+        destinatario=solicitud.de,  # quien escribió el correo es a quien se le responde
+        asunto=f"Re: {solicitud.asunto}",
         fecha=fecha.isoformat(),
-        paquete_generado_en=manifiesto.generado_en.isoformat(),
+        paquete_generado_en=_legible(manifiesto.generado_en),
         aprobacion=aprobacion,
         aprobado_por=aprobado_por,
-        aprobado_en=aprobado_en.isoformat(),
+        aprobado_en=_legible(aprobado_en),
         archivos=archivos,
     )
     destino = carpeta_caso / ARCHIVO_ENVIO
     escribir_atomico(destino, lambda ruta: ruta.write_text(texto, encoding="utf-8", newline="\n"))
-    return EnvioSimulado(ruta=destino, archivos=archivos)
+    return EnvioRegistrado(ruta=destino, archivos=archivos)
+
+
+def _legible(momento: datetime) -> str:
+    """2026-11-26T18:26:09.371599+00:00 → "2026-11-26 18:26 UTC" (para personas)."""
+    return momento.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _leer_manifiesto(paquete: Path, caso: str) -> Manifiesto:

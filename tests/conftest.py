@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 import structlog
 
+from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.base import Contexto
 from tests.ayudas import DATOS_REALES, FECHA_FIJA, HORA_FIJA, EditarJson
 
@@ -97,6 +98,21 @@ def contexto(tmp_path: Path) -> Contexto:
         sesion_id="sesion-de-prueba",
         reloj=lambda: HORA_FIJA,
     )
+
+
+@pytest.fixture(autouse=True)
+def _sin_configuracion_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Las pruebas NO leen el `.env` de quien las corre ni sus variables de entorno.
+
+    Sin esto, el resultado dependería de la máquina: por ejemplo, con
+    `FECHA_EJECUCION=2026-09-20` en `.env`, la demo usaría esa fecha y la prueba que
+    espera la fecha fija fallaría (pasó al probar el front, en el Paso 16). Así, toda
+    `Configuracion()` dentro de una prueba parte de los valores por defecto, y la prueba
+    que necesite otro valor lo pasa de forma explícita.
+    """
+    monkeypatch.setitem(Configuracion.model_config, "env_file", None)
+    for nombre in Configuracion.model_fields:
+        monkeypatch.delenv(nombre.upper(), raising=False)
 
 
 @pytest.fixture(autouse=True)

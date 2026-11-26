@@ -2,16 +2,18 @@
 
 Caso: `co-industrias-delta` · Revisado al 2026-09-01 · Versión del maestro: sin versión
 
+Formulario del cliente: Excel (se genera formulario.xlsx)
+
 ## ✅ Listo para firma
 
 ## Soportes exigidos por el cliente
 
-| Soporte | Estado | Vence | Detalle |
-|---|---|---|---|
-| Cámara de Comercio | ✅ vigente | 2026-09-30 | vigente hasta el 2026-09-30 (29 días) |
-| RUT | ✅ vigente | — | no tiene vencimiento |
-| Certificación bancaria | ✅ vigente | 2026-12-31 | vigente hasta el 2026-12-31 (121 días) |
-| Estados financieros | ✅ vigente | 2027-03-31 | vigente hasta el 2027-03-31 (211 días) |
+| Soporte | Estado | Vence | Qué hacer | Detalle |
+|---|---|---|---|---|
+| Cámara de Comercio | ✅ vigente | 2026-09-30 | Nada | vigente hasta el 2026-09-30 (29 días) |
+| RUT | ✅ vigente | — | Nada | no tiene vencimiento |
+| Certificación bancaria | ✅ vigente | 2026-12-31 | Nada | vigente hasta el 2026-12-31 (121 días) |
+| Estados financieros | ✅ vigente | 2027-03-31 | Nada | vigente hasta el 2027-03-31 (211 días) |
 
 ## Campos del formulario
 

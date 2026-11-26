@@ -245,8 +245,13 @@ def test_checklist(tmp_path: Path) -> None:
     assert "## ⛔ No está listo para firma" in texto
     assert "- [ ] campo por confirmar: «RTN»" in texto
     assert "- campo faltante en el maestro: «Referencias comerciales»" in texto
-    assert "| Certificación de parafiscales | ⛔ vencido | 2026-08-31 |" in texto
-    assert "| RUT | ✅ vigente | — | no tiene vencimiento |" in texto
+    assert (
+        "| Certificación de parafiscales | ⛔ vencido | 2026-08-31 | Renovarlo antes de firmar |"
+        in texto
+    )
+    assert "| RUT | ✅ vigente | — | Nada | no tiene vencimiento |" in texto
+    # El formato del formulario, en palabras (no "xlsx").
+    assert "Formulario del cliente: Excel (se genera formulario.xlsx)" in texto
     assert "\n\n\n" not in texto  # sin líneas en blanco de más
 
 

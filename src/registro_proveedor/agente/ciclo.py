@@ -18,7 +18,7 @@
 
 Confirmación humana (CA3, HU-5, RN4 · Paso 13):
     Las herramientas marcadas `requiere_confirmacion` (`proveedor_confirmar_campo` y
-    `proveedor_simular_envio`) NO se ejecutan cuando el modelo las pide:
+    `proveedor_registrar_envio`) NO se ejecutan cuando el modelo las pide:
 
         el modelo pide proveedor_confirmar_campo {caso, etiqueta, decision}
           → el ciclo crea una CONFIRMACIÓN PENDIENTE con esos argumentos (ya validados)

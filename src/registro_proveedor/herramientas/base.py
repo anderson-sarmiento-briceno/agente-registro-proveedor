@@ -140,6 +140,21 @@ def _ahora_utc() -> datetime:
     return datetime.now(UTC)
 
 
+def reloj_para(fecha_fija: date | None) -> Callable[[], datetime]:
+    """El reloj del contexto: la hora real o, con una fecha fija, ese día a la hora actual.
+
+    Así todas las marcas de tiempo (aprobaciones, paquete, constancia, log.jsonl) son
+    coherentes con la fecha de ejecución de una demostración.
+    """
+    if fecha_fija is None:
+        return _ahora_utc
+
+    def ahora_en_la_fecha_fija() -> datetime:
+        return datetime.combine(fecha_fija, datetime.now(UTC).time(), tzinfo=UTC)
+
+    return ahora_en_la_fecha_fija
+
+
 @dataclass(frozen=True)
 class Aprobacion:
     """La aprobación de la analista para UNA acción concreta (CA3, Paso 13).
@@ -184,12 +199,18 @@ class Contexto:
 
     @classmethod
     def desde_configuracion(cls, config: Configuracion, sesion_id: str = "local") -> "Contexto":
-        """El contexto normal del proyecto: datos/ y out/ en la raíz, fecha de la configuración."""
+        """El contexto normal del proyecto: datos/ y out/ en la raíz, fecha de la configuración.
+
+        Si `FECHA_EJECUCION` está fija (una demostración), el reloj también usa ESE día
+        (con la hora actual). Si no, una aprobación quedaría registrada en noviembre en
+        un caso que se trabaja "el 20 de septiembre", y eso confunde a quien lo revisa.
+        """
         return cls(
             datos=RAIZ_PROYECTO / "datos",
             salida=RAIZ_PROYECTO / "out",
             fecha_ejecucion=config.fecha_efectiva(),
             sesion_id=sesion_id,
+            reloj=reloj_para(config.fecha_ejecucion),
         )
 
     def carpeta_de_salida(self, caso: str) -> Path:

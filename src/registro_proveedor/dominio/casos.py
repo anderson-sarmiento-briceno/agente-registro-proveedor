@@ -12,7 +12,7 @@ son envolturas delgadas sobre estas funciones.
 from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from registro_proveedor.dominio.lectura import (
     ARCHIVO_PLANTILLA_CAMPOS,
@@ -26,6 +26,7 @@ from registro_proveedor.dominio.lectura import (
     carpeta_de_caso,
 )
 from registro_proveedor.dominio.modelos import (
+    NOMBRES_FORMATO,
     NOMBRES_PAIS,
     Formato,
     Pais,
@@ -64,6 +65,14 @@ class ResumenCaso(_Modelo):
     pais_nombre: str
     formato: Formato
     fecha: date
+
+    # `computed_field`: se calcula a partir de `formato` y aparece en el JSON que ve el
+    # modelo, pero nadie tiene que pasarlo (y no puede quedar desalineado con el código).
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def formato_nombre(self) -> str:
+        """Para personas: "Excel (se genera formulario.xlsx)"."""
+        return NOMBRES_FORMATO[self.formato]
 
 
 class CasoConError(_Modelo):
@@ -168,6 +177,12 @@ class CasoLeido(_Modelo):
     campos: list[CampoSolicitado]
     soportes: list[TipoSoporte]
     avisos: list[str]  # cosas que la analista debe saber, en lenguaje claro
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def formato_nombre(self) -> str:
+        """Para personas: "Portal web del cliente (…)" (ver `ResumenCaso.formato_nombre`)."""
+        return NOMBRES_FORMATO[self.formato]
 
 
 def leer_caso(datos: Path, caso: str) -> CasoLeido:

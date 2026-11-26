@@ -1,0 +1,31 @@
+{#- Plantilla de la constancia de envío (pasos 13 y 16).
+    Deja registro de QUÉ se aprobó enviar, A QUIÉN y QUIÉN lo aprobó, con la huella de
+    cada archivo. En modo piloto la entrega al cliente se hace fuera del sistema: la
+    última línea lo dice una sola vez, sin repetirlo en todo el documento (decisión de
+    Anderson, opción A). -#}
+# Constancia de envío · {{ cliente }}
+
+| Dato | Valor |
+|---|---|
+| **Caso** | `{{ caso }}` · {{ pais }} |
+| **Formulario del cliente** | {{ formato }} |
+| **Destinatario** | {{ destinatario | celda_md }} |
+| **Asunto** | {{ asunto | celda_md }} |
+| **Fecha de ejecución** | {{ fecha }} |
+| **Paquete armado** | {{ paquete_generado_en }} |
+| **Aprobado por** | {{ aprobado_por }} · {{ aprobado_en }} |
+| **Aprobación** | `{{ aprobacion }}` |
+
+## Archivos del paquete
+
+Las huellas (SHA-256) permiten comprobar que cada archivo es exactamente el que se aprobó.
+
+| Archivo | Bytes | Huella SHA-256 |
+|---|---|---|
+{% for a in archivos %}
+| `{{ a.nombre | celda_md }}` | {{ a.bytes }} | `{{ a.sha256 }}` |
+{% endfor %}
+
+---
+
+_Modo piloto: la entrega al cliente se hace fuera del sistema._

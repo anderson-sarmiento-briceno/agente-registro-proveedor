@@ -1,9 +1,9 @@
-"""Pruebas de la herramienta proveedor_simular_envio (Paso 13, HU-5).
+"""Pruebas de la herramienta proveedor_registrar_envio (Paso 13, HU-5).
 
 Lo que se comprueba:
     - sin aprobación de la analista, no escribe nada (doble candado);
-    - con aprobación, escribe ENVIO-SIMULADO.md con los archivos, sus huellas y quién
-      aprobó, y sin ningún dato bancario;
+    - con aprobación, escribe constancia-envio.md con el destinatario, los archivos, sus
+      huellas y quién aprobó, sin ningún dato bancario, y dice una vez que es modo piloto;
     - se niega si no hay paquete, si no está listo para firma o si quedó desactualizado
       (otra fecha, el mapeo cambió o un archivo cambió).
 
@@ -17,12 +17,12 @@ from datetime import date
 
 from registro_proveedor.herramientas.base import SIN_APROBACION, Contexto
 from registro_proveedor.herramientas.proveedor import registro
-from tests.ayudas import aprobado, como_dict
+from tests.ayudas import DATOS_REALES, aprobado, como_dict
 
 CO = "co-industrias-delta"
 EC = "ec-corp-andina"
 PA = "pa-logistica-istmo"
-ENVIAR = "proveedor_simular_envio"
+ENVIAR = "proveedor_registrar_envio"
 CONFIRMAR = "proveedor_confirmar_campo"
 
 
@@ -51,7 +51,7 @@ def test_sin_aprobacion_no_escribe_nada(contexto: Contexto) -> None:
     _armar(CO, contexto)
     r = _ejecutar(ENVIAR, {"caso": CO}, contexto)
     assert r == {"ok": False, "data": None, "error": SIN_APROBACION}
-    assert not (contexto.salida / CO / "ENVIO-SIMULADO.md").exists()
+    assert not (contexto.salida / CO / "constancia-envio.md").exists()
 
 
 def test_envio_de_un_paquete_listo(contexto: Contexto) -> None:
@@ -61,15 +61,26 @@ def test_envio_de_un_paquete_listo(contexto: Contexto) -> None:
     datos = como_dict(r["data"])
     assert datos == {
         "caso": CO,
-        "archivo": f"out/{CO}/ENVIO-SIMULADO.md",
+        "archivo": f"out/{CO}/constancia-envio.md",
         "archivos_enviados": 8,  # formulario, 4 soportes, checklist, borrador y manifiesto
         "aprobacion": "aprobacion-de-prueba",
     }
-    texto = (contexto.salida / CO / "ENVIO-SIMULADO.md").read_text(encoding="utf-8")
-    assert "**No se envió nada.**" in texto
-    assert "aprobación `aprobacion-de-prueba`" in texto
-    assert "Aprobado por:** analista" in texto
+    texto = (contexto.salida / CO / "constancia-envio.md").read_text(encoding="utf-8")
+    assert texto.startswith("# Constancia de envío · Industrias Delta S.A.S.")
+    assert "| **Aprobación** | `aprobacion-de-prueba` |" in texto
+    assert "| **Aprobado por** | analista · 2026-09-01 12:00 UTC |" in texto
     assert "| `manifiesto.json` |" in texto
+    # El destinatario y el asunto salen del correo del cliente.
+    solicitud = json.loads(
+        (DATOS_REALES / "casos" / CO / "solicitud.json").read_text(encoding="utf-8")
+    )
+    assert f"| **Destinatario** | {solicitud['de']} |" in texto
+    assert f"| **Asunto** | Re: {solicitud['asunto']} |" in texto
+    # Dice la verdad UNA vez, al final: en modo piloto no se envía nada.
+    assert texto.rstrip().endswith(
+        "_Modo piloto: la entrega al cliente se hace fuera del sistema._"
+    )
+    assert "simulad" not in texto.lower()
     for dato_bancario in ("03100012345", "COLOCOBM"):
         assert dato_bancario not in texto
 
@@ -83,7 +94,7 @@ def test_deja_la_aprobacion_en_el_log(contexto: Contexto) -> None:
     assert ultima["ok"] is True
     assert ultima["aprobacion"] == "aprobacion-de-prueba"
     assert ultima["resumen"] == (
-        f"out/{CO}/ENVIO-SIMULADO.md · 8 archivos · aprobación aprobacion-de-prueba"
+        f"out/{CO}/constancia-envio.md · 8 archivos · aprobación aprobacion-de-prueba"
     )
 
 
@@ -101,7 +112,7 @@ def test_paquete_no_listo(contexto: Contexto) -> None:
     error = str(r["error"])
     assert error.startswith("el paquete no está listo para firma, así que no se puede enviar")
     assert "campo por confirmar: «RUC»" in error
-    assert not (contexto.salida / EC / "ENVIO-SIMULADO.md").exists()
+    assert not (contexto.salida / EC / "constancia-envio.md").exists()
 
 
 def test_paquete_armado_con_otra_fecha(contexto: Contexto) -> None:

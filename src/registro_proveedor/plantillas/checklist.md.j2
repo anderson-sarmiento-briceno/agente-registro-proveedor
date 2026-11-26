@@ -4,6 +4,8 @@
 
 Caso: `{{ caso }}` · Revisado al {{ fecha }} · Versión del maestro: {{ version_maestro }}
 
+Formulario del cliente: {{ formato }}
+
 {% if listo %}
 ## ✅ Listo para firma
 {% else %}
@@ -26,10 +28,10 @@ Antes de firmar, resuelva:
 
 ## Soportes exigidos por el cliente
 
-| Soporte | Estado | Vence | Detalle |
-|---|---|---|---|
+| Soporte | Estado | Vence | Qué hacer | Detalle |
+|---|---|---|---|---|
 {% for s in soportes %}
-| {{ s.nombre }} | {{ s.estado }} | {{ s.vence }} | {{ s.nota | celda_md }} |
+| {{ s.nombre }} | {{ s.estado }} | {{ s.vence }} | {{ s.que_hacer }} | {{ s.nota | celda_md }} |
 {% endfor %}
 
 ## Campos del formulario

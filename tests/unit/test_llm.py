@@ -112,7 +112,7 @@ def test_las_herramientas_salen_del_registro() -> None:
         "proveedor_leer_solicitud",
         "proveedor_listar_casos",
         "proveedor_mapear_campos",
-        "proveedor_simular_envio",
+        "proveedor_registrar_envio",
     ]
     leer = next(h for h in HERRAMIENTAS if h.nombre == "proveedor_leer_solicitud")
     assert "país, el cliente, el formato" in leer.descripcion

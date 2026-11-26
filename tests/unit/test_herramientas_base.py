@@ -16,7 +16,7 @@ nunca lanza excepciones, escribe en log.jsonl y enmascara los valores sensibles.
 """
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -309,3 +309,16 @@ def test_contexto_desde_configuracion() -> None:
     assert ctx.sesion_id == "abc"
     assert ctx.datos.name == "datos" and ctx.salida.name == "out"
     assert isinstance(ctx.salida, Path)
+
+
+def test_con_fecha_fija_el_reloj_marca_ese_dia() -> None:
+    """Demo coherente: con FECHA_EJECUCION fija, las aprobaciones y el log llevan ese día."""
+    config = Configuracion(fecha_ejecucion=date(2026, 9, 20))
+    ahora = Contexto.desde_configuracion(config).reloj()
+    assert ahora.date() == date(2026, 9, 20)
+    assert ahora.tzinfo is not None  # con zona horaria (UTC), como el resto del log
+
+
+def test_sin_fecha_fija_el_reloj_es_el_real() -> None:
+    ahora = Contexto.desde_configuracion(Configuracion()).reloj()
+    assert abs((datetime.now(UTC) - ahora).total_seconds()) < 5
