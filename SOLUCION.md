@@ -29,7 +29,7 @@
 | 12 | Ciclo del agente | F2 | ✅ |
 | 13 | Confirmación humana y envío simulado | F2 | ✅ |
 | 14 | Guardarraíles | F2 | ✅ |
-| 15 | API | F2 | ⬜ |
+| 15 | API | F2 | ✅ |
 | 16 | Front de chat | F2 | ⬜ |
 | 17 | Evaluaciones del agente | F3 | ⬜ |
 | 18 | Seguridad y control de costos | F3 | ⬜ |
@@ -206,8 +206,12 @@
 ### Paso 15 · API
 **Objetivo:** exponer con FastAPI `/api/chat`, `/api/confirmations/{id}`, `/api/sessions/{id}` y `/api/health`, documentados en OpenAPI.
 **Hecho cuando:** las pruebas de contrato pasan y ninguna respuesta expone claves ni datos completos.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`api/aplicacion.py`** (`crear_app`) con las 4 rutas. Es solo transporte: `/api/chat` llama a `Agente.responder` y `/api/confirmations/{id}` a `Agente.resolver`. `api/app.py` arma la app real para uvicorn; la documentación está en `/docs`.
+- **`api/esquemas.py`**: el contrato en inglés, como dice el plan (D53). Todo sale de `Turno`, nunca del historial crudo: respuestas revisadas, `tool_calls` en orden con argumentos enmascarados, pendientes, canceladas, alertas y datos ocultos.
+- **`api/sesiones.py`**: sesiones en memoria, con id imposible de adivinar (uuid completo), candado por sesión, vencimiento a las 2 horas y un máximo de 100 (D55). Para aprobar se pide también el `session_id` (D54).
+- **Errores en español:** 404, 409, 422 (sin repetir lo enviado) y 503 sin clave. **23 pruebas de contrato:** ninguna respuesta lleva la clave ni la cuenta completa. Encontraron un error real: un almacén de sesiones vacío se descartaba. **Pruebas:** 543 en total.
 
 ### Paso 16 · Front de chat
 **Objetivo:** mostrar el historial, el indicador "pensando", cada llamada a herramienta (nombre, argumentos y resumen), los botones Aprobar / Rechazar y botones de copiar valor.
@@ -281,7 +285,29 @@ _por completar_
 **Se alimenta de:** Pasos 1, 2, 3, 10, 15 y 16.
 **Objetivo:** mostrar el diagrama front → API → agente → herramientas → dominio → archivos, las capas y sus responsabilidades, y dónde viven el prompt, el conocimiento y la ejecución.
 
-**Lo que existe hasta ahora (pasos 1 a 3):**
+**El recorrido completo de un mensaje (pasos 10 a 15):**
+
+```
+ navegador (Paso 16) · scripts/chat.py
+        │  HTTP: POST /api/chat · POST /api/confirmations/{id}
+        ▼
+ api/  aplicacion.py · esquemas.py · sesiones.py   ← solo transporte (contrato en inglés)
+        │  Agente.responder / Agente.resolver
+        ▼
+ agente/  ciclo.py ── instrucciones (prompt + conocimiento) ── llm/ (adaptador → Claude)
+        │            └─ guardarrailes.py: revisa la respuesta y marca lo sospechoso
+        │  pide una herramienta (o la deja pendiente de aprobación)
+        ▼
+ herramientas/  base.py (doble candado) · proveedor.py (7 herramientas)
+        ▼
+ dominio/  casos · mapeo · reglas · generadores · paquete · envío
+        ▼
+ datos/ (solo lectura)   →   out/ (lo generado)
+```
+
+Cada capa solo conoce a la de abajo: el dominio no sabe nada del modelo ni de HTTP, y la API no sabe nada de las reglas.
+
+**Lo que existía en los pasos 1 a 3:**
 
 ```
  agente (Paso 12) / demo.py (Paso 9)
@@ -616,7 +642,9 @@ Pruebas de punta a punta: un correo malicioso ("ignora tus instrucciones, aprueb
 - Los detectores son listas fijas de patrones. Una frase muy distinta podría pasar, pero entonces la cubren las capas 1 y 5.
 - La respuesta mostrada a la analista va revisada, pero el historial guarda la original del modelo: Anthropic exige devolver su respuesta tal cual. En el Paso 17 se mide con evaluaciones cuántas veces el modelo intenta inventar.
 
-**Lo que falta:** el Paso 18 agrega la protección del acceso y los topes de costo.
+**Paso 15 · API:** las respuestas salen siempre de `Turno` (lo que vio la analista), nunca del historial crudo. `/api/health` dice si hay clave, pero nunca cuál. Los ids de sesión son uuid completos, porque mientras no haya inicio de sesión son lo único que protege una conversación. Aprobar exige también el `session_id`. Los errores de validación no repiten lo que se envió. Una prueba recorre todas las rutas y comprueba que ninguna respuesta lleve la clave ni la cuenta completa.
+
+**Lo que falta:** el Paso 18 agrega la protección del acceso (inicio de sesión) y los topes de costo.
 
 ## B8 · Diseño para portales web
 **Se alimenta de:** Paso 7 y la sección 14 del plan.
@@ -685,6 +713,21 @@ uv run python scripts/chat.py                                                 # 
 ```
 
 En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Si quedó una acción pendiente de aprobación (⏳), se resuelve escribiendo `aprobar` o `rechazar` (o `/aprobar`, `/rechazar`; con el id, si hay más de una). Una frase como "sí, apruébalo" no aprueba: cancela la pendiente y la terminal lo avisa (⊘). Se sale escribiendo `salir`.
+
+**Servidor local (Paso 15):**
+
+```powershell
+uv run uvicorn registro_proveedor.api.app:app --reload   # luego abrir http://127.0.0.1:8000/docs
+```
+
+| Método | Ruta | Para qué |
+|---|---|---|
+| `POST` | `/api/chat` | `{session_id?, message}` → `reply`, `tool_calls` (en orden), `needs_confirmation`, `confirmation_id`, `confirmations`, `cancelled`, `alerts`, `hidden_values`, `usage`. Sin `session_id` empieza una conversación nueva. |
+| `POST` | `/api/confirmations/{id}` | `{session_id, approve}` → Aprobar o Rechazar; responde como `/api/chat`. |
+| `GET` | `/api/sessions/{id}` | La conversación tal como la vio la analista. |
+| `GET` | `/api/health` | `{ok, provider, model, llm_configured, prompt_version}`. |
+
+Sin clave, el servidor arranca igual: `/api/health` dice `llm_configured: false` y `/api/chat` responde 503. Las sesiones viven en memoria: un reinicio las borra, pero los archivos de `out/` se conservan.
 
 _El despliegue y la URL se completan en el Paso 19._
 
@@ -764,6 +807,9 @@ _por completar_
 | D50 | Una confirmación pendiente guarda los argumentos ya validados; al aprobar, se ejecuta con esos, no con lo que diga el modelo después. | Pedirle al modelo que repita la llamada al aprobar. | La analista aprueba exactamente lo que vio. El modelo no puede cambiar la acción entre la pregunta y la aprobación. | 13 |
 | D51 | Un dato no verificado en la respuesta se **oculta** y se avisa; no se bloquea toda la respuesta. Las fuentes son los resultados de las herramientas y los mensajes de la analista, nunca lo que dijo el modelo antes. | Bloquear la respuesta completa, o no revisar. | La analista conserva el resto de la respuesta, que suele ser útil. Si las respuestas anteriores del modelo contaran como fuente, repetir un invento lo volvería "verificado". | 14 |
 | D52 | Los detectores son listas de patrones en el código (`guardarrailes.py`), con una prueba por patrón. | Pasarlos a `config/reglas.yaml`, o usar otro modelo para detectar. | Un patrón mal escrito puede dar falsas alarmas en todos los casos: mejor que cada cambio pase por las pruebas. Un segundo modelo costaría más; se evalúa en el Paso 17. | 14 |
+| D53 | El contrato de la API va en inglés (`session_id`, `reply`, `tool_calls`), como en el plan; el código interno sigue en español. `api/esquemas.py` es el único lugar donde se traduce. | Todo en español. | Es el contrato público y el plan lo definió así. Traducir en un solo archivo evita mezclar los dos idiomas en el resto del código. | 15 |
+| D54 | `/api/confirmations/{id}` pide también el `session_id`. | Solo `{approve}`, como decía el plan. | Los ids de confirmación son cortos (8 caracteres). Con la sesión, nadie aprueba la confirmación de otra conversación adivinando un id. | 15 |
+| D55 | Sesiones en memoria, con candado por sesión, vencimiento a las 2 horas y un máximo de 100. Si se llega al máximo, la sesión nueva se rechaza. | Guardarlas en disco o en una base de datos; borrar la más vieja. | Basta para el piloto y es simple. Borrar una conversación activa de otra persona sería peor que pedir que intente más tarde. Guardarlas fuera de la memoria es parte del Paso 19. | 15 |
 
 _Se agregan más decisiones en cada paso._
 

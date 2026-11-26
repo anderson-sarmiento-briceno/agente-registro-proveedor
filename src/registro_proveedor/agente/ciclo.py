@@ -213,9 +213,14 @@ class Sesion:
         return self.contexto.sesion_id
 
     @classmethod
-    def nueva(cls, config: Configuracion) -> "Sesion":
-        """Una sesión con identificador propio, para que su log no se mezcle con otras."""
-        return cls(Contexto.desde_configuracion(config, sesion_id=uuid.uuid4().hex[:12]))
+    def nueva(cls, config: Configuracion, sesion_id: str | None = None) -> "Sesion":
+        """Una sesión con identificador propio, para que su log no se mezcle con otras.
+
+        El id es un uuid completo (32 caracteres): en la API (Paso 15) es lo único que
+        protege una conversación mientras no haya inicio de sesión, así que no debe
+        poder adivinarse.
+        """
+        return cls(Contexto.desde_configuracion(config, sesion_id=sesion_id or uuid.uuid4().hex))
 
 
 class Agente:

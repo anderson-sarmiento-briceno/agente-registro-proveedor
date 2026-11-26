@@ -471,7 +471,7 @@ El prompt se **versiona** y cada cambio se valida con las evaluaciones (sección
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
 | `POST` | `/api/chat` | `{session_id, message}` → `{reply, tool_calls[], needs_confirmation, confirmation_id?}` o un *stream* SSE |
-| `POST` | `/api/confirmations/{id}` | `{approve: bool}` → ejecuta o cancela la acción pendiente |
+| `POST` | `/api/confirmations/{id}` | `{session_id, approve: bool}` → ejecuta o cancela la acción pendiente *(el `session_id` se agregó en el Paso 15: así nadie aprueba la confirmación de otra conversación adivinando su id)* |
 | `GET` | `/api/sessions/{id}` | Historial de la sesión |
 | `GET` | `/api/health` | `{ok, provider, model}`, sin exponer claves |
 
