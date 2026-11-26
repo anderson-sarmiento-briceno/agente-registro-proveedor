@@ -6,6 +6,7 @@ Cada endpoint traduce HTTP a una de las dos entradas del ciclo y vuelta:
     POST /api/confirmations/{id}   → Agente.resolver(sesion, id, aprobar=...)
     GET  /api/sessions/{id}        → el historial tal como lo vio la analista
     GET  /api/health               → ¿está vivo? ¿hay modelo configurado? (sin la clave)
+    GET  /                         → el front de chat (`web/`, Paso 16)
 
 La documentación se genera sola en `/docs` (OpenAPI).
 
@@ -24,12 +25,13 @@ Seguridad (el "hecho cuando" del paso):
       responde 500 con un mensaje corto; el detalle va al log de operación.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Path, Request, status
+from fastapi import FastAPI, HTTPException, Path, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from registro_proveedor.agente.ciclo import Agente, Sesion, Turno
 from registro_proveedor.agente.instrucciones import cargar_instrucciones
@@ -50,12 +52,20 @@ from registro_proveedor.api.esquemas import (
     de_uso,
 )
 from registro_proveedor.api.sesiones import AlmacenDeSesiones, DemasiadasSesiones, SesionApi
-from registro_proveedor.config import Configuracion, cargar_configuracion
+from registro_proveedor.config import RAIZ_PROYECTO, Configuracion, cargar_configuracion
 from registro_proveedor.dominio.lectura import describir_error_validacion
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import registro
 
 PROVEEDOR = "anthropic"
+
+# Paso 16 · El front: HTML + JS simple, sin librerías externas.
+CARPETA_WEB = RAIZ_PROYECTO / "web"
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+    "connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+)
+RUTAS_SIN_CSP = ("/docs", "/redoc", "/openapi.json")
 
 SIN_MODELO = (
     "El modelo no está configurado: falta ANTHROPIC_API_KEY en el archivo .env del "
@@ -174,6 +184,11 @@ def crear_app(
             prompt_version=instrucciones.version,
         )
 
+    # ---------- Paso 16 · El front de chat ----------
+    # Va AL FINAL: las rutas `/api/...` de arriba se revisan primero; todo lo demás se
+    # busca como archivo en `web/` (`html=True`: "/" entrega `index.html`).
+    app.middleware("http")(_encabezados_de_seguridad)
+    app.mount("/", StaticFiles(directory=CARPETA_WEB, html=True), name="web")
     return app
 
 
@@ -214,6 +229,28 @@ def _registrar(actual: SesionApi, tipo: str, entrada: str, turno: Turno) -> Chat
             {"at": actual.ultimo_uso, "kind": tipo, "input": entrada, "response": respuesta}
         )
     )
+    return respuesta
+
+
+async def _encabezados_de_seguridad(
+    solicitud: Request, siguiente: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Agrega a cada respuesta los encabezados de seguridad del navegador (Paso 16).
+
+    - CSP: la página solo puede cargar scripts, estilos e imágenes de ESTE servidor, y
+      no se aceptan scripts escritos dentro del HTML. Si alguien lograra meter un
+      `<script>` en una respuesta, el navegador no lo ejecutaría.
+    - `nosniff`: el navegador no "adivina" el tipo de un archivo (un .txt no se ejecuta).
+    - `no-referrer`: al salir a otro sitio no se le cuenta desde qué página se venía.
+
+    `/docs` es la excepción: la página de FastAPI carga sus archivos de internet y usa
+    scripts en línea. Es una herramienta para desarrolladores, no para la analista.
+    """
+    respuesta = await siguiente(solicitud)
+    respuesta.headers["X-Content-Type-Options"] = "nosniff"
+    respuesta.headers["Referrer-Policy"] = "no-referrer"
+    if not solicitud.url.path.startswith(RUTAS_SIN_CSP):
+        respuesta.headers["Content-Security-Policy"] = CSP
     return respuesta
 
 

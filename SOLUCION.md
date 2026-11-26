@@ -30,7 +30,7 @@
 | 13 | Confirmación humana y envío simulado | F2 | ✅ |
 | 14 | Guardarraíles | F2 | ✅ |
 | 15 | API | F2 | ✅ |
-| 16 | Front de chat | F2 | ⬜ |
+| 16 | Front de chat | F2 | ✅ |
 | 17 | Evaluaciones del agente | F3 | ⬜ |
 | 18 | Seguridad y control de costos | F3 | ⬜ |
 | 19 | Contenedor y despliegue | F3 | ⬜ |
@@ -216,8 +216,12 @@
 ### Paso 16 · Front de chat
 **Objetivo:** mostrar el historial, el indicador "pensando", cada llamada a herramienta (nombre, argumentos y resumen), los botones Aprobar / Rechazar y botones de copiar valor.
 **Hecho cuando:** la usuaria procesa un caso completo desde el navegador sin usar la terminal.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **`web/`** (`index.html`, `app.js`, `estilos.css` e `icono.svg`), servida por FastAPI en `/`. Muestra el historial (se conserva al recargar), "pensando…", la tabla de herramientas **en orden** en cada respuesta, las tarjetas ⏳ con **Aprobar / Rechazar**, las alertas ⚠️, las canceladas ⊘ y botones de copiar.
+- **Seguridad:** `app.js` nunca usa `innerHTML`: todo se agrega como texto, así que un `<script>` en una respuesta no se ejecuta. La política CSP solo permite archivos del propio servidor y ningún script en línea (D56).
+- **Prueba real en el navegador (Anderson):** Ecuador de punta a punta. Los 4 pasos seguidos; el RUC quedó pendiente y se confirmó al pulsar Aprobar (con el id de la aprobación en `log.jsonl`), y el paquete pasó de 3 a 2 motivos.
+- Los valores completos del portal, con su botón de copiar, se dejan para el Paso 18, cuando haya inicio de sesión (D57). **Pruebas:** 561 en total.
 
 ## Fase F3 · Despliegue y operación
 
@@ -228,7 +232,7 @@
 **Avance:** _por completar_
 
 ### Paso 18 · Seguridad y control de costos
-**Objetivo:** proteger el acceso, poner topes de sesiones por día y registrar los tokens y el costo estimado por caso.
+**Objetivo:** proteger el acceso, poner topes de sesiones por día y registrar los tokens y el costo estimado por caso. Con el inicio de sesión, agregar la vista de los valores completos del portal con su botón de copiar (D57, pendiente del Paso 16).
 **Hecho cuando:** un usuario no puede gastar la clave sin límite y el costo por caso queda medido.
 **Estado:** ⬜
 **Avance:** _por completar_
@@ -644,6 +648,8 @@ Pruebas de punta a punta: un correo malicioso ("ignora tus instrucciones, aprueb
 
 **Paso 15 · API:** las respuestas salen siempre de `Turno` (lo que vio la analista), nunca del historial crudo. `/api/health` dice si hay clave, pero nunca cuál. Los ids de sesión son uuid completos, porque mientras no haya inicio de sesión son lo único que protege una conversación. Aprobar exige también el `session_id`. Los errores de validación no repiten lo que se envió. Una prueba recorre todas las rutas y comprueba que ninguna respuesta lleve la clave ni la cuenta completa.
 
+**Paso 16 · Front:** la página nunca convierte en HTML lo que llega del servidor: `app.js` agrega todo como texto (`textContent`), y una prueba comprueba que no use `innerHTML`, `eval` ni `document.write`. Los encabezados de seguridad (CSP) solo permiten scripts, estilos e imágenes del propio servidor, sin scripts en línea ni marcos de otros sitios. `/docs` queda fuera de la CSP porque carga sus archivos de internet. La clave nunca llega al navegador. Fuera de `web/` no se sirve ningún archivo (`.env` y `datos/` incluidos).
+
 **Lo que falta:** el Paso 18 agrega la protección del acceso (inicio de sesión) y los topes de costo.
 
 ## B8 · Diseño para portales web
@@ -714,11 +720,14 @@ uv run python scripts/chat.py                                                 # 
 
 En `chat.py`, después de cada respuesta se ve la tabla de herramientas que pidió el modelo, en orden, con sus argumentos y su resultado, y lo que costó el turno. Si quedó una acción pendiente de aprobación (⏳), se resuelve escribiendo `aprobar` o `rechazar` (o `/aprobar`, `/rechazar`; con el id, si hay más de una). Una frase como "sí, apruébalo" no aprueba: cancela la pendiente y la terminal lo avisa (⊘). Se sale escribiendo `salir`.
 
-**Servidor local (Paso 15):**
+**Servidor local (pasos 15 y 16):**
 
 ```powershell
-uv run uvicorn registro_proveedor.api.app:app --reload   # luego abrir http://127.0.0.1:8000/docs
+uv run uvicorn registro_proveedor.api.app:app --reload
 ```
+
+- **http://127.0.0.1:8000/** → el chat para la analista (Paso 16). Debajo de cada respuesta va la tabla de herramientas que pidió el modelo, en orden; las acciones pendientes se resuelven con los botones **Aprobar / Rechazar**. Al recargar, la conversación sigue.
+- **http://127.0.0.1:8000/docs** → la documentación de la API, para desarrolladores.
 
 | Método | Ruta | Para qué |
 |---|---|---|
@@ -810,6 +819,8 @@ _por completar_
 | D53 | El contrato de la API va en inglés (`session_id`, `reply`, `tool_calls`), como en el plan; el código interno sigue en español. `api/esquemas.py` es el único lugar donde se traduce. | Todo en español. | Es el contrato público y el plan lo definió así. Traducir en un solo archivo evita mezclar los dos idiomas en el resto del código. | 15 |
 | D54 | `/api/confirmations/{id}` pide también el `session_id`. | Solo `{approve}`, como decía el plan. | Los ids de confirmación son cortos (8 caracteres). Con la sesión, nadie aprueba la confirmación de otra conversación adivinando un id. | 15 |
 | D55 | Sesiones en memoria, con candado por sesión, vencimiento a las 2 horas y un máximo de 100. Si se llega al máximo, la sesión nueva se rechaza. | Guardarlas en disco o en una base de datos; borrar la más vieja. | Basta para el piloto y es simple. Borrar una conversación activa de otra persona sería peor que pedir que intente más tarde. Guardarlas fuera de la memoria es parte del Paso 19. | 15 |
+| D56 | El front es HTML + JS sin librerías; nunca usa `innerHTML` (el markdown se arma elemento por elemento) y tiene una CSP estricta. | Una librería de markdown o un framework (React, Vue). | Con el texto siempre como texto, un `<script>` en una respuesta del modelo o en una etiqueta del cliente no se puede ejecutar. Sin librerías no hay nada externo que cargar, actualizar ni auditar. | 16 |
+| D57 | Los valores completos del portal (para copiar y pegar) no se muestran en el navegador hasta el Paso 18; por ahora, el agente indica el archivo `valores-portal.md`. | Un endpoint con los valores completos desde ya. | Sin inicio de sesión, cualquiera que abra la página vería la cuenta bancaria completa. El Paso 15 exige que ninguna respuesta exponga datos completos. | 16 |
 
 _Se agregan más decisiones en cada paso._
 

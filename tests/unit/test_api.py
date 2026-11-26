@@ -340,7 +340,9 @@ def test_id_de_confirmacion_mal_formado(contexto: Contexto) -> None:
     r = _cliente(contexto).post(
         "/api/confirmations/../../x", json={"session_id": "0" * 32, "approve": True}
     )
-    assert r.status_code in (404, 422)
+    # 404/422 si lo atiende la API; 405 si cae en los archivos del front (Paso 16).
+    # En ningún caso se ejecuta nada.
+    assert r.status_code in (404, 405, 422)
 
 
 # ---------- 6. Seguridad: ni la clave ni datos completos ----------

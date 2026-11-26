@@ -1,0 +1,226 @@
+/*
+  Estilos del front de chat (Paso 16). Sin librerías: variables de color arriba, y
+  después cada parte de la página. Se adapta a modo oscuro y a pantallas pequeñas.
+*/
+
+:root {
+  --fondo: #f4f6f9;
+  --superficie: #ffffff;
+  --texto: #1d2430;
+  --suave: #5b6576;
+  --borde: #dde2ea;
+  --acento: #1f5fae;
+  --acento-texto: #ffffff;
+  --usuario: #e7f0fb;
+  --ok: #1d7a46;
+  --error: #b3261e;
+  --pendiente: #9a5b00;
+  --pendiente-fondo: #fff6e5;
+  --alerta-fondo: #fdecea;
+  --aviso-fondo: #eef1f6;
+  --radio: 10px;
+  --ancho: 920px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #12161d;
+    --superficie: #1b212b;
+    --texto: #e6e9ef;
+    --suave: #9aa4b5;
+    --borde: #2c3442;
+    --acento: #5b9bf0;
+    --acento-texto: #0d1117;
+    --usuario: #1f2f47;
+    --ok: #5cc98a;
+    --error: #f2857d;
+    --pendiente: #f0b45a;
+    --pendiente-fondo: #2e2516;
+    --alerta-fondo: #3a1f1d;
+    --aviso-fondo: #222a36;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.solo-lectores {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+}
+
+/* ---------- Encabezado ---------- */
+
+.encabezado {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+}
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca h1 { margin: 0; font-size: 17px; }
+.estado { margin: 0; font-size: 12.5px; color: var(--suave); }
+.estado.mal { color: var(--error); }
+
+/* ---------- Conversación ---------- */
+
+.conversacion {
+  flex: 1;
+  width: 100%;
+  max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.bienvenida {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px 20px;
+}
+.bienvenida h2 { margin: 0 0 6px; font-size: 18px; }
+.bienvenida p { margin: 6px 0; color: var(--suave); }
+.nota { font-size: 13.5px; }
+
+.mensaje {
+  max-width: 100%;
+  border-radius: var(--radio);
+  padding: 10px 14px;
+  overflow-wrap: anywhere;
+}
+.mensaje.usuario {
+  align-self: flex-end;
+  max-width: 80%;
+  background: var(--usuario);
+  white-space: pre-wrap;
+}
+.mensaje.agente {
+  align-self: stretch;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+}
+.mensaje.sistema {
+  align-self: center;
+  font-size: 13px;
+  color: var(--suave);
+  background: var(--aviso-fondo);
+}
+.mensaje.error { border-color: var(--error); }
+
+.quien { font-size: 12px; font-weight: 600; color: var(--suave); margin-bottom: 4px; }
+.cuerpo p { margin: 6px 0; }
+.cuerpo ul { margin: 6px 0; padding-left: 22px; }
+.cuerpo code, .cuerpo pre {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 13px;
+  background: var(--aviso-fondo);
+  border-radius: 5px;
+}
+.cuerpo code { padding: 1px 5px; }
+.cuerpo pre { padding: 8px 10px; overflow-x: auto; white-space: pre-wrap; }
+
+.pie {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-top: 8px;
+  font-size: 12px; color: var(--suave);
+}
+
+/* ---------- "Pensando…" ---------- */
+
+.pensando { display: inline-flex; gap: 4px; align-items: center; color: var(--suave); }
+.pensando span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--suave);
+  animation: latido 1.2s infinite ease-in-out;
+}
+.pensando span:nth-child(2) { animation-delay: 0.15s; }
+.pensando span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes latido {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- Herramientas que pidió el modelo ---------- */
+
+.herramientas { margin-top: 10px; }
+.herramientas summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--acento); }
+.tabla-contenedor { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+th { color: var(--suave); font-weight: 600; }
+td.nombre, td.argumentos { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12.5px; }
+.ok { color: var(--ok); }
+.mal { color: var(--error); }
+.espera { color: var(--pendiente); }
+
+/* ---------- Confirmaciones, alertas y avisos ---------- */
+
+.tarjeta {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+}
+.tarjeta.pendiente { background: var(--pendiente-fondo); border: 1px solid var(--pendiente); }
+.tarjeta.alerta { background: var(--alerta-fondo); border: 1px solid var(--error); }
+.tarjeta.aviso { background: var(--aviso-fondo); border: 1px solid var(--borde); }
+.tarjeta .acciones { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.tarjeta .resuelta { margin-top: 6px; font-weight: 600; }
+
+/* ---------- Botones ---------- */
+
+.boton {
+  border: 1px solid var(--acento);
+  background: var(--acento);
+  color: var(--acento-texto);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit; font-weight: 600;
+  cursor: pointer;
+}
+.boton.secundario { background: transparent; color: var(--acento); }
+.boton.aprobar { background: var(--ok); border-color: var(--ok); color: #ffffff; }
+.boton.rechazar { background: transparent; border-color: var(--error); color: var(--error); }
+.boton.chico { padding: 2px 8px; font-size: 12px; font-weight: 500; }
+.boton:disabled { opacity: 0.5; cursor: not-allowed; }
+.boton:focus-visible, textarea:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+/* ---------- Caja de mensaje ---------- */
+
+.formulario {
+  position: sticky; bottom: 0;
+  display: flex; gap: 10px; align-items: flex-end;
+  width: 100%; max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 12px 16px 16px;
+  background: var(--fondo);
+}
+textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 48px; max-height: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+}
+
+@media (max-width: 600px) {
+  .encabezado { padding: 10px 12px; }
+  .marca h1 { font-size: 15px; }
+  .conversacion { padding: 12px; }
+  .mensaje.usuario { max-width: 92%; }
+  .formulario { padding: 10px 12px 12px; }
+}

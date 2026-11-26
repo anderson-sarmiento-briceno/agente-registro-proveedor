@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Front de chat del agente "Registro como Proveedor" (Paso 16).
+
+  HTML + JS simple, sin librerías externas. Lo sirve el mismo FastAPI en "/"; toda la
+  lógica de la página está en app.js. No hay ningún script escrito aquí dentro: la
+  política de seguridad del servidor (CSP) no los permitiría.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Registro como Proveedor</title>
+    <link rel="icon" href="/icono.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/estilos.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="encabezado">
+      <div class="marca">
+        <img src="/icono.svg" alt="" width="28" height="28" />
+        <div>
+          <h1>Registro como Proveedor</h1>
+          <p id="estado" class="estado">Conectando…</p>
+        </div>
+      </div>
+      <button id="nueva" class="boton secundario" type="button">Nueva conversación</button>
+    </header>
+
+    <main id="conversacion" class="conversacion" aria-live="polite">
+      <section class="bienvenida" id="bienvenida">
+        <h2>¿En qué caso trabajamos?</h2>
+        <p>
+          Escriba, por ejemplo, <em>«Prepara el caso de Ecuador»</em> o
+          <em>«¿Qué le falta al caso de Honduras?»</em>. Debajo de cada respuesta verá las
+          herramientas que pidió el modelo, en orden.
+        </p>
+        <p class="nota">
+          Confirmar un campo o simular un envío necesita su aprobación con los botones
+          <strong>Aprobar</strong> / <strong>Rechazar</strong>. Escribir «sí» no aprueba nada.
+        </p>
+      </section>
+    </main>
+
+    <form id="formulario" class="formulario" autocomplete="off">
+      <label for="mensaje" class="solo-lectores">Mensaje</label>
+      <textarea
+        id="mensaje"
+        rows="2"
+        maxlength="4000"
+        placeholder="Escriba su mensaje… (Enter para enviar, Shift+Enter para otra línea)"
+        required
+      ></textarea>
+      <button id="enviar" class="boton" type="submit">Enviar</button>
+    </form>
+  </body>
+</html>

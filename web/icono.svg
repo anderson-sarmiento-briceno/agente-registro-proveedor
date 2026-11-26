@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Icono de la pestaña: una hoja de formulario con una marca de verificación. -->
+  <rect x="6" y="3" width="20" height="26" rx="3" fill="#1f5fae"/>
+  <rect x="10" y="8" width="12" height="2" rx="1" fill="#ffffff" opacity="0.85"/>
+  <rect x="10" y="12" width="9" height="2" rx="1" fill="#ffffff" opacity="0.85"/>
+  <path d="M11 20.5l3.2 3.2L21.5 16" fill="none" stroke="#ffffff" stroke-width="2.6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
