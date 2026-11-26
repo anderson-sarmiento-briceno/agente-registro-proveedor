@@ -22,6 +22,7 @@ import json
 import logging
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -126,6 +127,90 @@ def escribir_auditoria(salida: Path, registro: RegistroLlamada) -> None:
             obtener_logger().warning(
                 "no_se_pudo_escribir_auditoria", archivo=str(destino), error=str(e)
             )
+
+
+# ---------- Costos: costos.jsonl (Paso 18) ----------
+
+ARCHIVO_COSTOS = "costos.jsonl"
+SIN_CASO = "(sin caso)"
+
+
+class RegistroCosto(BaseModel):
+    """Una línea de `out/costos.jsonl`: lo que costó UN turno del agente."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ts: datetime
+    sesion: str
+    casos: list[str]  # los que se trabajaron en el turno; vacío = ninguno
+    modelo: str
+    consultas: int
+    tokens_entrada: int
+    tokens_salida: int
+    tokens_cache_lectura: int
+    tokens_cache_escritura: int
+    usd: float
+    precio_conocido: bool  # False = se usó el precio de resguardo (ver costos.py)
+
+
+def escribir_costo(salida: Path, registro: RegistroCosto) -> None:
+    """Agrega el turno a `out/costos.jsonl`. Igual que la auditoría, si falla no interrumpe."""
+    destino = salida / ARCHIVO_COSTOS
+    try:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        with destino.open("a", encoding="utf-8", newline="\n") as archivo:
+            archivo.write(registro.model_dump_json() + "\n")
+    except OSError as e:
+        obtener_logger().warning("no_se_pudo_escribir_costo", archivo=str(destino), error=str(e))
+
+
+@dataclass
+class CostoDeCaso:
+    caso: str
+    turnos: int = 0
+    tokens: int = 0
+    usd: float = 0.0
+
+
+def costo_por_caso(salida: Path) -> list[CostoDeCaso]:
+    """Suma `out/costos.jsonl` por caso, del más caro al más barato.
+
+    Si un turno trabajó dos casos, su costo se reparte por partes iguales; si no trabajó
+    ninguno (por ejemplo, una pregunta suelta), va a "(sin caso)". Una línea dañada se
+    salta: un archivo de costos nunca debe impedir ver el resto.
+    """
+    ruta = salida / ARCHIVO_COSTOS
+    if not ruta.exists():
+        return []
+    totales: dict[str, CostoDeCaso] = {}
+    for linea in ruta.read_text(encoding="utf-8").splitlines():
+        try:
+            registro = RegistroCosto.model_validate_json(linea)
+        except ValueError:
+            continue
+        casos = registro.casos or [SIN_CASO]
+        tokens = (
+            registro.tokens_entrada
+            + registro.tokens_salida
+            + registro.tokens_cache_lectura
+            + registro.tokens_cache_escritura
+        )
+        for caso in casos:
+            total = totales.setdefault(caso, CostoDeCaso(caso))
+            total.turnos += 1
+            total.tokens += tokens // len(casos)
+            total.usd += registro.usd / len(casos)
+    return sorted(totales.values(), key=lambda c: c.usd, reverse=True)
+
+
+def tabla_de_costos(costos: list[CostoDeCaso]) -> str:
+    """La tabla para la terminal (`scripts/costos.py`)."""
+    if not costos:
+        return "Todavía no hay costos registrados (out/costos.jsonl no existe o está vacío)."
+    lineas = ["| Caso | Turnos | Tokens | USD |", "|---|---|---|---|"]
+    lineas += [f"| {c.caso} | {c.turnos} | {c.tokens} | {c.usd:.4f} |" for c in costos]
+    lineas.append(f"| **Total** | | | **{sum(c.usd for c in costos):.4f}** |")
+    return "\n".join(lineas)
 
 
 # ---------- Operación: structlog ----------

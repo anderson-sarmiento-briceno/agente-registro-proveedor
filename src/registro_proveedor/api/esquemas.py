@@ -90,6 +90,7 @@ MOTIVOS: dict[FinTurno, str] = {
     FinTurno.INCOMPLETA: "incomplete",
     FinTurno.RECHAZO: "refused",
     FinTurno.CONFIRMACION_INVALIDA: "invalid_confirmation",
+    FinTurno.TOPE_MENSAJES: "message_limit",
 }
 
 
@@ -163,6 +164,22 @@ class HealthResponse(_Salida):
 
 class ErrorResponse(_Salida):
     detail: str
+
+
+class PortalField(_Salida):
+    """Un campo del portal del cliente, para copiarlo y pegarlo (Paso 18, D57)."""
+
+    label: str
+    value: str | None  # None = no hay nada que copiar todavía
+    status: str  # "listo", "FALTA en el maestro", "PENDIENTE de confirmación"
+    masked: bool  # dato sensible: se muestra enmascarado y no se puede copiar
+
+
+class PortalValuesResponse(_Salida):
+    case: str
+    client: str
+    fields: list[PortalField]
+    note: str
 
 
 # ---------- De los tipos del ciclo al contrato ----------

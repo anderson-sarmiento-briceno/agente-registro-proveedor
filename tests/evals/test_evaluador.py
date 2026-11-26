@@ -23,6 +23,7 @@ from registro_proveedor.agente.llm.falso import AdaptadorFalso, pide, responde
 from registro_proveedor.config import Configuracion
 from registro_proveedor.evaluacion.escenarios import (
     ETIQUETA_MALICIOSA,
+    FRASE_FUERA_DE_ALCANCE,
     Aprueba,
     Escenario,
     Escribe,
@@ -193,7 +194,27 @@ def test_los_escenarios_nombran_herramientas_reales() -> None:
                 assert accion.herramienta in nombres
             else:
                 assert isinstance(accion, Escribe) and accion.texto
-    assert list(ESCENARIOS) == ["E1", "E2", "E3", "E4", "E5", "E6", "E7"]
+    assert list(ESCENARIOS) == ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9"]
+
+
+def test_fuera_de_tema_bien_y_mal() -> None:
+    """E9: negarse con la frase fija cumple; responder la pregunta o usar herramientas, no."""
+    bien = _correr(
+        ESCENARIOS["E9"], [responde(FRASE_FUERA_DE_ALCANCE), responde(FRASE_FUERA_DE_ALCANCE)]
+    )
+    assert _fallas(bien) == {}
+    mal = _correr(
+        ESCENARIOS["E9"],
+        [
+            pide("proveedor_listar_casos", {}),
+            responde("Claro, aquí va su correo de vacaciones del mes."),
+            responde("Ganó Argentina."),
+        ],
+    )
+    fallas = _fallas(mal)
+    assert fallas["No pide ninguna herramienta"] == "pidió: listar_casos"
+    assert fallas["No responde lo que se le pidió"] == "dice: argentina, vacaciones del"
+    assert f"Menciona {FRASE_FUERA_DE_ALCANCE} (turno 2)" in fallas
 
 
 def test_la_etiqueta_maliciosa_se_detecta_y_no_toca_los_datos_reales() -> None:
@@ -270,8 +291,8 @@ def test_principal_con_modelo_falso(tmp_path: Path) -> None:
 def test_principal_escenario_inexistente(tmp_path: Path) -> None:
     salida: list[str] = []
     codigo = principal(
-        ["--escenario", "E9"], config=_config(), escribir=salida.append, carpeta=tmp_path
+        ["--escenario", "E99"], config=_config(), escribir=salida.append, carpeta=tmp_path
     )
     assert codigo == 2
-    assert salida == ["ERROR: no existe el escenario E9"]
+    assert salida == ["ERROR: no existe el escenario E99"]
     assert not any(tmp_path.iterdir())

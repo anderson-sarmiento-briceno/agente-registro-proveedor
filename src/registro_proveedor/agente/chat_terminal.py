@@ -28,8 +28,8 @@ from collections.abc import Callable
 from registro_proveedor.agente.ciclo import Agente, Sesion, Turno
 from registro_proveedor.agente.instrucciones import cargar_instrucciones
 from registro_proveedor.agente.llm.adaptador import AdaptadorLLM, ErrorDelModelo
+from registro_proveedor.agente.llm.costos import costo_usd
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
-from registro_proveedor.agente.llm.prueba_real import costo_usd
 from registro_proveedor.config import Configuracion
 from registro_proveedor.dominio.lectura import ErrorDeDatos
 from registro_proveedor.herramientas.proveedor import registro
@@ -86,7 +86,7 @@ def conversar(
         escribir(describir_turno(turno))
     escribir(
         f"\nFin de la conversación · {sesion.uso.total} tokens · "
-        f"costo aproximado USD {costo_usd(sesion.uso):.4f}"
+        f"costo aproximado USD {costo_usd(sesion.uso, modelo.modelo):.4f}"
     )
     return 0
 

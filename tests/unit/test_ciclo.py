@@ -883,3 +883,46 @@ def test_sesion_nueva_tiene_su_propio_id() -> None:
     a, b = Sesion.nueva(config), Sesion.nueva(config)
     assert a.id != b.id
     assert a.contexto.sesion_id == a.id
+
+
+# ---------- 8. Paso 18 · Tope de mensajes y costo por turno ----------
+
+
+def test_tope_de_mensajes_por_conversacion(contexto: Contexto) -> None:
+    """Al llegar al máximo, responde el CÓDIGO: el modelo ni se consulta."""
+    falso = AdaptadorFalso([responde("Uno."), responde("Dos.")])
+    sesion = Sesion(contexto)
+    agente = Agente(
+        adaptador=falso, registro=registro, instrucciones=INSTRUCCIONES, max_mensajes_sesion=2
+    )
+    agente.responder(sesion, "uno")
+    agente.responder(sesion, "dos")
+    tercero = agente.responder(sesion, "tres")
+    assert tercero.fin is FinTurno.TOPE_MENSAJES
+    assert tercero.consultas == 0
+    assert "máximo de 2 mensajes" in tercero.texto
+    assert len(falso.envios) == 2
+    assert sesion.mensajes_de_la_analista == 2
+
+
+def test_cada_turno_deja_su_costo_con_el_caso(contexto: Contexto) -> None:
+    guion = [_con_uso(r, 1_000) if i == 0 else r for i, r in enumerate(_guion_caso_completo())]
+    sesion = Sesion(contexto)
+    _agente(AdaptadorFalso([*guion, responde("De nada.")])).responder(sesion, "Colombia")
+    _agente(AdaptadorFalso([responde("De nada.")])).responder(sesion, "gracias")
+
+    lineas = (contexto.salida / "costos.jsonl").read_text(encoding="utf-8").splitlines()
+    primero, segundo = (json.loads(linea) for linea in lineas)
+    assert primero["casos"] == [CO]
+    assert primero["consultas"] == 6
+    assert primero["tokens_entrada"] == 1_000
+    assert primero["modelo"] == "modelo-falso"
+    assert primero["precio_conocido"] is False  # precio de resguardo: nunca cero
+    assert primero["usd"] > 0
+    assert segundo["casos"] == []  # "gracias" no trabajó ningún caso
+
+
+def test_un_turno_sin_consultas_no_deja_costo(contexto: Contexto) -> None:
+    sesion = Sesion(contexto)
+    _agente(AdaptadorFalso([])).resolver(sesion, "no-existe", aprobar=True)
+    assert not (contexto.salida / "costos.jsonl").exists()

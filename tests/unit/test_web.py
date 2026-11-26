@@ -18,7 +18,7 @@ from pydantic import SecretStr
 
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, responde
 from registro_proveedor.api.aplicacion import CARPETA_WEB, CSP, crear_app
-from registro_proveedor.api.esquemas import ChatResponse
+from registro_proveedor.api.esquemas import ChatResponse, PortalField, PortalValuesResponse
 from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.base import Contexto
 
@@ -134,6 +134,16 @@ def test_app_js_usa_los_campos_del_contrato() -> None:
     assert usados <= set(ChatResponse.model_fields), usados - set(ChatResponse.model_fields)
     for campo in ("reply", "tool_calls", "confirmations", "cancelled", "alerts", "session_id"):
         assert campo in usados
+
+
+def test_app_js_usa_el_contrato_de_los_valores_del_portal() -> None:
+    """Paso 18: la tarjeta del portal lee solo campos que existen en la respuesta."""
+    assert "/portal-values?session_id=" in APP_JS
+    usados = set(re.findall(r"\bvalores\.([a-z_]+)", APP_JS))
+    assert usados == {"client", "fields", "note"} <= set(PortalValuesResponse.model_fields)
+    de_campo = set(re.findall(r"\bcampo\.([a-z_]+)", APP_JS))
+    assert de_campo <= set(PortalField.model_fields), de_campo
+    assert "campo.masked" in APP_JS  # lo enmascarado no se puede copiar
 
 
 def test_app_js_conoce_todos_los_estados_de_una_herramienta() -> None:

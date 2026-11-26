@@ -23,9 +23,10 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from registro_proveedor.agente.ciclo import Sesion
-from registro_proveedor.agente.llm.adaptador import RespuestaModelo
+from registro_proveedor.agente.llm.adaptador import RespuestaModelo, Uso
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, pide, responde
 from registro_proveedor.api.aplicacion import crear_app
+from registro_proveedor.api.limites import LimitadorPorVisitante, UsoDiario
 from registro_proveedor.api.sesiones import AlmacenDeSesiones
 from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.base import Contexto
@@ -53,6 +54,10 @@ def _cliente(contexto: Contexto, *guion: RespuestaModelo, **opciones: object) ->
     def crear_contexto(sesion_id: str) -> Contexto:
         return dataclasses.replace(contexto, sesion_id=sesion_id)
 
+    # Paso 18 · El conteo diario va al `out/` temporal, nunca al `out/` real.
+    opciones.setdefault(
+        "uso_diario", UsoDiario(contexto.salida, tope_conversaciones=100, tope_usd=2.0)
+    )
     app = crear_app(
         _config(),
         adaptador=AdaptadorFalso(list(guion)),
@@ -95,7 +100,7 @@ def test_health_con_modelo(contexto: Contexto) -> None:
         "provider": "anthropic",
         "model": "modelo-falso",
         "llm_configured": True,
-        "prompt_version": "7",
+        "prompt_version": "8",
     }
 
 
@@ -378,14 +383,129 @@ def test_ninguna_respuesta_expone_la_clave_ni_la_cuenta(contexto: Contexto) -> N
 # ---------- 7. OpenAPI ----------
 
 
-def test_openapi_documenta_las_4_rutas(contexto: Contexto) -> None:
+def test_openapi_documenta_las_5_rutas(contexto: Contexto) -> None:
     esquema = _cliente(contexto).get("/openapi.json").json()
     rutas = esquema["paths"]
     assert set(rutas) == {
         "/api/chat",
         "/api/confirmations/{confirmation_id}",
         "/api/sessions/{session_id}",
+        "/api/cases/{case_id}/portal-values",  # Paso 18 (D57)
         "/api/health",
     }
     assert "ChatResponse" in esquema["components"]["schemas"]
     assert _cliente(contexto).get("/docs").status_code == 200
+
+
+# ---------- 8. Paso 18 · Topes de la demo abierta ----------
+
+
+def test_tope_de_mensajes_por_minuto_del_visitante(contexto: Contexto) -> None:
+    limitador = LimitadorPorVisitante(conversaciones_por_hora=10, mensajes_por_minuto=2)
+    cliente = _cliente(contexto, responde("Uno."), responde("Dos."), limitador=limitador)
+    sesion = cliente.post("/api/chat", json={"message": "hola"}).json()["session_id"]
+    assert cliente.post("/api/chat", json={"session_id": sesion, "message": "a"}).is_success
+    tercero = cliente.post("/api/chat", json={"session_id": sesion, "message": "b"})
+    assert tercero.status_code == 429
+    assert tercero.json()["detail"].startswith("Va muy rápido")
+
+
+def test_tope_de_conversaciones_por_hora_del_visitante(contexto: Contexto) -> None:
+    limitador = LimitadorPorVisitante(conversaciones_por_hora=1, mensajes_por_minuto=10)
+    cliente = _cliente(contexto, responde("Hola."), limitador=limitador)
+    assert cliente.post("/api/chat", json={"message": "hola"}).is_success
+    otra = cliente.post("/api/chat", json={"message": "otra conversación"})
+    assert otra.status_code == 429
+    assert "muchas conversaciones" in otra.json()["detail"]
+
+
+def test_tope_diario_de_conversaciones(contexto: Contexto) -> None:
+    diario = UsoDiario(contexto.salida, tope_conversaciones=1, tope_usd=2.0)
+    cliente = _cliente(contexto, responde("Hola."), uso_diario=diario)
+    assert cliente.post("/api/chat", json={"message": "hola"}).is_success
+    otra = cliente.post("/api/chat", json={"message": "hola"})
+    assert otra.status_code == 429
+    assert "límite de conversaciones por hoy" in otra.json()["detail"]
+    assert (
+        json.loads((contexto.salida / "uso-diario.json").read_text("utf-8"))["conversaciones"] == 1
+    )
+
+
+def test_el_costo_se_suma_al_tope_diario(contexto: Contexto) -> None:
+    """Cuando el gasto del día llega al tope, ni siquiera una conversación abierta sigue."""
+    caro = responde("Hola.").model_copy(update={"uso": Uso(entrada=1_000_000)})  # ≈ USD 5
+    diario = UsoDiario(contexto.salida, tope_conversaciones=100, tope_usd=1.0)
+    cliente = _cliente(contexto, caro, uso_diario=diario)
+    sesion = cliente.post("/api/chat", json={"message": "hola"}).json()["session_id"]
+    assert diario.hoy[1] > 1.0
+    siguiente = cliente.post("/api/chat", json={"session_id": sesion, "message": "sigue"})
+    assert siguiente.status_code == 429
+    assert "límite de uso por hoy" in siguiente.json()["detail"]
+
+
+def test_una_sesion_inexistente_da_404_antes_que_un_tope(contexto: Contexto) -> None:
+    r = _cliente(contexto).post("/api/chat", json={"session_id": "0" * 32, "message": "hola"})
+    assert r.status_code == 404
+
+
+# ---------- 9. Paso 18 · Valores del portal para copiar (D57) ----------
+
+PA = "pa-logistica-istmo"
+
+
+def _portal_preparado(contexto: Contexto) -> tuple[TestClient, str]:
+    cliente = _cliente(
+        contexto,
+        pide("proveedor_leer_solicitud", {"caso": PA}),
+        pide("proveedor_mapear_campos", {"caso": PA}),
+        responde("Listo."),
+    )
+    sesion = cliente.post("/api/chat", json={"message": "Prepara Panamá"}).json()["session_id"]
+    return cliente, sesion
+
+
+def test_valores_del_portal_con_lo_sensible_enmascarado(contexto: Contexto) -> None:
+    cliente, sesion = _portal_preparado(contexto)
+    r = cliente.get(f"/api/cases/{PA}/portal-values", params={"session_id": sesion})
+    assert r.status_code == 200
+    assert r.headers["Cache-Control"] == "no-store"
+    campos = {c["label"]: c for c in r.json()["fields"]}
+    # La cuenta completa NUNCA sale por la página pública (D65): solo los 4 últimos.
+    maestro = json.loads((DATOS_REALES / "repositorio" / "maestro.json").read_text("utf-8"))
+    cuenta = maestro["banco"]["numero_cuenta"]
+    assert cuenta not in r.text
+    assert campos["Número de cuenta"]["value"] == "****" + cuenta[-4:]
+    assert campos["Número de cuenta"]["masked"] is True
+    # Lo demás sí, para copiarlo; lo pendiente de confirmar queda sin valor.
+    assert campos["Banco"]["value"] == maestro["banco"]["nombre"]
+    assert campos["Banco"]["masked"] is False
+    assert campos["RUC"]["value"] is None
+    assert campos["RUC"]["status"] == "PENDIENTE de confirmación"
+    assert "valores-portal.md" in r.json()["note"]
+    # Queda en el log quién los vio, sin los valores.
+    log = (contexto.salida / PA / "log.jsonl").read_text("utf-8")
+    assert "vista_valores_portal" in log
+    assert cuenta not in log
+
+
+def test_valores_del_portal_errores(contexto: Contexto) -> None:
+    cliente, sesion = _portal_preparado(contexto)
+
+    def pedir(caso: str, sesion_id: str = sesion) -> tuple[int, str]:
+        r = cliente.get(f"/api/cases/{caso}/portal-values", params={"session_id": sesion_id})
+        return r.status_code, r.json()["detail"]
+
+    assert pedir(CO) == (
+        404,
+        "Ese caso no se llena en un portal web: su formulario es un archivo (Excel o PDF).",
+    )
+    assert pedir("no-existe")[0] == 404
+    assert pedir(PA, "0" * 32)[0] == 404  # sesión inexistente
+    assert pedir("../datos")[0] in (404, 422)
+    # Un caso de portal que todavía no se preparó en ESTA sesión.
+    otro_contexto = dataclasses.replace(contexto, salida=contexto.salida.parent / "otro-out")
+    otro, sesion_vacia = _cliente(otro_contexto, responde("Hola.")), ""
+    sesion_vacia = otro.post("/api/chat", json={"message": "hola"}).json()["session_id"]
+    r = otro.get(f"/api/cases/{PA}/portal-values", params={"session_id": sesion_vacia})
+    assert r.status_code == 404
+    assert "primero pídale al agente que lo prepare" in r.json()["detail"]

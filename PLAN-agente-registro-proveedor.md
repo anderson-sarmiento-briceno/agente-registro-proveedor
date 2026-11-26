@@ -95,7 +95,7 @@ Llenar los campos y revisar los soportes es trabajo **determinista**: es mejor r
 ### 3.2 No-objetivos (por ahora)
 
 - Integración real con el correo, SharePoint, la firma electrónica o los portales de los clientes. Quedan para fases posteriores.
-- Autenticación avanzada, roles o multiusuario. En el MVP basta un acceso protegido sencillo.
+- Autenticación, roles o multiusuario. La demo es **abierta, sin clave**, para mostrarla a muchas personas (decisión del Paso 18): el gasto y el uso se controlan con topes y con un alcance restringido (ver sección 13).
 - Base de datos. En el MVP alcanza con el sistema de archivos.
 
 ---
@@ -473,6 +473,7 @@ El prompt se **versiona** y cada cambio se valida con las evaluaciones (sección
 | `POST` | `/api/chat` | `{session_id, message}` → `{reply, tool_calls[], needs_confirmation, confirmation_id?}` o un *stream* SSE |
 | `POST` | `/api/confirmations/{id}` | `{session_id, approve: bool}` → ejecuta o cancela la acción pendiente *(el `session_id` se agregó en el Paso 15: así nadie aprueba la confirmación de otra conversación adivinando su id)* |
 | `GET` | `/api/sessions/{id}` | Historial de la sesión |
+| `GET` | `/api/cases/{caso}/portal-values?session_id=…` | Valores del portal para copiar; lo sensible va enmascarado (Paso 18) |
 | `GET` | `/api/health` | `{ok, provider, model}`, sin exponer claves |
 
 La documentación OpenAPI se genera sola en `/docs` gracias a FastAPI.
@@ -485,9 +486,9 @@ La documentación OpenAPI se genera sola en `/docs` gracias a FastAPI.
 |---|---|
 | Arranque | Un comando levanta el front y el backend en local (`uv run dev` o `docker compose up`) en menos de 2 minutos. |
 | Determinismo | `demo.py` produce el mismo resultado en ejecuciones consecutivas (salvo los timestamps) y limpia `out/` al iniciar. |
-| Seguridad | La clave del modelo solo vive en el backend (variable de entorno o gestor de secretos). Nunca está en el front, el repositorio, los logs ni las respuestas. El acceso al link está protegido. Las herramientas no ejecutan comandos de shell. |
+| Seguridad | La clave del modelo solo vive en el backend (variable de entorno o gestor de secretos). Nunca está en el front, el repositorio, los logs ni las respuestas. **Demo abierta sin clave** (Paso 18): el chat solo atiende el registro como proveedor (prompt + topes del código), y la página nunca muestra datos sensibles completos. Las herramientas no ejecutan comandos de shell. |
 | Privacidad | Los datos sensibles se enmascaran en logs y respuestas. Al modelo se envía solo lo necesario. Se revisa la política de retención de datos del proveedor de LLM. |
-| Costo | Topes de iteraciones por turno, de tokens por sesión y de sesiones por día, configurables. Se registra el costo estimado por caso. |
+| Costo | Topes de iteraciones por turno, de tokens y de mensajes por sesión, de conversaciones y mensajes por visitante (IP), y de conversaciones y dólares por día, configurables. Se registra el costo estimado por caso. |
 | Robustez | Errores tipados. Timeout al LLM (por ejemplo, 30 s) con mensaje claro. Un caso malo no impide procesar el siguiente. |
 | Rendimiento | Procesar un caso de punta a punta en menos de 60 s con el LLM y en menos de 2 s sin él. |
 | Legibilidad | Tipado estricto, funciones cortas, nombres en español consistentes con el dominio. |
@@ -531,7 +532,7 @@ Estimado para una persona. Se ajusta tras la fase F0.
 | 3 | F1 | Generadores de Excel, PDF y portal, paquete, checklist, manifiesto y `demo.py`. Pruebas *golden*. | Los 4 casos se procesan sin LLM y siempre igual. |
 | 4 | F2 | Adaptador de LLM, ciclo con topes, confirmación del servidor, guardarraíles, prompt. | Evaluaciones básicas en verde. |
 | 5 | F2 | API FastAPI y front de chat con las herramientas visibles y los botones de confirmación. | Demo conversacional completa en local. |
-| 6 | F3 | Docker, despliegue, acceso protegido, logs y métricas de costo. Documentación y piloto con la analista. | URL estable, piloto con casos reales y retroalimentación recogida. |
+| 6 | F3 | Docker, despliegue, demo abierta con topes, logs y métricas de costo. Documentación y piloto con la analista. | URL estable, piloto con casos reales y retroalimentación recogida. |
 
 **Hitos:** M1 núcleo determinista (fin de la semana 3) · M2 agente en local (fin de la semana 5) · M3 piloto (fin de la semana 6).
 
@@ -545,11 +546,12 @@ Estimado para una persona. Se ajusta tras la fase F0.
 |---|---|---|
 | El modelo "completa" un campo con un valor plausible. | Alto | Los valores solo salen de las herramientas, hay un guardarraíl sobre la respuesta y evaluaciones específicas. |
 | Inyección de prompts en el correo del cliente. | Alto | El correo se trata como datos delimitados, no hay acciones externas sin confirmación y se prueba con correos maliciosos. |
-| Fuga de datos sensibles (cuenta, identificaciones). | Alto | Enmascaramiento, datos mínimos al modelo, logs sin datos en claro y acceso protegido. |
+| Fuga de datos sensibles (cuenta, identificaciones). | Alto | Enmascaramiento, datos mínimos al modelo, logs sin datos en claro y una página pública que nunca muestra datos sensibles completos. |
 | El maestro está desactualizado. | Medio | Dueño del dato, versión en el manifiesto y alertas de vigencia. |
 | Plantillas reales peores que las de referencia. | Medio | Mapeo con niveles de confianza, aprendizaje del glosario con aprobación y piloto temprano. |
 | Portales con CAPTCHA o MFA. | Medio | La persona opera esas partes y el agente prepara los valores. |
-| Costo del LLM sin control. | Bajo | Topes por turno, por sesión y por día, caché de prompts y modelo económico. |
+| Costo del LLM sin control. | Bajo | Topes por turno, por sesión, por visitante y por día (también en dólares), caché de prompts y modelo económico. |
+| Que usen el chat abierto para otra cosa. | Medio | El prompt responde una frase fija fuera de tema; el código limita mensajes, largo de respuesta y gasto; evaluaciones E8 y E9. |
 | Cambio de proveedor de LLM. | Bajo | Adaptador propio y evaluaciones para comparar proveedores. |
 
 ### 17.2 Supuestos

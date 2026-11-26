@@ -67,7 +67,9 @@ class Configuracion(BaseSettings):
 
     # Máximo de tokens que puede escribir el modelo en una respuesta. Si se queda corto,
     # la respuesta se corta a la mitad; 8000 sobra para un resumen y varias herramientas.
-    llm_max_tokens: int = Field(default=8000, ge=256, le=64000)
+    # Paso 18: bajó de 8000 a 4000. Un resumen completo usa menos de 1500; un tope más
+    # bajo hace que usar el chat para otra cosa (textos largos) rinda poco y cueste poco.
+    llm_max_tokens: int = Field(default=4000, ge=256, le=64000)
 
     # Topes del ciclo del agente (CA1, Paso 12):
     # - cuántas veces se puede consultar al modelo en UN turno (un mensaje de la
@@ -77,6 +79,19 @@ class Configuracion(BaseSettings):
     #   parte (D46). 300 000 tokens cuestan, como mucho, unos USD 0.05 a 0.15.
     llm_max_iteraciones: int = Field(default=15, ge=1, le=50)
     llm_tope_tokens_sesion: int = Field(default=300_000, ge=1_000)
+    # Paso 18 · cuántos mensajes puede escribir la analista en UNA conversación. Un caso
+    # completo, con confirmación y envío, usa unos 5; 30 sobra para trabajar y corta el
+    # uso del chat como asistente general.
+    llm_max_mensajes_sesion: int = Field(default=30, ge=1, le=500)
+
+    # Paso 18 · Topes de la demo ABIERTA (sin clave de acceso, decisión de Anderson, D65).
+    # Por visitante (dirección IP), en memoria:
+    tope_conversaciones_hora_ip: int = Field(default=5, ge=1)
+    tope_mensajes_minuto_ip: int = Field(default=10, ge=1)
+    # Para todos los visitantes juntos, por día (se guarda en out/uso-diario.json, así
+    # que un reinicio no lo pone en cero):
+    tope_conversaciones_dia: int = Field(default=100, ge=1)
+    tope_usd_dia: float = Field(default=2.0, gt=0)
 
     # RN7: fecha de ejecución inyectable. Las vigencias de los soportes se comparan
     # con esta fecha. Si se fija (por ejemplo, en pruebas), el resultado no depende

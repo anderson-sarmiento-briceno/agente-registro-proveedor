@@ -178,6 +178,10 @@ td.nombre, td.argumentos { font-family: ui-monospace, "Cascadia Mono", Consolas,
 .tarjeta.aviso { background: var(--aviso-fondo); border: 1px solid var(--borde); }
 .tarjeta .acciones { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .tarjeta .resuelta { margin-top: 6px; font-weight: 600; }
+/* Paso 18 · Valores del portal para copiar. */
+.tarjeta.portal { background: var(--aviso-fondo); border: 1px solid var(--borde); }
+.tarjeta.portal .tabla-contenedor { margin: 8px 0; }
+.mensaje > .acciones { display: flex; gap: 8px; margin-top: 10px; }
 
 /* ---------- Botones ---------- */
 

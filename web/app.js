@@ -12,6 +12,11 @@
     - Guarda el id de la conversación en la pestaña (sessionStorage): si se recarga la
       página, el historial se recupera con GET /api/sessions/{id}.
 
+  Paso 18: si el formulario del cliente es un portal web, la respuesta trae el botón
+  "Ver valores para copiar" (GET /api/cases/{caso}/portal-values): una tabla con un
+  botón Copiar por campo. Lo sensible llega enmascarado y no se puede copiar. Los topes
+  de la demo (429) se muestran como un aviso, con el mensaje del servidor.
+
   Seguridad: NUNCA se usa `innerHTML`. Todo lo que llega del servidor (la respuesta del
   modelo, las etiquetas del cliente) se agrega como TEXTO (`textContent`), así que un
   `<script>` dentro de una respuesta se ve como texto y no se ejecuta. Las negritas y
@@ -50,7 +55,13 @@ const MOTIVOS = {
   incomplete: "la respuesta quedó incompleta",
   refused: "el modelo no quiso responder",
   invalid_confirmation: "la acción ya no estaba pendiente",
+  message_limit: "la conversación llegó a su máximo de mensajes",
 };
+
+// Paso 18 · Los casos cuyo formulario es un portal web (lo dice el resumen de
+// proveedor_generar_formulario): sus respuestas llevan el botón "Ver valores para copiar".
+const ARCHIVO_PORTAL = "valores-portal.md";
+const casosDePortal = new Set();
 
 // ---------- La sesión (en la pestaña) ----------
 
@@ -181,9 +192,78 @@ function agregarRespuesta(r) {
   for (const a of r.alerts) burbuja.appendChild(tarjetaAlerta(a));
   for (const c of r.cancelled) burbuja.appendChild(tarjetaCancelada(c));
   for (const c of r.confirmations) burbuja.appendChild(tarjetaPendiente(c));
+  const portal = casoDePortal(r.tool_calls);
+  if (portal) burbuja.appendChild(botonValoresPortal(portal));
   if (r.tool_calls.length) burbuja.appendChild(tablaHerramientas(r.tool_calls));
   burbuja.appendChild(pie(r));
   return agregar(burbuja);
+}
+
+// ---------- Paso 18 · Valores del portal para copiar (D57) ----------
+
+/** El caso de portal que se trabajó en este turno (o null). */
+function casoDePortal(llamadas) {
+  for (const ll of llamadas) {
+    const caso = ll.arguments && ll.arguments.caso;
+    if (typeof caso !== "string" || !ll.ok) continue;
+    if (ll.name === "proveedor_generar_formulario" && ll.summary.includes(ARCHIVO_PORTAL)) {
+      casosDePortal.add(caso);
+    }
+  }
+  for (const ll of llamadas) {
+    const caso = ll.arguments && ll.arguments.caso;
+    const genera = ll.name === "proveedor_generar_formulario" || ll.name === "proveedor_armar_paquete";
+    if (ll.ok && genera && casosDePortal.has(caso)) return caso;
+  }
+  return null;
+}
+
+function botonValoresPortal(caso) {
+  const contenedor = crear("div", "acciones");
+  const boton = crear("button", "boton secundario", "Ver valores para copiar en el portal");
+  boton.type = "button";
+  boton.addEventListener("click", async () => {
+    if (!sesionId) return;
+    boton.disabled = true;
+    try {
+      const valores = await llamar(
+        "GET",
+        `/api/cases/${encodeURIComponent(caso)}/portal-values?session_id=${encodeURIComponent(sesionId)}`
+      );
+      contenedor.replaceWith(tarjetaValoresPortal(valores));
+    } catch (e) {
+      boton.disabled = false;
+      agregarError(e.message);
+    }
+  });
+  contenedor.appendChild(boton);
+  return contenedor;
+}
+
+/** Una tabla Campo · Valor · Estado con un botón Copiar por fila. */
+function tarjetaValoresPortal(valores) {
+  const tarjeta = crear("div", "tarjeta portal");
+  tarjeta.appendChild(crear("div", "", `Valores para el portal de ${valores.client}`));
+  const contenedor = crear("div", "tabla-contenedor");
+  const tabla = crear("table", "tabla-md");
+  const encabezado = crear("tr");
+  for (const titulo of ["Campo", "Valor", "Estado", ""]) encabezado.appendChild(crear("th", "", titulo));
+  tabla.appendChild(crear("thead")).appendChild(encabezado);
+  const cuerpo = tabla.appendChild(crear("tbody"));
+  for (const campo of valores.fields) {
+    const fila = crear("tr");
+    fila.appendChild(crear("td", "", campo.label));
+    fila.appendChild(crear("td", campo.masked ? "argumentos" : "", campo.value ?? "—"));
+    fila.appendChild(crear("td", campo.status === "listo" ? "ok" : "espera", campo.status));
+    const celda = fila.appendChild(crear("td"));
+    if (campo.value && !campo.masked) celda.appendChild(botonCopiar(campo.value));
+    else if (campo.masked) celda.appendChild(crear("span", "argumentos", "ver archivo"));
+    cuerpo.appendChild(fila);
+  }
+  contenedor.appendChild(tabla);
+  tarjeta.appendChild(contenedor);
+  tarjeta.appendChild(crear("div", "argumentos", valores.note));
+  return tarjeta;
 }
 
 function tablaHerramientas(llamadas) {
@@ -485,6 +565,7 @@ function nuevaConversacion() {
   for (const elemento of [...conversacion.children]) {
     if (elemento !== bienvenida) elemento.remove();
   }
+  casosDePortal.clear();
   bienvenida.hidden = false;
   caja.focus();
 }

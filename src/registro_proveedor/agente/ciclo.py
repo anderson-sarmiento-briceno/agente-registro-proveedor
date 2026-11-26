@@ -79,13 +79,16 @@ from registro_proveedor.agente.llm.adaptador import (
     Uso,
     definiciones_desde_registro,
 )
+from registro_proveedor.agente.llm.costos import costo_usd, precio_conocido
 from registro_proveedor.config import Configuracion
 from registro_proveedor.dominio.modelos import PATRON_ID_CASO
 from registro_proveedor.herramientas.base import Aprobacion, Contexto, Registro, Resultado
 from registro_proveedor.observabilidad import (
+    RegistroCosto,
     RegistroLlamada,
     enmascarar_datos,
     escribir_auditoria,
+    escribir_costo,
     obtener_logger,
 )
 
@@ -116,6 +119,7 @@ class FinTurno(StrEnum):
     INCOMPLETA = "incompleta"  # la respuesta se cortó (largo máximo o pausa)
     RECHAZO = "rechazo"  # el modelo se negó a responder
     CONFIRMACION_INVALIDA = "confirmacion_invalida"  # se quiso resolver una que no existe
+    TOPE_MENSAJES = "tope_mensajes"  # Paso 18: la conversación llegó a su máximo de mensajes
 
 
 class EstadoLlamada(StrEnum):
@@ -207,6 +211,8 @@ class Sesion:
     mensajes: list[Mensaje] = field(default_factory=list)
     uso: Uso = field(default_factory=Uso)
     pendientes: dict[str, ConfirmacionPendiente] = field(default_factory=dict)
+    # Paso 18 · cuántos mensajes escribió la analista (los clics en Aprobar no cuentan).
+    mensajes_de_la_analista: int = 0
 
     @property
     def id(self) -> str:
@@ -234,6 +240,7 @@ class Agente:
         instrucciones: InstruccionesSistema,
         max_iteraciones: int = 15,
         tope_tokens_sesion: int = 300_000,
+        max_mensajes_sesion: int = 30,
     ) -> None:
         self._adaptador = adaptador
         self._registro = registro
@@ -241,6 +248,11 @@ class Agente:
         self._herramientas = definiciones_desde_registro(registro)
         self._max_iteraciones = max_iteraciones
         self._tope_tokens = tope_tokens_sesion
+        self._max_mensajes = max_mensajes_sesion
+
+    @property
+    def modelo(self) -> str:
+        return self._adaptador.modelo
 
     @classmethod
     def desde_configuracion(
@@ -258,6 +270,7 @@ class Agente:
             instrucciones=instrucciones,
             max_iteraciones=config.llm_max_iteraciones,
             tope_tokens_sesion=config.llm_tope_tokens_sesion,
+            max_mensajes_sesion=config.llm_max_mensajes_sesion,
         )
 
     # ---------- Las dos entradas: un mensaje, o Aprobar / Rechazar ----------
@@ -266,13 +279,27 @@ class Agente:
         """Procesa un mensaje de la analista y devuelve la respuesta. Nunca lanza por el modelo.
 
         Si había confirmaciones pendientes, se cancelan (RN4) y el modelo se entera.
+        Paso 18: si la conversación ya llegó a su máximo de mensajes, responde el CÓDIGO
+        (sin consultar al modelo, sin gastar nada) y pide abrir una conversación nueva.
         """
+        if sesion.mensajes_de_la_analista >= self._max_mensajes:
+            return Turno(
+                texto=_texto_tope_mensajes(self._max_mensajes),
+                fin=FinTurno.TOPE_MENSAJES,
+                llamadas=(),
+                consultas=0,
+                uso=Uso(),
+                pendientes=tuple(sesion.pendientes.values()),
+            )
+        sesion.mensajes_de_la_analista += 1
         canceladas = _cancelar_pendientes(sesion)
         textos = [mensaje]
         if canceladas:
             textos.insert(0, _aviso_de_cancelacion(canceladas))
         _agregar_del_usuario(sesion, textos)
-        return self._continuar(sesion, [], [], canceladas=tuple(canceladas))
+        turno = self._continuar(sesion, [], [], canceladas=tuple(canceladas))
+        self._registrar_costo(sesion, turno)
+        return turno
 
     def resolver(self, sesion: Sesion, id_confirmacion: str, *, aprobar: bool) -> Turno:
         """La analista aprobó o rechazó una confirmación pendiente (botón o `/aprobar`).
@@ -298,7 +325,9 @@ class Agente:
         else:
             llamada, aviso = _rechazar(sesion, pendiente)
         _agregar_del_usuario(sesion, [aviso])
-        return self._continuar(sesion, [llamada], alertas)
+        turno = self._continuar(sesion, [llamada], alertas)
+        self._registrar_costo(sesion, turno)
+        return turno
 
     # ---------- El ciclo ----------
 
@@ -545,6 +574,32 @@ class Agente:
             id_solicitud=respuesta.id_solicitud,
         )
 
+    def _registrar_costo(self, sesion: Sesion, turno: Turno) -> None:
+        """Paso 18 · Una línea en out/costos.jsonl por turno que consultó al modelo.
+
+        Lleva los casos que se trabajaron en el turno (sacados de los argumentos de las
+        herramientas), para sumar después el costo por caso (`scripts/costos.py`).
+        """
+        if turno.consultas == 0:
+            return
+        modelo = self._adaptador.modelo
+        escribir_costo(
+            sesion.contexto.salida,
+            RegistroCosto(
+                ts=sesion.contexto.reloj(),
+                sesion=sesion.id,
+                casos=_casos_del_turno(turno),
+                modelo=modelo,
+                consultas=turno.consultas,
+                tokens_entrada=turno.uso.entrada,
+                tokens_salida=turno.uso.salida,
+                tokens_cache_lectura=turno.uso.cache_lectura,
+                tokens_cache_escritura=turno.uso.cache_escritura,
+                usd=round(costo_usd(turno.uso, modelo), 6),
+                precio_conocido=precio_conocido(modelo),
+            ),
+        )
+
     def _registrar_ocultos(self, sesion: Sesion, ocultos: tuple[TipoDato, ...]) -> None:
         """Deja constancia de que se ocultaron datos no verificados: el TIPO, nunca el dato."""
         obtener_logger().warning(
@@ -612,6 +667,16 @@ def _describir(herramienta: str, argumentos: dict[str, object]) -> str:
 def _id_de(resultado: Resultado[object]) -> str:
     data = resultado.data
     return str(data.get("confirmacion", "?")) if isinstance(data, dict) else "?"
+
+
+def _casos_del_turno(turno: Turno) -> list[str]:
+    """Los casos que tocaron las herramientas del turno, sin repetir y en orden."""
+    casos: list[str] = []
+    for ll in turno.llamadas:
+        caso = ll.argumentos.get("caso")
+        if isinstance(caso, str) and re.fullmatch(PATRON_ID_CASO, caso) and caso not in casos:
+            casos.append(caso)
+    return casos
 
 
 def _enmascarados(argumentos: dict[str, object]) -> dict[str, object]:
@@ -726,6 +791,14 @@ def _texto_tope_tokens(tope: int, llamadas: list[LlamadaEjecutada]) -> str:
         "consultando al modelo.\n\n"
         f"{_lo_que_se_hizo(llamadas)}\n\n"
         "Los archivos ya generados siguen en out/. Para continuar, inicie una conversación nueva."
+    )
+
+
+def _texto_tope_mensajes(tope: int) -> str:
+    return (
+        f"Esta conversación llegó a su máximo de {tope} mensajes. Para seguir, inicie una "
+        "conversación nueva (botón «Nueva conversación»). Los archivos ya generados siguen "
+        "en out/."
     )
 
 

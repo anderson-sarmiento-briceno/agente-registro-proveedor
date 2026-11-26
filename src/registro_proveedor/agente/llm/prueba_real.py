@@ -22,9 +22,9 @@ from registro_proveedor.agente.llm.adaptador import (
     Mensaje,
     MotivoFin,
     RespuestaModelo,
-    Uso,
     definiciones_desde_registro,
 )
+from registro_proveedor.agente.llm.costos import costo_usd
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
 from registro_proveedor.config import Configuracion
 from registro_proveedor.dominio.lectura import ErrorDeDatos
@@ -32,13 +32,7 @@ from registro_proveedor.herramientas.proveedor import registro
 
 PREGUNTA_POR_DEFECTO = "¿Qué solicitudes de registro hay? Busca la del cliente de Ecuador."
 
-# Precio de claude-haiku-5-5 (dólares por millón de tokens, prompts de hasta 100K tokens).
-PRECIO_ENTRADA_USD = 0.10
-PRECIO_SALIDA_USD = 0.50
-# Guardar algo en la caché cuesta un poco MÁS que la entrada normal (la primera vez);
-# leerlo de la caché, mucho MENOS (las veces siguientes).
-FACTOR_CACHE_ESCRITURA = 1.25
-FACTOR_CACHE_LECTURA = 0.10
+# Los precios viven en `costos.py` desde el Paso 18 (una tabla por modelo).
 
 EXPLICACION_MOTIVO = {
     MotivoFin.PIDE_HERRAMIENTA: "pide herramientas (el ciclo del Paso 12 las ejecutaría)",
@@ -104,20 +98,6 @@ def describir(
         "",
         f"Tokens: {uso.entrada} de entrada · {uso.salida} de salida · "
         f"{uso.cache_lectura} leídos de la caché · {uso.cache_escritura} guardados en la caché",
-        f"Costo aproximado: USD {costo_usd(uso):.5f} (incluye la caché)",
+        f"Costo aproximado: USD {costo_usd(uso, respuesta.modelo):.5f} (incluye la caché)",
     ]
     return "\n".join(lineas)
-
-
-def costo_usd(uso: Uso) -> float:
-    """Costo aproximado de una llamada en dólares, contando la caché.
-
-    Cada tipo de token tiene su precio: la entrada normal, la salida, lo que se guarda
-    en la caché (1.25 veces la entrada) y lo que se lee de ella (0.1 veces la entrada).
-    """
-    entrada = (
-        uso.entrada
-        + uso.cache_escritura * FACTOR_CACHE_ESCRITURA
-        + uso.cache_lectura * FACTOR_CACHE_LECTURA
-    )
-    return (entrada * PRECIO_ENTRADA_USD + uso.salida * PRECIO_SALIDA_USD) / 1_000_000

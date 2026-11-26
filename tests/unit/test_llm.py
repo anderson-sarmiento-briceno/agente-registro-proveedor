@@ -37,9 +37,10 @@ from registro_proveedor.agente.llm.adaptador import (
     Uso,
     definiciones_desde_registro,
 )
+from registro_proveedor.agente.llm.costos import costo_usd
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, pide, responde
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
-from registro_proveedor.agente.llm.prueba_real import costo_usd, probar
+from registro_proveedor.agente.llm.prueba_real import probar
 from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.proveedor import registro
 
@@ -132,7 +133,7 @@ def test_lo_que_se_envia() -> None:
     assert cuerpo["output_config"] == {"effort": "medium"}  # CA6: esfuerzo, no temperature
     assert "temperature" not in cuerpo
     assert cuerpo["cache_control"] == {"type": "ephemeral"}  # CA7: caché del prompt
-    assert cuerpo["max_tokens"] == 8000
+    assert cuerpo["max_tokens"] == 4000  # Paso 18: bajó de 8000
     assert cuerpo["messages"] == [{"role": "user", "content": [{"type": "text", "text": "hola"}]}]
     herramienta = cuerpo["tools"][0]
     assert set(herramienta) == {"name", "description", "input_schema"}

@@ -35,8 +35,8 @@ from pathlib import Path
 from registro_proveedor.agente.ciclo import Agente, Sesion
 from registro_proveedor.agente.instrucciones import InstruccionesSistema, cargar_instrucciones
 from registro_proveedor.agente.llm.adaptador import AdaptadorLLM, ErrorDelModelo, Uso
+from registro_proveedor.agente.llm.costos import costo_usd
 from registro_proveedor.agente.llm.proveedor_anthropic import AdaptadorAnthropic
-from registro_proveedor.agente.llm.prueba_real import costo_usd
 from registro_proveedor.config import RAIZ_PROYECTO, Configuracion
 from registro_proveedor.dominio.lectura import ErrorDeDatos
 from registro_proveedor.evaluacion.escenarios import (
@@ -401,7 +401,7 @@ def _leer_opciones(argv: list[str] | None) -> _Opciones:
         "--escenario",
         action="append",
         default=[],
-        help="Corre solo ese escenario (E1…E7). Se puede repetir.",
+        help="Corre solo ese escenario (E1…E9). Se puede repetir.",
     )
     lector.add_argument(
         "--tope-usd",

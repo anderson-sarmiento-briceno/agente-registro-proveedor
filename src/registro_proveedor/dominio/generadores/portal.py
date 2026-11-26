@@ -8,6 +8,7 @@ Este archivo SÍ lleva los valores completos, incluida la cuenta bancaria: el po
 los pide. Vive en `out/`, que nunca se le envía al modelo de lenguaje.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from registro_proveedor.dominio.casos import CasoLeido
@@ -17,12 +18,47 @@ from registro_proveedor.dominio.generadores.comun import (
     Marca,
     escribir_atomico,
     escrituras,
+    que_escribir,
     resumen,
 )
 from registro_proveedor.dominio.mapeo import Mapeo
 from registro_proveedor.dominio.textos import renderizar
+from registro_proveedor.observabilidad import enmascarar, es_ruta_sensible
 
 ARCHIVO_PORTAL = "valores-portal.md"
+
+
+@dataclass(frozen=True)
+class ValorParaCopiar:
+    """Un campo del portal como se muestra en la página, con su botón Copiar (Paso 18, D57)."""
+
+    etiqueta: str
+    valor: str | None  # None = no hay nada que copiar (faltante o por confirmar)
+    estado: str  # "listo", "FALTA en el maestro", "PENDIENTE de confirmación"
+    enmascarado: bool  # True = dato sensible: se muestra "****2345", no se puede copiar
+
+
+def valores_para_copiar(mapeo: Mapeo) -> list[ValorParaCopiar]:
+    """Los valores del portal para la PÁGINA, que es pública (D65): lo sensible, enmascarado.
+
+    La demo no tiene clave de acceso, así que la cuenta bancaria y la identificación del
+    representante nunca salen completas por aquí (RN8). Para esos campos la analista
+    abre `valores-portal.md` en `out/`, que sí los tiene completos.
+    """
+    lista: list[ValorParaCopiar] = []
+    for campo in mapeo.campos:
+        escritura = que_escribir(campo)
+        sensible = campo.ruta is not None and es_ruta_sensible(campo.ruta)
+        valor = escritura.valor
+        lista.append(
+            ValorParaCopiar(
+                etiqueta=escritura.etiqueta,
+                valor=enmascarar(valor) if sensible and valor is not None else valor,
+                estado=TEXTO_ESTADO[escritura.marca],
+                enmascarado=sensible and valor is not None,
+            )
+        )
+    return lista
 
 
 def generar_portal(mapeo: Mapeo, caso: CasoLeido, carpeta: Path) -> FormularioGenerado:

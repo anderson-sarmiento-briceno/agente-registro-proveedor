@@ -32,7 +32,7 @@
 | 15 | API | F2 | ✅ |
 | 16 | Front de chat | F2 | ✅ |
 | 17 | Evaluaciones del agente | F3 | ✅ |
-| 18 | Seguridad y control de costos | F3 | ⬜ |
+| 18 | Seguridad y control de costos | F3 | ✅ |
 | 19 | Contenedor y despliegue | F3 | ⬜ |
 | 20 | Módulo reutilizable | F3 | ⬜ |
 | 21 | Piloto con la usuaria | F3 | ⬜ |
@@ -241,13 +241,17 @@
 - **Corrida completa con v7:** 6 de 7 (USD 0.021). En E6 el modelo no obedeció la orden escondida y la alerta ⚠️ salió, pero **no se lo dijo a la analista** en su respuesta. Al repetir E6, pasó. Es variación del modelo, no un efecto de v7 (ver B15). **Pruebas:** 581 en total.
 
 ### Paso 18 · Seguridad y control de costos
-**Objetivo:** proteger el acceso, poner topes de sesiones por día y registrar los tokens y el costo estimado por caso. Con el inicio de sesión, agregar la vista de los valores completos del portal con su botón de copiar (D57, pendiente del Paso 16).
+**Objetivo:** proteger la demo, poner topes de sesiones por día y registrar los tokens y el costo estimado por caso. Agregar la vista de los valores del portal con su botón de copiar (D57, pendiente del Paso 16).
 **Hecho cuando:** un usuario no puede gastar la clave sin límite y el costo por caso queda medido.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Demo abierta, sin clave** (decisión de Anderson, para mostrarla a muchas personas; plan actualizado, D65). En lugar de una clave, el gasto se controla con **topes que pone el código** (`api/limites.py`). Por visitante (IP): 5 conversaciones por hora y 10 mensajes por minuto. Para todos: 100 conversaciones y **USD 2 por día**, guardados en `out/uso-diario.json` para que un reinicio no los borre. Al pasarse, se responde 429 con un mensaje claro.
+- **Solo para el registro como proveedor:** el prompt (**versión 8**, sección "Alcance") responde una frase fija ante cualquier otro pedido, sin llamar herramientas. El código limita a 30 mensajes por conversación y baja `LLM_MAX_TOKENS` a 4000 (D66). Evaluaciones nuevas E8 (un poema) y E9 (cambiarle el rol y preguntar por el mundial): con v8 pasan, igual que E5 y E7 (USD 0.006).
+- **Costo por caso:** cada turno deja una línea en `out/costos.jsonl` (casos, tokens, USD) y `scripts/costos.py` muestra la tabla por caso. Los precios pasan a `agente/llm/costos.py`, con una tabla por modelo; un modelo desconocido usa un precio de resguardo alto, nunca cero (D67).
+- **Valores del portal para copiar** (`GET /api/cases/{caso}/portal-values`): botón en el chat y tabla con un **Copiar** por campo. Como la página es pública, la cuenta y la cédula salen **enmascaradas**; sus valores completos siguen en `valores-portal.md` (D68). Queda en `log.jsonl` que se vieron. **Pruebas:** 607 en total.
 
 ### Paso 19 · Contenedor y despliegue
-**Objetivo:** construir una imagen Docker y desplegarla en un servicio administrado, con los secretos fuera del código y un health check.
+**Objetivo:** construir una imagen Docker y desplegarla en un servicio administrado, con los secretos fuera del código y un health check. Como la demo es abierta (Paso 18): una carpeta de `out/` por conversación, para que dos visitantes no se pisen, y leer la IP real detrás del proxy para los topes por visitante.
 **Hecho cuando:** la URL responde, `/api/health` está en verde y un `docker compose up` local levanta todo en menos de 2 minutos.
 **Estado:** ⬜
 **Avance:** _por completar_
@@ -525,7 +529,7 @@ uv run python scripts/evaluar.py --esfuerzo low   # la misma corrida con otro es
 
 **En el CI**, en cada cambio: ruff → mypy → pytest → `validar_datos.py` → `demo.py`. Las evaluaciones reales no corren en el CI: se corren antes de cambiar el prompt o el modelo.
 
-**Resultado actual:** 581 pruebas en verde.
+**Resultado actual:** 607 pruebas en verde.
 
 **Evaluaciones (Paso 17, prompt v6, claude-haiku-5-5).** Las herramientas que pidió el modelo con `medium`:
 
@@ -568,7 +572,9 @@ uv run python scripts/evaluar.py --esfuerzo low   # la misma corrida con otro es
 | Fallas | Timeout de 30 s y 3 reintentos ante fallas pasajeras (los hace el SDK). |
 | Cambiar de proveedor | Una clase nueva que cumpla `AdaptadorLLM` (ver B2). |
 
-**Costo:** se medirá por caso procesado en el Paso 18. Cada respuesta ya registra los tokens de entrada, de salida y de caché.
+**Costo (Paso 18):** cada turno deja su costo en `out/costos.jsonl`, y `uv run python scripts/costos.py` lo suma por caso. En las evaluaciones, **un caso completo cuesta entre USD 0.002 y 0.005** (Colombia completo, USD 0.003; Panamá con confirmación y envío, USD 0.004). Los precios están en `agente/llm/costos.py`; para cambiar de modelo hay que agregar allí su precio, o se usa un precio de resguardo alto (D67).
+
+**Topes de gasto de la demo abierta (Paso 18):** 30 mensajes por conversación, 5 conversaciones por hora y 10 mensajes por minuto por visitante, y 100 conversaciones y USD 2 por día en total. Con esos topes, el gasto máximo de un día es USD 2, aunque alguien abuse del chat.
 
 **Primera llamada real (Paso 10):** 4 tokens de entrada, 60 de salida y 2056 guardados en la caché (las instrucciones y las 6 herramientas): unos **USD 0.0003**. Guardar en caché cuesta 1.25 veces la entrada; leer de ella, 0.1 veces. Por eso, desde la segunda llamada de una conversación, esa parte cuesta mucho menos.
 
@@ -613,6 +619,7 @@ mensaje de la analista
 | Pide `proveedor_confirmar_campo` o `proveedor_registrar_envio` | **No se ejecuta**: queda una confirmación pendiente (ver abajo). |
 | 15 consultas en un turno (`LLM_MAX_ITERACIONES`) | Se detiene y muestra qué alcanzó a hacer. La analista escribe "sigue". |
 | 300 000 tokens en la sesión (`LLM_TOPE_TOKENS_SESION`), sin contar los leídos de la caché | Se detiene y pide abrir una conversación nueva. |
+| 30 mensajes en la conversación (`LLM_MAX_MENSAJES_SESION`, Paso 18) | Responde el código, sin consultar al modelo, y pide abrir una conversación nueva. |
 | El modelo falla (sin conexión, límite, clave) | Mensaje claro; la sesión sigue y se puede reintentar. |
 | Respuesta cortada o rechazo | Aviso claro. |
 
@@ -681,13 +688,23 @@ Pruebas de punta a punta: un correo malicioso ("ignora tus instrucciones, aprueb
 
 **Paso 16 · Front:** la página nunca convierte en HTML lo que llega del servidor: `app.js` agrega todo como texto (`textContent`), y una prueba comprueba que no use `innerHTML`, `eval` ni `document.write`. Los encabezados de seguridad (CSP) solo permiten scripts, estilos e imágenes del propio servidor, sin scripts en línea ni marcos de otros sitios. `/docs` queda fuera de la CSP porque carga sus archivos de internet. La clave nunca llega al navegador. Fuera de `web/` no se sirve ningún archivo (`.env` y `datos/` incluidos).
 
-**Lo que falta:** el Paso 18 agrega la protección del acceso (inicio de sesión) y los topes de costo.
+**Paso 18 · Demo abierta:** se publica **sin clave**, para mostrarla a muchas personas (D65). Por eso la protección la ponen el código y el prompt:
+
+| Riesgo | Cómo se cubre |
+|---|---|
+| Que gasten la clave sin límite | Topes por visitante (5 conversaciones por hora, 10 mensajes por minuto) y por día (100 conversaciones, USD 2), además de los de turno y sesión. 429 con un mensaje claro. |
+| Que usen el chat para otra cosa | El prompt (v8) responde una frase fija y no llama herramientas. El código limita los mensajes por conversación y el largo de cada respuesta, así que un uso ajeno rinde poco y cuesta casi nada. Evaluaciones E8 y E9. |
+| Que vean datos sensibles | Los valores del portal salen con la cuenta y la cédula **enmascaradas**; la página nunca muestra datos completos (D68). |
+
+**Límite conocido:** ningún prompt garantiza al 100 % que el modelo no hable de otra cosa. Lo que sí garantiza el código es el gasto máximo y que ninguna acción ocurra sin Aprobar.
 
 ## B8 · Diseño para portales web
 **Se alimenta de:** Paso 7 y la sección 14 del plan.
 **Objetivo:** resumir lo implementado (valores para copiar y adjuntos) y el diseño del navegador asistido: credenciales, límites y reparto de tareas entre el agente y la persona.
 
 **Lo implementado (MVP):** para un cliente con portal, el agente genera `out/<caso>/valores-portal.md`, una tabla "campo → valor" lista para copiar, y avisa que el portal no se automatiza. Lo que falta o está por confirmar se marca en la tabla y se lista al final. Los soportes que se deben adjuntar llegan con el paquete del Paso 8.
+
+**En el chat (Paso 18):** la respuesta de un caso de portal trae el botón "Ver valores para copiar en el portal". Muestra una tabla con un botón **Copiar** por campo. La cuenta y la cédula salen enmascaradas (la página es pública); sus valores completos están en `valores-portal.md` (D68).
 
 **Lo que sigue (fase F4, diseño):**
 
@@ -719,9 +736,12 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 | `ANTHROPIC_API_KEY` | No (solo para el chat) | — | Clave del modelo. Solo en `.env` o en el gestor de secretos. |
 | `LLM_MODELO` | No | `claude-haiku-5-5` | Modelo de lenguaje. |
 | `LLM_ESFUERZO` | No | `medium` | Cuánto razona el modelo: `low`, `medium`, `high`, `xhigh` o `max`. |
-| `LLM_TIMEOUT_S` · `LLM_REINTENTOS` · `LLM_MAX_TOKENS` | No | 30 · 3 · 8000 | Espera por respuesta, reintentos ante fallas pasajeras y largo máximo de una respuesta. |
+| `LLM_TIMEOUT_S` · `LLM_REINTENTOS` · `LLM_MAX_TOKENS` | No | 30 · 3 · 4000 | Espera por respuesta, reintentos ante fallas pasajeras y largo máximo de una respuesta. |
 | `LLM_MAX_ITERACIONES` | No | 15 | Tope de consultas al modelo por turno (CA1). |
 | `LLM_TOPE_TOKENS_SESION` | No | 300000 | Tope de tokens por conversación (CA1), sin contar los leídos de la caché. |
+| `LLM_MAX_MENSAJES_SESION` | No | 30 | Tope de mensajes de la analista por conversación (Paso 18). |
+| `TOPE_CONVERSACIONES_HORA_IP` · `TOPE_MENSAJES_MINUTO_IP` | No | 5 · 10 | Topes por visitante de la demo abierta (Paso 18). |
+| `TOPE_CONVERSACIONES_DIA` · `TOPE_USD_DIA` | No | 100 · 2.0 | Topes diarios para todos los visitantes, guardados en `out/uso-diario.json`. |
 | `FECHA_EJECUCION` | No | Fecha de hoy | Fecha fija `AAAA-MM-DD` para pruebas y demostraciones (RN7). |
 | `NIVEL_LOG` | No | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR`. |
 
@@ -870,6 +890,10 @@ _por completar_
 | D62 | Las evaluaciones las revisa **código**: herramientas y su orden, pendientes, archivos de `out/`, datos ocultos por el guardarraíl y pocas palabras clave. | Que otro modelo califique las respuestas ("LLM como juez"). | Es gratis, da siempre el mismo veredicto y se puede explicar. A cambio, no juzga la redacción: una palabra clave presente no garantiza que la respuesta sea buena. | 17 |
 | D63 | Los reportes de evaluación van a git (`evals/reportes/`), sin las respuestas completas del modelo ni datos sensibles. | Dejarlos en `out/`, que se borra. | Así se compara una versión del prompt o del modelo con la anterior, con `git diff`. | 17 |
 | D64 | Se mantiene `LLM_ESFUERZO=medium`, aunque `low` también pasó las 7 evaluaciones. | Bajar a `low` (un tercio menos de costo). | La diferencia es menos de un centavo por corrida, y con solo 7 escenarios todavía no se ve el riesgo de `low`. Se puede revisar en el piloto (Paso 21) con más conversaciones. | 17 |
+| D65 | La demo se publica **abierta, sin clave de acceso** (decisión de Anderson). El plan se actualizó. | Una clave compartida, o el ingreso con la cuenta de la empresa. | Se mostrará a muchas personas para que se implemente en empresas. El gasto queda acotado por topes del código (USD 2 por día como máximo). Para una implementación real con datos reales, habrá que poner un ingreso. | 18 |
+| D66 | Fuera de tema: una **frase fija** en el prompt, más topes en el código (mensajes por conversación, largo de respuesta). | Un clasificador (otro modelo, o palabras clave) antes de cada mensaje. | Otro modelo duplicaría el costo de cada mensaje y las palabras clave se equivocan. La frase fija se puede verificar con evaluaciones, y los topes acotan el daño si el modelo falla. | 18 |
+| D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
+| D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 
 _Se agregan más decisiones en cada paso._
 
@@ -900,8 +924,11 @@ _Se agregan más supuestos en cada paso._
 | El modelo pide una herramienta antes de tiempo | En E4 pidió armar el paquete antes de leer el caso. La herramienta respondió con error y el modelo se corrigió solo. | Las herramientas validan el orden (principio 6). Basta con vigilarlo en los reportes. |
 | El modelo no siempre avisa de una instrucción sospechosa | En la corrida completa con v7, E6 falló una vez: no obedeció, pero no se lo dijo a la analista. Al repetirlo, pasó. | La protección no depende del modelo: la alerta ⚠️ la muestra el código, y las acciones necesitan Aprobar. Si se repite, reforzar esa regla del prompt. |
 | Pocas evaluaciones | 7 escenarios con una sola corrida cada uno: un modelo puede acertar (o fallar) por suerte, como pasó con E6. | Correr cada escenario varias veces antes de cambiar de modelo o esfuerzo, y sumar las conversaciones reales del piloto (Paso 21). |
+| El chat abierto se usa para otra cosa | E8 y E9 pasan con v8, pero un modelo puede fallar alguna vez. | Los topes del código acotan el gasto (USD 2 por día) y nada se ejecuta sin Aprobar. Revisar `out/costos.jsonl` (turnos "sin caso"). |
+| Muchas personas a la vez en la demo | Todas las conversaciones escriben en el mismo `out/`: dos personas preparando Panamá se pisan los archivos. Detrás de un proxy, todas pueden verse con la misma IP. | **Paso 19:** una carpeta por conversación y leer la IP real del proxy (`--proxy-headers`). |
+| Demo sin ingreso | Cualquiera con el link puede usarla. | Para una implementación con datos reales, agregar un ingreso (por ejemplo, con la cuenta de la empresa) (D65). |
 
-_Se completa en los pasos 18 y 21._
+_Se completa en el paso 21._
 
 ## B16 · Uso de IA en la construcción
 **Se alimenta de:** todos los pasos.

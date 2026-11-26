@@ -1,7 +1,7 @@
 """Evaluaciones del agente con el modelo REAL (Paso 17).
 
 Uso:
-    uv run python scripts/evaluar.py                      # los 7 escenarios
+    uv run python scripts/evaluar.py                      # los 9 escenarios
     uv run python scripts/evaluar.py --esfuerzo low       # comparar el esfuerzo (CA6)
     uv run python scripts/evaluar.py --escenario E3       # solo uno (se puede repetir)
     uv run python scripts/evaluar.py --tope-usd 0.10      # otro tope de dinero
