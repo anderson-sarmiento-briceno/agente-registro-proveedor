@@ -770,6 +770,8 @@ uv run ruff check . ; uv run ruff format --check . ; uv run mypy src   # calidad
 | `LLM_MAX_MENSAJES_SESION` | No | 30 | Tope de mensajes de la analista por conversación (Paso 18). |
 | `TOPE_CONVERSACIONES_HORA_IP` · `TOPE_MENSAJES_MINUTO_IP` | No | 5 · 10 | Topes por visitante de la demo abierta (Paso 18). |
 | `TOPE_CONVERSACIONES_DIA` · `TOPE_USD_DIA` | No | 100 · 2.0 | Topes diarios para todos los visitantes, guardados en `out/uso-diario.json`. |
+| `TOPE_SOLICITUDES_MCP_MINUTO_IP` | No | 120 | Tope del MCP en línea (`/mcp`), por IP (Paso 20). |
+| `SALIDA_POR_CONVERSACION` | No | `false` | Una carpeta de `out/` por conversación (en Render: `true`, Paso 19). |
 | `FECHA_EJECUCION` | No | Fecha de hoy | Fecha fija `AAAA-MM-DD` para pruebas y demostraciones (RN7). |
 | `NIVEL_LOG` | No | `INFO` | `DEBUG`, `INFO`, `WARNING` o `ERROR`. |
 
@@ -870,7 +872,9 @@ claude mcp add registro-proveedor -- uv run python scripts/servidor_mcp.py   # C
 uv run python scripts/exportar_modulo.py                                     # tras cambiar el prompt o el conocimiento
 ```
 
-Para Claude Desktop, la configuración está en `modulo/LEEME.md`. El servidor corre en el computador de quien lo usa (por stdio), no necesita la clave de Anthropic (el modelo lo pone el cliente) y usa la fecha real.
+**En línea, sin instalar nada (pedido de Anderson):** el mismo servidor también está en la demo publicada, en **`https://agente-registro-proveedor-yu72.onrender.com/mcp`** (HTTP, modo sin estado, D74). Se agrega en Claude como *conector personalizado*. Tiene un tope de 120 solicitudes por minuto por IP y no gasta la clave de Anthropic, porque el modelo lo pone quien se conecta. Todas las conexiones comparten la carpeta `out/sesiones/mcp-en-linea/`: como no se publican las herramientas de aprobación, cada caso da siempre el mismo resultado.
+
+**Guía paso a paso para cualquiera con el repositorio:** `modulo/LEEME.md`, que también se puede ver como `modulo/LEEME.html`. Empieza por el conector en línea, y para instalarlo en el computador ofrece descargar el ZIP (sin Git). Explica los requisitos (Git y uv), cómo clonar e instalar, cómo obtener las rutas, la configuración de Claude Desktop (Windows y macOS) o de Claude Code, qué probar y qué hacer si algo falla. Se genera con `exportar_modulo.py`, así que se mantiene al día con las herramientas. El `README.md` de la raíz del repositorio la enlaza. El servidor corre en el computador de quien lo usa (por stdio), no necesita la clave de Anthropic (el modelo lo pone el cliente) y usa la fecha real.
 
 **Qué publica:** `proveedor_listar_casos`, `proveedor_leer_solicitud`, `proveedor_mapear_campos`, `proveedor_generar_formulario` y `proveedor_armar_paquete`. **No publica** las dos que requieren aprobación (D73): si un cliente las pide, recibe un error que explica que se hacen en la aplicación.
 
@@ -964,6 +968,7 @@ _por completar_
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 | D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
+| D74 | El MCP también se publica **en línea** (`/mcp` en Render), además de por stdio. | Solo instalarlo en el computador de cada persona (uv, rutas, JSON). | Alguien sin conocimientos técnicos no puede instalarlo; como conector solo pega una URL (Anderson). No gasta la clave, porque las herramientas no llaman al modelo. Es público, como la demo, con datos ficticios y un tope por IP. | 20 |
 | D72 | El servidor MCP usa la API de bajo nivel del SDK (`Server` con `on_list_tools` / `on_call_tool`) sobre el **mismo registro** del chat. | El atajo con decoradores (una función por herramienta). | Con decoradores habría que volver a escribir cada herramienta y sus argumentos: dos copias que se desincronizan. Así, una herramienta nueva aparece sola. | 20 |
 | D73 | Por MCP **no** se publican las herramientas que requieren aprobación (opción A, Anderson). | Publicarlas y confiar en que el cliente pregunte a la persona. | El principio 3 exige que la aprobación la controle nuestro servidor. Por MCP no hay botón Aprobar: lo decidiría el cliente. | 20 |
 | D71 | La demo usa la **fecha real**; para eso se cambiaron a mano dos fechas de `datos/` (Cámara de Comercio a 90 días: 2027-02-24; certificación bancaria: 2027-05-25). La columna «Vence» muestra los días que faltan. | Seguir con `FECHA_EJECUCION=2026-09-20` fija. | Una fecha inventada deja dudas en quien ve la demo (Anderson). Colombia queda siempre listo y los otros tres muestran lo que hace el agente. A cambio, la fecha de la Cámara hay que renovarla después del 2027-02-24. | 19 |

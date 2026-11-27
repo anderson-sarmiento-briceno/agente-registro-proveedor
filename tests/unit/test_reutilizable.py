@@ -18,11 +18,16 @@ from typing import Any
 
 import anyio
 import mcp.types as tipos
+from fastapi.testclient import TestClient
 from mcp import Client
 
 from registro_proveedor.agente.ciclo import AVISO_INSTRUCCION
 from registro_proveedor.agente.instrucciones import leer_partes
 from registro_proveedor.agente.llm.adaptador import definiciones_desde_registro
+from registro_proveedor.agente.llm.falso import AdaptadorFalso
+from registro_proveedor.api.aplicacion import CONTEXTO_MCP, contexto_de_conversacion, crear_app
+from registro_proveedor.api.limites import UsoDiario
+from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import registro
 from registro_proveedor.reutilizable.exportar import (
@@ -144,6 +149,76 @@ def test_una_etiqueta_maliciosa_llega_con_el_aviso(
     con_copia = dataclasses.replace(contexto, datos=datos)
     resultado = _llamar(con_copia, "proveedor_leer_solicitud", {"caso": EC})
     assert _texto(resultado).startswith(AVISO_INSTRUCCION)
+
+
+# ---------- 4b. El MCP en línea (/mcp, opción 2 de Anderson) ----------
+
+ENCABEZADOS_MCP = {"Accept": "application/json, text/event-stream"}
+
+
+def _app_con_mcp(contexto: Contexto, **topes: int) -> TestClient:
+    config = Configuracion(**topes)  # type: ignore[arg-type]
+    return TestClient(
+        crear_app(
+            config,
+            adaptador=AdaptadorFalso([]),
+            uso_diario=UsoDiario(contexto.salida, tope_conversaciones=100, tope_usd=2.0),
+            contexto_mcp=lambda: contexto,
+        )
+    )
+
+
+def _rpc(cliente: TestClient, id_: int, metodo: str, params: dict[str, object]) -> Any:
+    r = cliente.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": id_, "method": metodo, "params": params},
+        headers=ENCABEZADOS_MCP,
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["result"]
+
+
+def test_mcp_en_linea_publica_las_mismas_herramientas(contexto: Contexto) -> None:
+    """Por HTTP, sin instalar nada: lo mismo que por stdio (sin las de aprobación)."""
+    # `with`: corre el "ciclo de vida" de la app, que es donde arranca el MCP por HTTP.
+    with _app_con_mcp(contexto) as cliente:
+        herramientas = _rpc(cliente, 1, "tools/list", {})["tools"]
+        assert {h["name"] for h in herramientas} == set(expuestas(registro))
+        leido = _rpc(
+            cliente,
+            2,
+            "tools/call",
+            {"name": "proveedor_leer_solicitud", "arguments": {"caso": PA}},
+        )
+        assert leido["isError"] is False
+        bloqueado = _rpc(
+            cliente,
+            3,
+            "tools/call",
+            {"name": "proveedor_registrar_envio", "arguments": {"caso": PA}},
+        )
+        assert bloqueado["isError"] is True
+        assert "no está disponible por MCP" in bloqueado["content"][0]["text"]
+    assert "proveedor_leer_solicitud" in (contexto.salida / "log.jsonl").read_text("utf-8")
+
+
+def test_mcp_en_linea_tiene_tope_por_visitante(contexto: Contexto) -> None:
+    with _app_con_mcp(contexto, tope_solicitudes_mcp_minuto_ip=2) as cliente:
+        for i in range(2):
+            _rpc(cliente, i, "tools/list", {})
+        tercera = cliente.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 9, "method": "tools/list"},
+            headers=ENCABEZADOS_MCP,
+        )
+    assert tercera.status_code == 429
+    assert "espere un minuto" in tercera.json()["detail"]
+
+
+def test_el_mcp_en_linea_usa_una_carpeta_propia(tmp_path: Path) -> None:
+    config = Configuracion(salida_por_conversacion=True)
+    contexto = contexto_de_conversacion(config, CONTEXTO_MCP, tmp_path / "out")
+    assert contexto.salida == tmp_path / "out" / "sesiones" / "mcp-en-linea"
 
 
 # ---------- 5. agent.md y SKILL.md: el mismo texto, y al día ----------

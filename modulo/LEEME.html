@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalar el MCP</title>
+<style>
+  :root { --fondo:#f6f7f9; --panel:#fff; --texto:#1d2330; --suave:#5d6579; --borde:#dfe3ea; --acento:#2350c8; --codigo:#eef1f8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fondo:#14161b; --panel:#1c1f26; --texto:#e6e8ee; --suave:#9aa3b5; --borde:#2e333d; --acento:#7ea2ff; --codigo:#262a33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fondo); color:var(--texto); font:17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .layout { display:flex; max-width:1400px; margin:0 auto; }
+  nav { position:sticky; top:0; height:100vh; overflow-y:auto; width:300px; flex-shrink:0; padding:24px 16px; border-right:1px solid var(--borde); font-size:14px; }
+  nav b { display:block; margin-bottom:10px; color:var(--suave); text-transform:uppercase; font-size:12px; letter-spacing:.05em; }
+  nav a { display:block; padding:4px 8px; color:var(--texto); text-decoration:none; border-radius:6px; }
+  nav a:hover { background:var(--codigo); }
+  nav a.h3 { padding-left:22px; color:var(--suave); font-size:13px; }
+  main { flex:1; min-width:0; padding:32px 48px 80px; }
+  article { background:var(--panel); border:1px solid var(--borde); border-radius:12px; padding:32px 40px; }
+  h1 { font-size:30px; margin-top:0; } h2 { font-size:24px; margin-top:44px; padding-top:12px; border-top:2px solid var(--borde); }
+  h3 { font-size:19px; margin-top:28px; color:var(--acento); }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { border:1px solid var(--borde); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:var(--codigo); } tr:nth-child(even) td { background:color-mix(in srgb, var(--codigo) 40%, transparent); }
+  code { background:var(--codigo); padding:1px 5px; border-radius:4px; font-size:.9em; }
+  pre { background:var(--codigo); padding:14px; border-radius:8px; overflow-x:auto; font-size:13px; line-height:1.4; }
+  pre code { background:none; padding:0; }
+  blockquote { margin:14px 0; padding:8px 16px; border-left:4px solid var(--acento); background:var(--codigo); border-radius:0 8px 8px 0; }
+  a { color:var(--acento); }
+  @media (max-width: 900px) { nav { display:none; } main { padding:16px; } article { padding:20px 16px; } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav id="indice"><b>Índice</b></nav>
+  <main><article id="contenido">Cargando…</article></main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script>
+  const md = "# Módulo reutilizable · Registro como Proveedor\n\nEstas piezas son **las mismas** que usa la aplicación (no son copias aparte): se generan\ncon `uv run python scripts/exportar_modulo.py` y una prueba revisa que estén al día.\n\n| Archivo | Qué es | De dónde sale |\n|---|---|---|\n| `agent.md` | Las instrucciones del agente (prompt versión 8) | `agente/prompt.md` |\n| `SKILL.md` | El conocimiento del proceso, como *Agent Skill* | `knowledge/registro-proveedor.md` |\n| Servidor MCP | Las herramientas | `scripts/servidor_mcp.py` (el mismo registro del chat) |\n\n## La forma más fácil: conectarlo en línea (sin instalar nada)\n\nEl servidor MCP también está publicado en internet, junto a la demo. Solo hay que\nagregarlo como **conector personalizado** en Claude (la aplicación de escritorio o\nclaude.ai):\n\n1. Abra **Configuración (Settings)** → **Conectores (Connectors)**.\n2. Pulse **Agregar conector personalizado (Add custom connector)**.\n3. Escriba un nombre (por ejemplo, `Registro como Proveedor`) y esta URL:\n\n   ```\n   https://agente-registro-proveedor-yu72.onrender.com/mcp\n   ```\n\n4. Pulse **Agregar (Add)**. En un chat nuevo, actívelo en el menú de herramientas o\n   conectores y pruebe las frases del punto 5 de más abajo.\n\nPara tener en cuenta:\n- Los conectores personalizados dependen del plan de Claude de cada persona; si no\n  aparece la opción, use la instalación en su computador (abajo).\n- Es una demostración pública, con datos de una empresa ficticia. No gasta ninguna clave\n  de Anthropic: el modelo lo pone la cuenta de Claude de quien se conecta.\n- La primera conexión puede tardar cerca de un minuto: el servidor gratuito se apaga\n  cuando nadie lo usa y tiene que volver a encender.\n\n## Instalarlo en su computador, paso a paso\n\nSolo hace falta el repositorio de GitHub. **No necesita la clave de Anthropic:** el modelo\nlo pone el programa que se conecta (Claude Desktop o Claude Code, con su propia cuenta).\n\n### 1. Requisitos (una sola vez)\n\n- **El proyecto**, de una de estas dos formas:\n  - **Sin Git (lo más simple):** en la página del repositorio,\n    <https://github.com/anderson-sarmiento-briceno/agente-registro-proveedor>, pulse el botón verde **Code** → **Download ZIP** y\n    descomprímalo donde quiera (por ejemplo, en Documentos).\n  - **Con Git** (<https://git-scm.com/downloads>), en el paso 2.\n- **uv**, que instala Python y las librerías del proyecto\n  (<https://docs.astral.sh/uv/getting-started/installation/>):\n  - Windows (en PowerShell):\n\n    ```\n    powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"\n    ```\n\n  - macOS o Linux (en la Terminal):\n\n    ```\n    curl -LsSf https://astral.sh/uv/install.sh | sh\n    ```\n\n  Cierre y vuelva a abrir la terminal después de instalarlo.\n\n### 2. Instalar las librerías\n\nAbra PowerShell (Windows) o la Terminal (macOS/Linux) **dentro de la carpeta del\nproyecto**. Si descargó el ZIP, la carpeta se llama `agente-registro-proveedor-main`. En\nWindows, se puede abrir con clic derecho sobre la carpeta → «Abrir en Terminal». Luego:\n\n```\nuv sync\n```\n\n(Con Git, en cambio: `git clone https://github.com/anderson-sarmiento-briceno/agente-registro-proveedor.git`, después\n`cd agente-registro-proveedor` y `uv sync`.)\n\n`uv sync` descarga Python 3.13 si hace falta y todas las librerías. Para comprobar que\nquedó bien (no necesita clave ni internet):\n\n```\nuv run python scripts/demo.py\n```\n\nDebe terminar con «4 casos procesados · 1 listo para firma · 3 no listos · 0 con error».\n\n### 3. Anotar dos rutas\n\nClaude Desktop necesita las rutas **completas**:\n\n| Qué | Cómo obtenerla |\n|---|---|\n| La de `uv` | Windows: `where.exe uv` · macOS/Linux: `which uv` |\n| La del proyecto | Windows: `cd` (dentro de la carpeta) · macOS/Linux: `pwd` |\n\nPor ejemplo, en Windows: `C:\\Users\\<usuario>\\.local\\bin\\uv.exe` y\n`C:\\Users\\<usuario>\\Documents\\agente-registro-proveedor`.\n\n### 4A. Conectarlo a Claude Desktop\n\n1. Abra Claude Desktop → **Configuración (Settings)** → **Developer (Desarrollador)** →\n   **Edit Config**. Se abre el archivo `claude_desktop_config.json`:\n   - Windows: `%APPDATA%\\Claude\\claude_desktop_config.json`\n   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`\n2. Agregue este bloque con **sus** dos rutas. En Windows, cada `\\` de la ruta se escribe\n   doble (`\\\\`), porque así lo pide el formato JSON:\n\n   ```json\n   {\n     \"mcpServers\": {\n       \"registro-proveedor\": {\n         \"command\": \"C:\\\\Users\\\\<usuario>\\\\.local\\\\bin\\\\uv.exe\",\n         \"args\": [\n           \"run\",\n           \"--directory\",\n           \"C:\\\\Users\\\\<usuario>\\\\Documents\\\\agente-registro-proveedor\",\n           \"python\",\n           \"scripts/servidor_mcp.py\"\n         ]\n       }\n     }\n   }\n   ```\n\n   En macOS sería, por ejemplo, `\"command\": \"/Users/<usuario>/.local/bin/uv\"` y la carpeta\n   `\"/Users/<usuario>/agente-registro-proveedor\"`. Si el archivo ya tiene otros servidores\n   dentro de `\"mcpServers\"`, agregue solo la parte de `\"registro-proveedor\"`, separada por una coma.\n3. **Cierre Claude Desktop del todo** (en Windows, también desde el ícono junto al reloj:\n   clic derecho → Quit) y vuelva a abrirlo.\n4. En el chat, en el menú de herramientas o conectores, debe aparecer **registro-proveedor** con\n   sus 5 herramientas.\n\n### 4B. O conectarlo a Claude Code\n\nDentro de la carpeta del proyecto:\n\n```\nclaude mcp add registro-proveedor -- uv run python scripts/servidor_mcp.py\n```\n\n### 5. Probarlo\n\n| Escriba en el chat | Qué debe pasar |\n|---|---|\n| «Usa registro-proveedor y dime qué casos hay» | Llama a `proveedor_listar_casos`: 4 casos |\n| «Prepara el caso de Colombia» | Leer → mapear → generar → armar: **listo para firma** |\n| «¿Qué le falta al caso de Honduras?» | Parafiscales vencidos y el RTN por confirmar |\n| «Confirma el RUC de Panamá» | Responde que **no está disponible por MCP** (va en la app) |\n\nEl programa le pedirá permiso antes de usar cada herramienta: es normal. Lo que genera\nqueda en la carpeta `out/` del proyecto (formularios, paquetes y `out/log.jsonl`).\n\n### 6. Si algo no funciona\n\n- **No aparece el servidor:** revise que el JSON no tenga errores (comas, comillas, las\n  `\\\\` dobles en Windows) y que cerró Claude Desktop del todo.\n- **Error al arrancar:** en **Settings → Developer**, junto al servidor, está su log. El\n  error más común es una ruta de `uv` o de la carpeta mal escrita.\n- **Fechas raras:** si existe un archivo `.env` con `FECHA_EJECUCION`, el servidor usa esa\n  fecha. Déjela vacía para usar la de hoy.\n\n### 7. Usar también las instrucciones y el conocimiento\n\n- `agent.md` son las instrucciones del agente: se pueden usar como *subagente* en Claude\n  Code (copiándolo a `.claude/agents/`) o como instrucciones de otro agente.\n- `SKILL.md` es el conocimiento del proceso, en el formato de las *Agent Skills*: se\n  puede cargar como skill en las plataformas que lo admiten.\n\n## Herramientas que publica\n\n- `proveedor_armar_paquete`\n- `proveedor_generar_formulario`\n- `proveedor_leer_solicitud`\n- `proveedor_listar_casos`\n- `proveedor_mapear_campos`\n\n**No publica** `proveedor_confirmar_campo` ni `proveedor_registrar_envio`: requieren la\naprobación de la analista con el botón **Aprobar**, que solo existe en la aplicación. Por\nMCP, esa decisión quedaría en manos del programa cliente (principio 3). Por eso, en\n`agent.md`, lo que dice sobre aprobar aplica solo dentro de la aplicación.\n\n## Garantías que se mantienen\n\n- Nunca se inventa un valor: lo que no está en el maestro queda faltante.\n- Los datos sensibles (cuenta bancaria, identificación) salen enmascarados.\n- Cada llamada queda en `out/log.jsonl`.\n- Si un resultado trae texto con forma de orden, llega con un aviso: es un dato del\n  cliente, no una instrucción.\n";
+  const contenido = document.getElementById("contenido");
+  contenido.innerHTML = window.marked ? marked.parse(md) : "<pre>" + md.replace(/[&<]/g, c => c === "&" ? "&amp;" : "&lt;") + "</pre>";
+  const indice = document.getElementById("indice");
+  contenido.querySelectorAll("h2, h3").forEach((h, i) => {
+    h.id = "s" + i;
+    const a = document.createElement("a");
+    a.href = "#s" + i;
+    a.textContent = h.textContent;
+    a.className = h.tagName.toLowerCase();
+    indice.appendChild(a);
+  });
+</script>
+</body>
+</html>

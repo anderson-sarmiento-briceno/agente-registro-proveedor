@@ -25,9 +25,12 @@ Qué NO se expone (decisión de Anderson, opción A):
 Principio 5 (contenido externo = dato): si un resultado trae texto con forma de orden,
 se le antepone el mismo aviso que en el chat, para el modelo que lo reciba.
 
-Cómo se usa (corre en el computador de quien lo usa, por stdio):
-    uv run python scripts/servidor_mcp.py
-    claude mcp add registro-proveedor -- uv run python scripts/servidor_mcp.py
+Dos formas de usarlo (el MISMO servidor en las dos):
+    - En el computador de quien lo usa, por stdio:
+        uv run python scripts/servidor_mcp.py
+        claude mcp add registro-proveedor -- uv run python scripts/servidor_mcp.py
+    - En línea, sin instalar nada (`McpEnLinea`, montado en la app en `/mcp`): se agrega
+      como "conector personalizado" con la URL https://…onrender.com/mcp.
 """
 
 from collections.abc import Callable
@@ -37,6 +40,9 @@ import mcp.types as tipos
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from starlette.responses import JSONResponse
+from starlette.types import Receive, Scope, Send
 
 from registro_proveedor.agente.ciclo import AVISO_INSTRUCCION
 from registro_proveedor.agente.guardarrailes import detectar_instrucciones
@@ -139,6 +145,44 @@ def _error(mensaje: str) -> tipos.CallToolResult:
     return tipos.CallToolResult(
         content=[tipos.TextContent(type="text", text=mensaje)], is_error=True
     )
+
+
+# ---------- En línea, por HTTP (opción 2 de Anderson) ----------
+
+
+class McpEnLinea:
+    """El servidor MCP por HTTP, para conectarlo como "conector personalizado" sin instalar nada.
+
+    Se monta dentro de la app de FastAPI en `/mcp` (Render). Usa el modo SIN ESTADO
+    (`stateless`): cada solicitud se atiende sola, sin recordar sesiones, así que un
+    reinicio del servidor no rompe nada. Responde en JSON (`json_response`).
+
+    Antes de atender, revisa un tope por visitante (`permitir`): estas herramientas no
+    llaman al modelo (no gastan la clave), pero igual se limita la carga del servidor.
+
+    Es una CLASE (con `__call__`) y no una función a propósito: así Starlette la trata
+    como una aplicación ASGI completa y le pasa la solicitud tal cual.
+    """
+
+    def __init__(
+        self,
+        crear_contexto: Callable[[], Contexto],
+        permitir: Callable[[str], str | None],
+        registro: Registro = registro_real,
+    ) -> None:
+        self.gestor = StreamableHTTPSessionManager(
+            app=crear_servidor(crear_contexto, registro), stateless=True, json_response=True
+        )
+        self._permitir = permitir
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        cliente = scope.get("client")
+        visitante = str(cliente[0]) if cliente else "desconocido"
+        motivo = self._permitir(visitante)
+        if motivo is not None:
+            await JSONResponse({"detail": motivo}, status_code=429)(scope, receive, send)
+            return
+        await self.gestor.handle_request(scope, receive, send)
 
 
 async def correr(config: Configuracion) -> None:

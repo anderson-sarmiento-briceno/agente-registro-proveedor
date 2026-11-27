@@ -92,6 +92,11 @@ class Configuracion(BaseSettings):
     # que un reinicio no lo pone en cero):
     tope_conversaciones_dia: int = Field(default=100, ge=1)
     tope_usd_dia: float = Field(default=2.0, gt=0)
+    # Paso 20 · El MCP en línea (/mcp) no llama al modelo, pero igual se limita: una
+    # tarea completa son unas 7 solicitudes (iniciar, listar y 5 herramientas). Ojo: los
+    # conectores de Claude llaman desde los servidores de Anthropic, así que varias
+    # personas pueden compartir la misma IP: por eso el tope es generoso.
+    tope_solicitudes_mcp_minuto_ip: int = Field(default=120, ge=1)
 
     # Paso 19 · En la demo publicada, cada conversación escribe en `out/sesiones/<id>/`,
     # para que dos visitantes que preparan el mismo caso no se pisen los archivos. En

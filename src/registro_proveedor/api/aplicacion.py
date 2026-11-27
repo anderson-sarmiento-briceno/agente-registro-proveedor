@@ -26,7 +26,8 @@ Seguridad (el "hecho cuando" del paso):
 """
 
 import dataclasses
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path as FsPath  # `Path` ya es el de FastAPI (parámetros de la URL)
 from typing import Annotated
 
@@ -34,6 +35,7 @@ from fastapi import FastAPI, HTTPException, Path, Query, Request, Response, stat
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.routing import Route
 
 from registro_proveedor.agente.ciclo import Agente, Sesion, Turno
 from registro_proveedor.agente.instrucciones import cargar_instrucciones
@@ -68,6 +70,7 @@ from registro_proveedor.dominio.modelos import PATRON_ID_CASO, Formato
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import registro
 from registro_proveedor.observabilidad import RegistroLlamada, escribir_auditoria, obtener_logger
+from registro_proveedor.reutilizable.servidor_mcp import McpEnLinea
 
 PROVEEDOR = "anthropic"
 
@@ -102,6 +105,8 @@ NOTA_PORTAL = (
 CARPETA_SALIDA = RAIZ_PROYECTO / "out"
 # Paso 19 · Con SALIDA_POR_CONVERSACION, cada conversación tiene out/sesiones/<id>/.
 CARPETA_SESIONES = "sesiones"
+# Paso 20 · El "id" del MCP en línea: su carpeta y su nombre en log.jsonl.
+CONTEXTO_MCP = "mcp-en-linea"
 
 # Las respuestas de error, para la documentación de cada endpoint.
 ERRORES: dict[int | str, dict[str, object]] = {
@@ -121,6 +126,7 @@ def crear_app(
     almacen: AlmacenDeSesiones | None = None,
     limitador: LimitadorPorVisitante | None = None,
     uso_diario: UsoDiario | None = None,
+    contexto_mcp: Callable[[], Contexto] | None = None,
 ) -> FastAPI:
     """Arma la aplicación. Sin argumentos, usa la configuración de `.env`.
 
@@ -131,6 +137,8 @@ def crear_app(
     - `almacen`: dónde viven las sesiones; las pruebas lo pasan para controlar el reloj.
     - `limitador` y `uso_diario` (Paso 18): los topes por visitante y por día. Por
       defecto, los de `.env`, con el conteo diario en `out/uso-diario.json`.
+    - `contexto_mcp` (Paso 20): el contexto del MCP en línea (`/mcp`). Por defecto, una
+      carpeta compartida `out/sesiones/mcp-en-linea/` (o `out/`, en local).
     """
     config = config or cargar_configuracion()
     instrucciones = cargar_instrucciones()  # si falta el prompt, mejor no arrancar
@@ -176,11 +184,30 @@ def crear_app(
         diario.sumar(costo_usd(turno.uso, agente.modelo))
         return turno
 
+    # Paso 20 · El MCP en línea: las mismas herramientas, para conectarlas desde Claude
+    # sin instalar nada. Sin estado: todas las solicitudes comparten una carpeta de out/.
+    # Como no se publican las de aprobación, el resultado de cada caso es siempre el mismo,
+    # y dos personas que preparan el mismo caso a la vez no se estorban.
+    limitador_mcp = LimitadorPorVisitante(
+        conversaciones_por_hora=1, mensajes_por_minuto=config.tope_solicitudes_mcp_minuto_ip
+    )
+    mcp_en_linea = McpEnLinea(
+        contexto_mcp or (lambda: contexto_de_conversacion(config, CONTEXTO_MCP)),
+        limitador_mcp.permitir_mensaje,
+    )
+
+    @asynccontextmanager
+    async def ciclo_de_vida(_app: FastAPI) -> AsyncIterator[None]:
+        # El gestor del MCP por HTTP necesita estar "corriendo" mientras viva la app.
+        async with mcp_en_linea.gestor.run():
+            yield
+
     app = FastAPI(
         title="Agente · Registro como Proveedor",
         version=f"prompt-v{instrucciones.version}",
         description="Prepara formularios y paquetes de registro como proveedor. "
         "Las acciones que deciden algo o salen hacia afuera requieren aprobación.",
+        lifespan=ciclo_de_vida,
     )
     app.add_exception_handler(RequestValidationError, _solicitud_no_valida)  # type: ignore[arg-type]
 
@@ -351,6 +378,13 @@ def crear_app(
             llm_configured=modelo_configurado,
             prompt_version=instrucciones.version,
         )
+
+    # ---------- Paso 20 · El MCP en línea ----------
+    # Una ruta "cruda" (ASGI): el SDK de MCP atiende la solicitud completa. Va ANTES del
+    # front, que se monta en "/" y atraparía todo lo demás.
+    app.router.routes.append(
+        Route("/mcp", endpoint=mcp_en_linea, methods=["GET", "POST", "DELETE"])
+    )
 
     # ---------- Paso 16 · El front de chat ----------
     # Va AL FINAL: las rutas `/api/...` de arriba se revisan primero; todo lo demás se
