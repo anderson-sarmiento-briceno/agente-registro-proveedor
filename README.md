@@ -50,8 +50,9 @@ docker compose up --build                        # o lo mismo en un contenedor
 Las herramientas también se publican como **servidor MCP**, para usarlas desde otras
 plataformas de agentes, sin la página ni la clave de Anthropic. Hay dos formas:
 
-- **Sin instalar nada:** en Claude, *Configuración → Conectores → Agregar conector
-  personalizado*, con la URL `https://agente-registro-proveedor-yu72.onrender.com/mcp`.
+- **Sin instalar nada:** en Claude, *Configuración → Plugins → **Agregar ⌄** → Agregar
+  conector personalizado*, con la URL `https://agente-registro-proveedor-yu72.onrender.com/mcp`
+  y la autenticación en «Sin inicio de sesión».
 - **En su computador:** descargando el proyecto en ZIP (sin Git) e instalando uv.
 
 La guía paso a paso de las dos está en **[modulo/LEEME.md](modulo/LEEME.md)**. En esa
