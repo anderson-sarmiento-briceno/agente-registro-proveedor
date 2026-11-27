@@ -10,11 +10,11 @@
     {
       "tipo": "camara_comercio",
       "estado": "presente",
-      "archivo": "camara-comercio-2026-08.txt",
-      "vigencia_hasta": "2026-09-30",
-      "dias_restantes": 29,
+      "archivo": "camara-comercio-2026-11.txt",
+      "vigencia_hasta": "2027-02-24",
+      "dias_restantes": 176,
       "bloquea": false,
-      "nota": "vigente hasta el 2026-09-30 (29 días)"
+      "nota": "vigente hasta el 2027-02-24 (176 días)"
     },
     {
       "tipo": "rut",
@@ -28,11 +28,11 @@
     {
       "tipo": "certificacion_bancaria",
       "estado": "presente",
-      "archivo": "certificacion-bancaria-2026-08.txt",
-      "vigencia_hasta": "2026-12-31",
-      "dias_restantes": 121,
+      "archivo": "certificacion-bancaria-2026-11.txt",
+      "vigencia_hasta": "2027-05-25",
+      "dias_restantes": 266,
       "bloquea": false,
-      "nota": "vigente hasta el 2026-12-31 (121 días)"
+      "nota": "vigente hasta el 2027-05-25 (266 días)"
     },
     {
       "tipo": "estados_financieros",
@@ -223,9 +223,9 @@
       "bytes": null
     },
     {
-      "nombre": "camara-comercio-2026-08.txt",
-      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
-      "bytes": 178
+      "nombre": "camara-comercio-2026-11.txt",
+      "sha256": "6a25f34d4eb98721a76134b27e28b9d385720675fbecc9973f890d78974f7852",
+      "bytes": 158
     },
     {
       "nombre": "rut-2026.txt",
@@ -233,8 +233,8 @@
       "bytes": 122
     },
     {
-      "nombre": "certificacion-bancaria-2026-08.txt",
-      "sha256": "297872a791fe3acc9db082fa90b1cde7ebefba2659703ea84a3d3cdcaa0f5a3a",
+      "nombre": "certificacion-bancaria-2026-11.txt",
+      "sha256": "39b1604597925009091128bdc76efcdadda321e1e38bb33e8b812440170e0e06",
       "bytes": 149
     },
     {
@@ -244,13 +244,13 @@
     },
     {
       "nombre": "checklist.md",
-      "sha256": "05da43e533c9edfa90dfb9503a639324235da3c265e76c1f9693c65efc88dd18",
-      "bytes": 1028
+      "sha256": "9ec9fe11d99904682cc075575e712243c0abe82d9b8ee24fec4994915e35dea1",
+      "bytes": 1086
     },
     {
       "nombre": "borrador-correo.md",
-      "sha256": "5e89c2773ce69f07a9aa088f81d8882c286051116d9d75d9bfc952cd69ffe88e",
-      "bytes": 562
+      "sha256": "72a545ddac4b63427badfb91d96f804b604513b6372db14dedbd073bdbf4e70a",
+      "bytes": 542
     }
   ]
 }

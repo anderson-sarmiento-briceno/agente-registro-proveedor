@@ -260,7 +260,8 @@
 - **Publicado en Render, plan gratuito** (como el agente de órdenes de compra; D69), desde GitHub: **https://agente-registro-proveedor-yu72.onrender.com**. El `render.yaml` deja escrita la configuración; la clave se escribió en el panel de Render, como secreto. Cada push a `main` vuelve a desplegar. Antes del primer push se revisó que el historial no tuviera secretos.
 - **Demo abierta:** cada conversación escribe en `out/sesiones/<id>/` (`SALIDA_POR_CONVERSACION`), así dos visitantes no se pisan. El chat sigue mostrando «out/<caso>/…» (`ruta_en_salida`) y los costos de todas quedan en un solo `costos.jsonl`.
 - **Descargar el paquete desde el chat** (pedido de Anderson): en la demo nadie puede entrar a las carpetas del servidor, así que el botón **«Descargar paquete (.zip)»** entrega el resultado del caso. Se quitó «Copiar respuesta».
-- **Todo en PDF, para cualquier persona** (segunda revisión de Anderson: los `.md`, `.json` y `.txt` no se entendían). El zip trae `1. Resumen del caso`, `2. Formulario (vista demo)` con la cuenta y la cédula **enmascaradas**, `3. Borrador del correo`, `4. Constancia de envío` (si existe), `5. De dónde salió cada dato` y `Soportes/<nombre>.pdf`. Los estados van en palabras y colores (`dominio/pdf_legible.py`, con fpdf2) (D70). **Solo cambia la descarga:** los archivos del sistema (`.md`, `.json`) siguen igual, porque son los que necesitan la auditoría y una futura base de datos. **Pruebas:** 622 en total.
+- **Todo en PDF, para cualquier persona** (segunda revisión de Anderson: los `.md`, `.json` y `.txt` no se entendían). El zip trae `1. Resumen del caso`, `2. Formulario (vista demo)` con la cuenta y la cédula **enmascaradas**, `3. Borrador del correo`, `4. Constancia de envío` (si existe), `5. De dónde salió cada dato` y `Soportes/<nombre>.pdf`. Los estados van en palabras y colores (`dominio/pdf_legible.py`, con fpdf2) (D70).
+- **Fecha real** (tercera revisión de Anderson): sin `FECHA_EJECUCION` en Render, Docker ni la demo. La Cámara de Comercio vence a 90 días (2027-02-24) y la certificación bancaria el 2027-05-25: Colombia siempre listo; Ecuador, Honduras y Panamá siguen mostrando lo que hace el agente. La columna «Vence» dice «2027-02-24 (faltan 90 días)» (D71). **Solo cambia la descarga:** los archivos del sistema (`.md`, `.json`) siguen igual, porque son los que necesitan la auditoría y una futura base de datos. **Pruebas:** 622 en total.
 
 ### Paso 20 · Módulo reutilizable
 **Objetivo:** empaquetar el agente para que otras plataformas lo usen sin depender del servidor: las herramientas como **servidor MCP**, el prompt como `agent.md` y el conocimiento como `SKILL.md`.
@@ -456,7 +457,7 @@ Las reglas que el negocio puede querer cambiar viven en `config/reglas.yaml`. Po
 | RN7 · Fecha inyectable | Las pruebas usan una fecha fija. | `.env` (`FECHA_EJECUCION`) |
 | RN8 · Datos sensibles | Cuenta y cédula como `****2345`. | **En el código**, a propósito (D23) |
 
-**Ejemplo con las fechas.** Hoy (24 de noviembre de 2026) la Cámara de Comercio ya está vencida: venció el 30 de septiembre. Por eso las pruebas usan el 1 de septiembre de 2026. Con esa fecha, la Cámara está vigente, los parafiscales vencidos bloquean el caso de Honduras y el certificado tributario ausente bloquea el de Ecuador.
+**Ejemplo con las fechas.** La demo trabaja con la **fecha real** (revisión de Anderson del 26 de noviembre de 2026). Ese día la Cámara de Comercio pasó a vencer el 24 de febrero de 2027 (90 días) y la certificación bancaria el 25 de mayo de 2027, así que **Colombia queda listo**; los parafiscales vencidos bloquean a Honduras y el certificado tributario ausente a Ecuador. Las pruebas automáticas usan una fecha fija (1 de septiembre de 2026), para dar siempre el mismo resultado.
 
 **4. Generar el formulario (Paso 7)**
 
@@ -783,7 +784,7 @@ uv run python scripts/demo.py --llamadas               # + matriz de llamadas a 
 - Con `--llamadas`, al final muestra una **matriz**: una fila por caso y una columna por herramienta, en el orden en que se llaman (leer → mapear → generar → armar el paquete). Cada celda dice ✓ o ✗ y lo esencial de la respuesta. También la guarda en `out/llamadas.md`. Es la misma secuencia que hará el agente con el modelo, y queda fijada en las pruebas golden.
 - Borra y vuelve a crear `out/`, y deja ahí, por caso, el mapeo, el formulario y el paquete para firma.
 - Termina con código 0 si todo salió bien. Un caso "no listo para firma" no es un error.
-- Con la fecha de hoy, ningún caso está listo, porque la Cámara de Comercio venció el 30 de septiembre.
+- Usa la fecha de hoy (o la de `--fecha`). Hasta el 24 de febrero de 2027, Colombia sale listo y los otros tres no; después, la Cámara de Comercio vence y hay que renovar su fecha en `datos/`.
 
 **Con el modelo real (necesitan la clave en `.env`; gastan muy poco):**
 
@@ -814,14 +815,14 @@ uv run uvicorn registro_proveedor.api.app:app --reload
 
 **Guion para una demostración:**
 
-1. En `.env`: `FECHA_EJECUCION=2026-09-20`. Hasta el 30 de septiembre la Cámara de Comercio sigue vigente; con el 20 aparece "por vencer", sin bloquear.
+1. En `.env`, `FECHA_EJECUCION=` **vacía**: la demo usa la fecha real.
 2. `uv run python scripts/demo.py`: deja `out/` limpio, sin confirmaciones de pruebas anteriores.
 3. Arrancar (o reiniciar) `uvicorn`. `--reload` no lee los cambios de `.env`, hay que reiniciarlo.
 4. En `http://127.0.0.1:8000/`, mostrar los casos:
    - **Colombia:** listo para firma; aprobar el envío.
    - **Panamá:** aceptar el RUC con **Aprobar** → listo → «Envíalo» → **Aprobar**.
    - **Ecuador** o **Honduras:** lo que no se arregla en el chat (soporte ausente o vencido).
-5. Al terminar, dejar `FECHA_EJECUCION=` vacía.
+5. En la tabla de soportes, la columna «Vence» dice cuántos días faltan (por ejemplo, «2027-02-24 (faltan 90 días)»).
 
 Sin clave, el servidor arranca igual: `/api/health` dice `llm_configured: false` y `/api/chat` responde 503. Las sesiones viven en memoria: un reinicio las borra, pero los archivos de `out/` se conservan.
 
@@ -832,7 +833,7 @@ docker compose up --build      # http://localhost:8000 (lee la clave de .env)
 docker compose down            # lo detiene
 ```
 
-Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y `FECHA_EJECUCION=2026-09-20`. `out/` queda en un volumen de Docker y no se borra al reiniciar.
+Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y la fecha real (sin `FECHA_EJECUCION`). `out/` queda en un volumen de Docker y no se borra al reiniciar.
 
 **Demo publicada (Paso 19): https://agente-registro-proveedor-yu72.onrender.com**
 
@@ -841,7 +842,7 @@ Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y `FECHA_EJECUCION=2026-
 | Dónde | Render, plan gratuito, construido con el `Dockerfile`. La configuración está en `render.yaml` (Blueprint). |
 | Actualizar | Cada push a `main` vuelve a desplegar solo. El CI de GitHub Actions corre las pruebas en cada push. |
 | La clave | En el panel de Render, como secreto (`sync: false` en `render.yaml`). Nunca en GitHub. |
-| Fecha | `FECHA_EJECUCION=2026-09-20`, la misma de las demos. |
+| Fecha | La **real** de hoy: no se fija `FECHA_EJECUCION` (revisión de Anderson). |
 | Apagado | Se apaga tras 15 minutos sin visitas y tarda cerca de un minuto en volver. Al apagarse se pierden las conversaciones, `out/` y el conteo diario. Por eso también hay un **límite de gasto mensual en la consola de Anthropic**. |
 | Logs | Panel de Render → **Logs**: solicitudes, `consulta_modelo` (qué herramientas pidió el modelo y los tokens) y avisos. |
 | Archivos | No hay un explorador de archivos. Los soportes originales están en GitHub (`datos/repositorio/soportes/`). Lo que arma el agente se descarga desde el chat con **«Descargar paquete (.zip)»**, todo en PDF (B8). |
@@ -941,6 +942,7 @@ _por completar_
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 | D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
+| D71 | La demo usa la **fecha real**; para eso se cambiaron a mano dos fechas de `datos/` (Cámara de Comercio a 90 días: 2027-02-24; certificación bancaria: 2027-05-25). La columna «Vence» muestra los días que faltan. | Seguir con `FECHA_EJECUCION=2026-09-20` fija. | Una fecha inventada deja dudas en quien ve la demo (Anderson). Colombia queda siempre listo y los otros tres muestran lo que hace el agente. A cambio, la fecha de la Cámara hay que renovarla después del 2027-02-24. | 19 |
 | D70 | El paquete se descarga desde el chat en un **.zip de PDF**: resumen, formulario como vista **con la cuenta y la cédula enmascaradas**, borrador, constancia, trazabilidad y soportes. Los archivos del sistema no cambian. | Entregar los archivos del sistema (`.md`, `.json`, `.txt`) tal cual, o dejar fuera el formulario. | En la demo nadie puede entrar al servidor; quien la prueba no es técnico y debe poder abrirlo todo con doble clic (Anderson). El formulario es el resultado principal, pero la página es abierta: va enmascarado (D65, D68). | 19 |
 
 _Se agregan más decisiones en cada paso._

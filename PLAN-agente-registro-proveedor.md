@@ -431,7 +431,7 @@ El prompt se **versiona** y cada cambio se valida con las evaluaciones (sección
 | `datos/glosario-campos.json` | Etiqueta → ruta en el maestro | Se verifica que cada ruta exista en el maestro |
 
 **Buenas prácticas de datos:**
-- `datos/` **no se modifica**, ni por el código ni a mano para "arreglar" la demostración. Si a un dato le falta algo, se reporta y se deja como sugerencia para el dueño del dato.
+- `datos/` **no se modifica** por el código. Si a un dato le falta algo, se reporta y se deja como sugerencia para el dueño del dato. **Única excepción, a mano y decidida por Anderson (2026-11-26):** para que la demo use la fecha real, la Cámara de Comercio pasó a vencer el 2027-02-24 (90 días) y la certificación bancaria el 2027-05-25. Los demás soportes quedan como estaban (uno vencido, uno ausente).
 - Un script `validar_datos.py` revisa todo lo anterior y se ejecuta en CI. Si alguien rompe el maestro o el glosario, se detecta antes de llegar a producción. El reporte tiene dos niveles:
   - **Error**: el dato está roto y no se puede procesar (celda inválida, formato desconocido, ruta del glosario inexistente, archivo de soporte ausente). Hace fallar el CI.
   - **Sugerencia**: el dato funciona, pero le falta algo que el diseño espera (por ejemplo, el maestro sin `version`). Va dirigida al dueño del dato y no hace fallar el CI.

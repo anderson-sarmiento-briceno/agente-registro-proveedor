@@ -7,7 +7,7 @@ Buenos días,
 
 Adjuntamos el formulario de registro de proveedor de Empresa Ejemplo S.A.S., firmado por el representante legal, junto con estos documentos:
 
-- Certificado de existencia y representación legal (vigencia 30 días)
+- Certificado de existencia y representación legal
 - Registro Único Tributario
 - Certificación de pago de aportes parafiscales y seguridad social (revisor fiscal)
 

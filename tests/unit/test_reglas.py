@@ -112,7 +112,7 @@ def test_soportes_reales_a_la_fecha_fija() -> None:
         for e in evaluar_soportes(list(TipoSoporte), INDICE, FECHA_FIJA, QUINCE_DIAS)
     }
     assert estados == {
-        TipoSoporte.CAMARA_COMERCIO: EstadoSoporte.PRESENTE,  # vence 2026-09-30: 29 días
+        TipoSoporte.CAMARA_COMERCIO: EstadoSoporte.PRESENTE,  # vence 2027-02-24: 176 días
         TipoSoporte.RUT: EstadoSoporte.PRESENTE,  # no vence
         TipoSoporte.CERTIFICACION_BANCARIA: EstadoSoporte.PRESENTE,
         TipoSoporte.PARAFISCALES: EstadoSoporte.VENCIDO,  # venció 2026-08-31
@@ -125,20 +125,21 @@ def test_soportes_reales_a_la_fecha_fija() -> None:
 @pytest.mark.parametrize(
     ("fecha", "estado", "dias"),
     [
-        (date(2026, 9, 1), EstadoSoporte.PRESENTE, 29),
-        (date(2026, 9, 14), EstadoSoporte.PRESENTE, 16),  # un día antes del aviso
-        (date(2026, 9, 15), EstadoSoporte.POR_VENCER, 15),  # justo 15 días: ya avisa
-        (date(2026, 9, 30), EstadoSoporte.POR_VENCER, 0),  # vence hoy: todavía vale
-        (date(2026, 10, 1), EstadoSoporte.VENCIDO, -1),  # al día siguiente, vencido
-        (date(2026, 11, 24), EstadoSoporte.VENCIDO, -55),  # el día real de hoy
+        (date(2026, 9, 1), EstadoSoporte.PRESENTE, 176),  # la fecha fija de las pruebas
+        (date(2026, 11, 26), EstadoSoporte.PRESENTE, 90),  # el día de la revisión: 90 días
+        (date(2027, 2, 8), EstadoSoporte.PRESENTE, 16),  # un día antes del aviso
+        (date(2027, 2, 9), EstadoSoporte.POR_VENCER, 15),  # justo 15 días: ya avisa
+        (date(2027, 2, 24), EstadoSoporte.POR_VENCER, 0),  # vence hoy: todavía vale
+        (date(2027, 2, 25), EstadoSoporte.VENCIDO, -1),  # al día siguiente, vencido
     ],
 )
 def test_camara_de_comercio_segun_la_fecha(fecha: date, estado: EstadoSoporte, dias: int) -> None:
-    """La Cámara de Comercio vence el 2026-09-30 (RN7: la fecha se inyecta)."""
+    """La Cámara de Comercio vence el 2027-02-24: 90 días después de la revisión del
+    2026-11-26, cuando Anderson pidió que la demo use la fecha real (RN7)."""
     e = evaluar_soporte(TipoSoporte.CAMARA_COMERCIO, INDICE, fecha, QUINCE_DIAS)
     assert e.estado is estado
     assert e.dias_restantes == dias
-    assert e.archivo == "camara-comercio-2026-08.txt"
+    assert e.archivo == "camara-comercio-2026-11.txt"
     assert e.bloquea is (estado is EstadoSoporte.VENCIDO)  # por vencer avisa, pero NO bloquea
 
 
@@ -149,8 +150,8 @@ def test_notas_en_lenguaje_claro() -> None:
     assert nota(TipoSoporte.PARAFISCALES) == "venció el 2026-08-31 (hace 1 día)"
     assert nota(TipoSoporte.RUT) == "no tiene vencimiento"
     assert nota(TipoSoporte.CERTIFICADO_CUMPLIMIENTO_TRIBUTARIO) == "no está en el repositorio"
-    assert nota(TipoSoporte.CAMARA_COMERCIO, date(2026, 9, 20)) == (
-        "vence el 2026-09-30: quedan 10 días (aviso desde 15)"
+    assert nota(TipoSoporte.CAMARA_COMERCIO, date(2027, 2, 14)) == (
+        "vence el 2027-02-24: quedan 10 días (aviso desde 15)"
     )
 
 
@@ -196,9 +197,14 @@ def test_es_dato_bancario(ruta: str, bancario: bool) -> None:
 
 
 def test_mas_dias_de_aviso_cambian_el_estado(tmp_path: Path) -> None:
+    # El 2027-01-31 a la Cámara le quedan 24 días: con aviso desde 15 está "presente";
+    # con aviso desde 30, "por vencer". Solo cambió el número del YAML.
+    fecha = date(2027, 1, 31)
     con_30 = cargar_reglas(_yaml_con(tmp_path, vigencias={"dias_por_vencer": 30}))
-    e = evaluar_soporte(TipoSoporte.CAMARA_COMERCIO, INDICE, FECHA_FIJA, con_30.vigencias)
-    assert e.estado is EstadoSoporte.POR_VENCER  # con 15 días era "presente"
+    e = evaluar_soporte(TipoSoporte.CAMARA_COMERCIO, INDICE, fecha, con_30.vigencias)
+    assert e.estado is EstadoSoporte.POR_VENCER
+    normal = evaluar_soporte(TipoSoporte.CAMARA_COMERCIO, INDICE, fecha, QUINCE_DIAS)
+    assert normal.estado is EstadoSoporte.PRESENTE
 
 
 def test_un_umbral_mas_exigente_cambia_el_mapeo(

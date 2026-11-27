@@ -71,8 +71,23 @@ QUE_HACER = {
 
 
 def vence(evaluacion: EvaluacionSoporte) -> str:
-    """La fecha de vencimiento para personas, o "—" si no vence o no existe."""
-    return evaluacion.vigencia_hasta.isoformat() if evaluacion.vigencia_hasta else "—"
+    """La fecha de vencimiento con los días que faltan, o "—" si no vence o no existe.
+
+    "2027-02-24 (faltan 90 días)" · "2026-08-31 (venció hace 20 días)" · "… (vence hoy)".
+    Así la analista ve de un vistazo cuánto le queda a cada soporte (pedido de Anderson).
+    """
+    if evaluacion.vigencia_hasta is None:
+        return "—"
+    fecha = evaluacion.vigencia_hasta.isoformat()
+    dias = evaluacion.dias_restantes
+    if dias is None:
+        return fecha
+    if dias == 0:
+        return f"{fecha} (vence hoy)"
+    if dias > 0:
+        return f"{fecha} (falta 1 día)" if dias == 1 else f"{fecha} (faltan {dias} días)"
+    hace = -dias
+    return f"{fecha} (venció hace {hace} {'día' if hace == 1 else 'días'})"
 
 
 # Un valor muy corto ("COP", "7") podría aparecer en cualquier texto por casualidad;

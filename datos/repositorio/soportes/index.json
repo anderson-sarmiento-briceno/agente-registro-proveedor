@@ -1,10 +1,10 @@
 [
   {
     "tipo": "camara_comercio",
-    "archivo": "camara-comercio-2026-08.txt",
-    "vigencia_hasta": "2026-09-30",
+    "archivo": "camara-comercio-2026-11.txt",
+    "vigencia_hasta": "2027-02-24",
     "pais_emisor": "CO",
-    "descripcion": "Certificado de existencia y representación legal (vigencia 30 días)"
+    "descripcion": "Certificado de existencia y representación legal"
   },
   {
     "tipo": "rut",
@@ -15,8 +15,8 @@
   },
   {
     "tipo": "certificacion_bancaria",
-    "archivo": "certificacion-bancaria-2026-08.txt",
-    "vigencia_hasta": "2026-12-31",
+    "archivo": "certificacion-bancaria-2026-11.txt",
+    "vigencia_hasta": "2027-05-25",
     "pais_emisor": "CO",
     "descripcion": "Certificación de cuenta bancaria"
   },

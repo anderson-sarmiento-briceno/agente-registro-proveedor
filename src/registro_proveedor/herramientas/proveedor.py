@@ -404,7 +404,7 @@ class SoporteVisto(_Vista):
     nombre: str  # "Cámara de Comercio"
     estado: str  # código: presente, por_vencer, vencido, ausente
     estado_texto: str  # "⚠️ por vencer"
-    vence: str  # "2026-09-30" o "—"
+    vence: str  # "2027-02-24 (faltan 90 días)" o "—"
     que_hacer: str  # "Pedir la renovación pronto (no bloquea la firma)"
     nota: str
 

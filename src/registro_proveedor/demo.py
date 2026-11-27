@@ -30,9 +30,9 @@ from registro_proveedor.config import RAIZ_PROYECTO, Configuracion
 from registro_proveedor.herramientas.base import Contexto, Resultado
 from registro_proveedor.herramientas.proveedor import registro
 
-# Fecha fija de la demo (RN7): con ella el resultado es siempre el mismo. La Cámara de
-# Comercio vence el 2026-09-30, así que con la fecha de hoy estaría vencida.
-FECHA_DEMO = date(2026, 9, 1)
+# Desde la revisión de Anderson (2026-11-26) la demo usa la fecha REAL de hoy: no se
+# inventan fechas de ejecución. Las pruebas sí pasan una fecha fija (RN7), para que su
+# resultado no dependa del día en que se corren.
 NOMBRE_SALIDA = "out"
 
 
@@ -91,15 +91,15 @@ def contexto_demo(datos: Path, salida: Path, fecha: date) -> Contexto:
 
 
 def elegir_fecha(argumento: str | None, config: Configuracion) -> date:
-    """La fecha de la demo: la del argumento; si no hay, la de `.env`; si no, la fecha fija.
+    """La fecha de la demo: la del argumento; si no hay, la de `.env`; si no, la de hoy.
 
-    `--fecha hoy` usa la fecha real de hoy.
+    `--fecha hoy` también usa la fecha real de hoy.
     """
     if argumento == "hoy":
         return date.today()
     if argumento is not None:
         return date.fromisoformat(argumento)
-    return config.fecha_ejecucion or FECHA_DEMO
+    return config.fecha_ejecucion or date.today()
 
 
 # ---------- Ejecución ----------
@@ -265,9 +265,7 @@ def main(argumentos: list[str], config: Configuracion | None = None) -> Resultad
     parser = argparse.ArgumentParser(
         prog="demo.py", description="Procesa los casos de ejemplo sin modelo de lenguaje."
     )
-    parser.add_argument(
-        "--fecha", help=f"AAAA-MM-DD u «hoy». Por defecto, {FECHA_DEMO.isoformat()}."
-    )
+    parser.add_argument("--fecha", help="AAAA-MM-DD u «hoy». Por defecto, la fecha de hoy.")
     parser.add_argument(
         "--caso", action="append", help="Procesa solo este caso (se puede repetir)."
     )

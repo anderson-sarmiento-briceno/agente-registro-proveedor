@@ -7,7 +7,7 @@ Buenos días,
 
 Les informamos que completamos el registro de Empresa Ejemplo S.A.S. como proveedor en su portal. Estos son los documentos solicitados, que también cargamos allí:
 
-- Certificado de existencia y representación legal (vigencia 30 días)
+- Certificado de existencia y representación legal
 - Registro Único Tributario
 
 Quedamos atentos a cualquier información adicional.

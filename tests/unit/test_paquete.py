@@ -143,19 +143,26 @@ def test_un_campo_faltante_no_bloquea_pero_se_avisa(tmp_path: Path) -> None:
 
 
 def test_un_soporte_por_vencer_no_bloquea_pero_se_avisa(tmp_path: Path) -> None:
-    paquete = _armar("co-industrias-delta", tmp_path, fecha=date(2026, 9, 20))
+    paquete = _armar("co-industrias-delta", tmp_path, fecha=date(2027, 2, 14))
     assert paquete.listo_para_firma  # RN6: por vencer avisa, no bloquea
     assert paquete.avisos == [
-        "soporte por vencer: Cámara de Comercio, vence el 2026-09-30: "
+        "soporte por vencer: Cámara de Comercio, vence el 2027-02-24: "
         "quedan 10 días (aviso desde 15)"
     ]
 
 
-def test_con_la_fecha_real_de_hoy_la_camara_esta_vencida(tmp_path: Path) -> None:
-    """RN7: por eso las pruebas usan una fecha fija. Hoy (2026-11-25) ya venció."""
-    paquete = _armar("co-industrias-delta", tmp_path, fecha=date(2026, 11, 25))
+def test_cuando_vence_la_camara_colombia_deja_de_estar_listo(tmp_path: Path) -> None:
+    """RN7: por eso las pruebas usan una fecha fija. Desde el 2027-02-25 ya venció."""
+    paquete = _armar("co-industrias-delta", tmp_path, fecha=date(2027, 2, 25))
     assert not paquete.listo_para_firma
     assert paquete.motivos[0].startswith("soporte vencido: Cámara de Comercio")
+
+
+def test_la_columna_vence_dice_los_dias_que_faltan(tmp_path: Path) -> None:
+    """Revisión de Anderson: al lado de la fecha, cuántos días faltan (o hace cuánto venció)."""
+    texto = _leer(_armar("hn-agroexport-sula", tmp_path, fecha=date(2026, 11, 26)), "checklist.md")
+    assert "| 2027-02-24 (faltan 90 días) |" in texto  # Cámara de Comercio
+    assert "| 2026-08-31 (venció hace 87 días) |" in texto  # parafiscales
 
 
 # ---------- 3. RN2: el borrador nunca lleva datos bancarios ni sensibles ----------
@@ -215,7 +222,7 @@ def test_archivos_del_paquete(tmp_path: Path) -> None:
     assert paquete.carpeta == tmp_path / "paquete"
     esperados = [
         "formulario.xlsx",
-        "camara-comercio-2026-08.txt",
+        "camara-comercio-2026-11.txt",
         "rut-2026.txt",
         "parafiscales-2026-07.txt",  # vencido, pero se copia para saber cuál renovar
         ARCHIVO_CHECKLIST,
@@ -246,8 +253,8 @@ def test_checklist(tmp_path: Path) -> None:
     assert "- [ ] campo por confirmar: «RTN»" in texto
     assert "- campo faltante en el maestro: «Referencias comerciales»" in texto
     assert (
-        "| Certificación de parafiscales | ⛔ vencido | 2026-08-31 | Renovarlo antes de firmar |"
-        in texto
+        "| Certificación de parafiscales | ⛔ vencido | 2026-08-31 (venció hace 1 día) | "
+        "Renovarlo antes de firmar |" in texto
     )
     assert "| RUT | ✅ vigente | — | Nada | no tiene vencimiento |" in texto
     # El formato del formulario, en palabras (no "xlsx").

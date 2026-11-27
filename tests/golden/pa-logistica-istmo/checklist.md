@@ -14,7 +14,7 @@ Antes de firmar, resuelva:
 
 | Soporte | Estado | Vence | Qué hacer | Detalle |
 |---|---|---|---|---|
-| Cámara de Comercio | ✅ vigente | 2026-09-30 | Nada | vigente hasta el 2026-09-30 (29 días) |
+| Cámara de Comercio | ✅ vigente | 2027-02-24 (faltan 176 días) | Nada | vigente hasta el 2027-02-24 (176 días) |
 | RUT | ✅ vigente | — | Nada | no tiene vencimiento |
 
 ## Campos del formulario
@@ -26,7 +26,7 @@ Antes de firmar, resuelva:
 ## Archivos del paquete
 
 - `valores-portal.md`
-- `camara-comercio-2026-08.txt`
+- `camara-comercio-2026-11.txt`
 - `rut-2026.txt`
 - `checklist.md`
 - `borrador-correo.md`

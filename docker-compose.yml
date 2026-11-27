@@ -17,8 +17,8 @@ services:
     environment:
       # Cada conversación con su carpeta en out/sesiones/<id>/ (como en Render).
       SALIDA_POR_CONVERSACION: "true"
-      # Fecha de la demo: con ella Colombia y Panamá pueden quedar listos para firma.
-      FECHA_EJECUCION: "2026-09-20"
+      # Sin FECHA_EJECUCION: la fecha real de hoy, como en Render. (Si .env trae una
+      # FECHA_EJECUCION, se usaría esa: déjela vacía.)
     volumes:
       # out/ en un volumen: no se borra al reiniciar el contenedor (el conteo diario
       # de la demo y los costos se conservan).

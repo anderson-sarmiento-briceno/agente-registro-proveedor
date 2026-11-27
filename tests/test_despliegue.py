@@ -75,4 +75,7 @@ def test_la_configuracion_de_la_demo_es_valida(tmp_path: Path) -> None:
     variables = {k: str(v["value"]) for k, v in _variables_de_render().items() if "value" in v}
     config = Configuracion.model_validate({k.lower(): v for k, v in variables.items()})
     assert config.salida_por_conversacion is True
-    assert config.fecha_ejecucion is not None
+    # La demo publicada trabaja con la fecha REAL: no se inventa una fecha de ejecución.
+    assert config.fecha_ejecucion is None
+    (servicio,) = COMPOSE["services"].values()
+    assert "FECHA_EJECUCION" not in servicio["environment"]

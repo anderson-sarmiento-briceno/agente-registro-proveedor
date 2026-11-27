@@ -22,7 +22,6 @@ services:
         sync: false
       - key: SALIDA_POR_CONVERSACION
         value: "true"
-      - key: FECHA_EJECUCION
-        value: "2026-09-20"
+      # Sin FECHA_EJECUCION: la demo usa la fecha real de hoy (revisión de Anderson).
       - key: NIVEL_LOG
         value: INFO

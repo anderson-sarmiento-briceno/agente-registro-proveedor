@@ -10,10 +10,10 @@ Formulario del cliente: Excel (se genera formulario.xlsx)
 
 | Soporte | Estado | Vence | Qué hacer | Detalle |
 |---|---|---|---|---|
-| Cámara de Comercio | ✅ vigente | 2026-09-30 | Nada | vigente hasta el 2026-09-30 (29 días) |
+| Cámara de Comercio | ✅ vigente | 2027-02-24 (faltan 176 días) | Nada | vigente hasta el 2027-02-24 (176 días) |
 | RUT | ✅ vigente | — | Nada | no tiene vencimiento |
-| Certificación bancaria | ✅ vigente | 2026-12-31 | Nada | vigente hasta el 2026-12-31 (121 días) |
-| Estados financieros | ✅ vigente | 2027-03-31 | Nada | vigente hasta el 2027-03-31 (211 días) |
+| Certificación bancaria | ✅ vigente | 2027-05-25 (faltan 266 días) | Nada | vigente hasta el 2027-05-25 (266 días) |
+| Estados financieros | ✅ vigente | 2027-03-31 (faltan 211 días) | Nada | vigente hasta el 2027-03-31 (211 días) |
 
 ## Campos del formulario
 
@@ -24,9 +24,9 @@ Formulario del cliente: Excel (se genera formulario.xlsx)
 ## Archivos del paquete
 
 - `formulario.xlsx`
-- `camara-comercio-2026-08.txt`
+- `camara-comercio-2026-11.txt`
 - `rut-2026.txt`
-- `certificacion-bancaria-2026-08.txt`
+- `certificacion-bancaria-2026-11.txt`
 - `estados-financieros-2025.txt`
 - `checklist.md`
 - `borrador-correo.md`

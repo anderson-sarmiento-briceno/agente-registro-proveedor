@@ -13,11 +13,11 @@
     {
       "tipo": "camara_comercio",
       "estado": "presente",
-      "archivo": "camara-comercio-2026-08.txt",
-      "vigencia_hasta": "2026-09-30",
-      "dias_restantes": 29,
+      "archivo": "camara-comercio-2026-11.txt",
+      "vigencia_hasta": "2027-02-24",
+      "dias_restantes": 176,
       "bloquea": false,
-      "nota": "vigente hasta el 2026-09-30 (29 días)"
+      "nota": "vigente hasta el 2027-02-24 (176 días)"
     },
     {
       "tipo": "rut",
@@ -157,9 +157,9 @@
       "bytes": null
     },
     {
-      "nombre": "camara-comercio-2026-08.txt",
-      "sha256": "3b90f879e371f4665bf21c92af0c7aef8b40a5633e04cf2f9d3044e3b2a48371",
-      "bytes": 178
+      "nombre": "camara-comercio-2026-11.txt",
+      "sha256": "6a25f34d4eb98721a76134b27e28b9d385720675fbecc9973f890d78974f7852",
+      "bytes": 158
     },
     {
       "nombre": "rut-2026.txt",
@@ -173,13 +173,13 @@
     },
     {
       "nombre": "checklist.md",
-      "sha256": "a6f8ad027e726d63a26ed6f2eca80d8773ee887b3f1fef8ce38cb5ff3527b159",
-      "bytes": 1187
+      "sha256": "bf1b5cc56ad7174dea068ff1a9734e083261b952135e7066458eaae49b2f85e4",
+      "bytes": 1229
     },
     {
       "nombre": "borrador-correo.md",
-      "sha256": "b9aa48bff6e3f223cabd43a6719106612adf18f372514c53ec662e4dae718b82",
-      "bytes": 639
+      "sha256": "7ef30209619ca12b6dbc69e16c598d129fefe4d3c2b4473559a8078d07b88772",
+      "bytes": 619
     }
   ]
 }

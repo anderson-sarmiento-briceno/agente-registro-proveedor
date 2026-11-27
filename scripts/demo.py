@@ -1,8 +1,8 @@
 """Demostración sin modelo de lenguaje: procesa los casos de ejemplo de punta a punta.
 
 Uso:
-    uv run python scripts/demo.py                          # los 4 casos, fecha 2026-09-01
-    uv run python scripts/demo.py --fecha hoy              # con la fecha de hoy
+    uv run python scripts/demo.py                          # los 4 casos, con la fecha de hoy
+    uv run python scripts/demo.py --fecha 2026-09-01       # con otra fecha (como las pruebas)
     uv run python scripts/demo.py --caso ec-corp-andina    # un solo caso
 
 Borra y vuelve a crear `out/`. No necesita clave de Anthropic.

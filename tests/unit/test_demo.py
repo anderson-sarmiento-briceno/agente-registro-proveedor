@@ -20,7 +20,6 @@ import pytest
 
 from registro_proveedor.config import RAIZ_PROYECTO, Configuracion
 from registro_proveedor.demo import (
-    FECHA_DEMO,
     ErrorDeDemo,
     ejecutar_demo,
     elegir_fecha,
@@ -154,9 +153,10 @@ def _config(fecha: str | None = None) -> Configuracion:
     return Configuracion(_env_file=None, fecha_ejecucion=fecha)  # type: ignore[call-arg]
 
 
-def test_fecha_por_defecto_es_la_fija(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fecha_por_defecto_es_la_de_hoy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Revisión de Anderson: la demo no inventa fechas de ejecución, usa la de hoy."""
     monkeypatch.delenv("FECHA_EJECUCION", raising=False)
-    assert elegir_fecha(None, _config()) == FECHA_DEMO == date(2026, 9, 1)
+    assert elegir_fecha(None, _config()) == date.today()
 
 
 def test_la_fecha_del_env_se_usa_si_no_hay_argumento() -> None:
@@ -174,9 +174,19 @@ def test_fecha_invalida(tmp_path: Path) -> None:
     assert salida.value.code == 2
 
 
-def test_con_la_fecha_de_hoy_nada_esta_listo(tmp_path: Path) -> None:
-    """Hoy (después del 2026-09-30) la Cámara de Comercio está vencida en todos los casos."""
-    resultado = ejecutar_demo(DATOS_REALES, tmp_path / "out", date(2026, 11, 25))
+def test_a_la_fecha_de_la_revision_colombia_esta_listo(tmp_path: Path) -> None:
+    """Con los datos de la revisión (2026-11-26), Colombia siempre funciona y los demás no.
+
+    Así se ve lo que hace el agente: un caso que sale bien y tres con algo por resolver
+    (un soporte ausente, uno vencido y un campo por confirmar).
+    """
+    resultado = ejecutar_demo(DATOS_REALES, tmp_path / "out", date(2026, 11, 26))
+    assert "1 listo para firma · 3 no listos" in resultado.texto
+
+
+def test_cuando_vence_la_camara_nada_esta_listo(tmp_path: Path) -> None:
+    """La Cámara de Comercio vence el 2027-02-24 (90 días después de la revisión)."""
+    resultado = ejecutar_demo(DATOS_REALES, tmp_path / "out", date(2027, 2, 25))
     assert "0 listos para firma · 4 no listos" in resultado.texto
 
 
@@ -191,7 +201,7 @@ def _celdas(fila: str) -> list[str]:
 def test_matriz_de_llamadas(tmp_path: Path) -> None:
     """Una fila por caso y una columna por herramienta, en el orden en que se llaman."""
     salida = tmp_path / "out"
-    resultado = main(["--llamadas", "--salida", str(salida)])
+    resultado = main(["--llamadas", "--fecha", "2026-09-01", "--salida", str(salida)])
     assert resultado.codigo == 0
     archivo = (salida / "llamadas.md").read_text(encoding="utf-8")
     assert archivo.startswith("# Llamadas a herramientas · demo del 2026-09-01")

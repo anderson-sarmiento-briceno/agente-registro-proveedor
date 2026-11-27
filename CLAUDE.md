@@ -112,9 +112,9 @@ tests/                      # unit · golden · evals
 - `repositorio/soportes/`: los documentos de la empresa, con `vigencia_hasta` en `index.json`.
 - `glosario-campos.json`: etiqueta del cliente → ruta en el maestro.
 
-**`datos/` no se modifica, ni por código ni a mano.** Si a un dato le falta algo (por ejemplo, el maestro no tiene `version` ni `actualizado_en`), se reporta como **sugerencia** para el dueño del dato, nunca se "arregla". `validar_datos.py` separa los **errores** (dato roto: el CI falla) de las **sugerencias** (dato mejorable: el CI no falla).
+**`datos/` no se modifica por código.** Si a un dato le falta algo (por ejemplo, el maestro no tiene `version` ni `actualizado_en`), se reporta como **sugerencia** para el dueño del dato, nunca se "arregla". `validar_datos.py` separa los **errores** (dato roto: el CI falla) de las **sugerencias** (dato mejorable: el CI no falla). Un cambio a mano solo con la autorización explícita de Anderson.
 
-Ojo: varios soportes tienen `vigencia_hasta` en 2026 y algunos ya vencieron. Por eso la fecha de ejecución se inyecta: las pruebas no deben depender del día en que se corren.
+**Cambio autorizado (2026-11-26):** la demo usa la **fecha real** (no se inventan fechas de ejecución: sin `FECHA_EJECUCION` en Render, Docker ni la demo). Para eso, la Cámara de Comercio vence el **2027-02-24** (90 días; `camara-comercio-2026-11.txt`, sin "vigencia 30 días") y la certificación bancaria el **2027-05-25** (`certificacion-bancaria-2026-11.txt`). Con la fecha real: **Colombia siempre listo** (hasta el 2027-02-24); Ecuador (soporte ausente), Honduras (parafiscales vencidos) y Panamá (RUC por confirmar) muestran lo que hace el agente. La columna «Vence» dice los días: «2027-02-24 (faltan 90 días)». **Ojo:** después del 2027-02-24 la Cámara vence y Colombia deja de estar listo: habrá que renovar la fecha. Las pruebas siguen con fecha fija (`FECHA_FIJA` 2026-09-01; evaluaciones 2026-09-20), para no depender del día.
 
 ## Comandos (cuando existan)
 

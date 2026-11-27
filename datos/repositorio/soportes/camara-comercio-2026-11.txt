@@ -1,0 +1,5 @@
+PLACEHOLDER DE SOPORTE (ficticio)
+Tipo: camara_comercio
+Descripción: Certificado de existencia y representación legal
+Vigencia hasta: 2027-02-24
+Emisor: CO
