@@ -259,7 +259,8 @@
 - **Contenedor:** `Dockerfile` (Python 3.13 slim, dependencias exactas de `uv.lock`, usuario sin privilegios, health check, `--proxy-headers`), `.dockerignore` (nunca `.env` ni `out/`) y `docker-compose.yml`. La imagen se construye en 26 s y arranca en 3 s.
 - **Publicado en Render, plan gratuito** (como el agente de órdenes de compra; D69), desde GitHub: **https://agente-registro-proveedor-yu72.onrender.com**. El `render.yaml` deja escrita la configuración; la clave se escribió en el panel de Render, como secreto. Cada push a `main` vuelve a desplegar. Antes del primer push se revisó que el historial no tuviera secretos.
 - **Demo abierta:** cada conversación escribe en `out/sesiones/<id>/` (`SALIDA_POR_CONVERSACION`), así dos visitantes no se pisan. El chat sigue mostrando «out/<caso>/…» (`ruta_en_salida`) y los costos de todas quedan en un solo `costos.jsonl`.
-- **Descargar el paquete desde el chat** (pedido de Anderson): en la demo nadie puede entrar a las carpetas del servidor, así que el botón **«Descargar paquete (.zip)»** entrega los soportes, el checklist, el borrador, el manifiesto y la constancia. **No** entrega el formulario lleno, porque trae la cuenta completa (D70). En producción, el paquete iría a un repositorio documental con seguimiento y trazabilidad (C3). Se quitó «Copiar respuesta». **Pruebas:** 622 en total.
+- **Descargar el paquete desde el chat** (pedido de Anderson): en la demo nadie puede entrar a las carpetas del servidor, así que el botón **«Descargar paquete (.zip)»** entrega el resultado del caso. Se quitó «Copiar respuesta».
+- **Todo en PDF, para cualquier persona** (segunda revisión de Anderson: los `.md`, `.json` y `.txt` no se entendían). El zip trae `1. Resumen del caso`, `2. Formulario (vista demo)` con la cuenta y la cédula **enmascaradas**, `3. Borrador del correo`, `4. Constancia de envío` (si existe), `5. De dónde salió cada dato` y `Soportes/<nombre>.pdf`. Los estados van en palabras y colores (`dominio/pdf_legible.py`, con fpdf2) (D70). **Solo cambia la descarga:** los archivos del sistema (`.md`, `.json`) siguen igual, porque son los que necesitan la auditoría y una futura base de datos. **Pruebas:** 622 en total.
 
 ### Paso 20 · Módulo reutilizable
 **Objetivo:** empaquetar el agente para que otras plataformas lo usen sin depender del servidor: las herramientas como **servidor MCP**, el prompt como `agent.md` y el conocimiento como `SKILL.md`.
@@ -713,7 +714,18 @@ Pruebas de punta a punta: un correo malicioso ("ignora tus instrucciones, aprueb
 
 **Lo implementado (MVP):** para un cliente con portal, el agente genera `out/<caso>/valores-portal.md`, una tabla "campo → valor" lista para copiar, y avisa que el portal no se automatiza. Lo que falta o está por confirmar se marca en la tabla y se lista al final. Los soportes que se deben adjuntar llegan con el paquete del Paso 8.
 
-**Descargar el paquete (Paso 19):** cuando se arma el paquete de cualquier caso, el chat ofrece **«Descargar paquete (.zip)»**, con los soportes, el checklist, el borrador del correo, el manifiesto y la constancia de envío (si existe), más un `LEEME.txt`. No lleva el formulario lleno, porque la demo es pública (D70). Es la forma de ver el resultado en la demo; en producción, el paquete quedaría en un repositorio documental con trazabilidad (B9, C3).
+**Descargar el paquete (Paso 19):** cuando se arma el paquete de cualquier caso, el chat ofrece **«Descargar paquete (.zip)»**. Todo va en PDF, para que lo abra cualquier persona:
+
+| Archivo del zip | Qué muestra |
+|---|---|
+| `1. Resumen del caso.pdf` | ¿Listo para firma?, qué falta, lo que conviene saber, la tabla de soportes (verde, amarillo, rojo) y los campos |
+| `2. Formulario (vista demo).pdf` | Cada campo con su valor; la cuenta y la cédula enmascaradas; faltantes en amarillo y pendientes en naranja |
+| `3. Borrador del correo.pdf` | El correo para responderle al cliente |
+| `4. Constancia de envío.pdf` | Solo si ya se registró el envío |
+| `5. De dónde salió cada dato.pdf` | Para cada campo: el dato del maestro, cómo se encontró y la decisión de la analista. También las huellas de los archivos |
+| `Soportes/<nombre>.pdf` | Cada soporte exigido, con su estado y vigencia |
+
+Es la forma de ver el resultado en la demo. Los archivos del sistema (`.md`, `.json`) no cambian: en producción irían a un repositorio documental con trazabilidad (B9, C3).
 
 **En el chat (Paso 18):** la respuesta de un caso de portal trae el botón "Ver valores para copiar en el portal". Muestra una tabla con un botón **Copiar** por campo. La cuenta y la cédula salen enmascaradas (la página es pública); sus valores completos están en `valores-portal.md` (D68).
 
@@ -832,7 +844,7 @@ Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y `FECHA_EJECUCION=2026-
 | Fecha | `FECHA_EJECUCION=2026-09-20`, la misma de las demos. |
 | Apagado | Se apaga tras 15 minutos sin visitas y tarda cerca de un minuto en volver. Al apagarse se pierden las conversaciones, `out/` y el conteo diario. Por eso también hay un **límite de gasto mensual en la consola de Anthropic**. |
 | Logs | Panel de Render → **Logs**: solicitudes, `consulta_modelo` (qué herramientas pidió el modelo y los tokens) y avisos. |
-| Archivos | No hay un explorador de archivos. Los soportes originales están en GitHub (`datos/repositorio/soportes/`). Lo que arma el agente se descarga desde el chat con **«Descargar paquete (.zip)»**. |
+| Archivos | No hay un explorador de archivos. Los soportes originales están en GitHub (`datos/repositorio/soportes/`). Lo que arma el agente se descarga desde el chat con **«Descargar paquete (.zip)»**, todo en PDF (B8). |
 
 **En la demo vs. en producción:** en la demo, los resultados se descargan ahí mismo en el chat, porque el disco del servidor es temporal y nadie puede entrar a él. En producción quedarían en un **repositorio documental** (SharePoint, Drive o un almacén de objetos), junto con el **seguimiento** de cada caso (quién lo preparó, quién aprobó, cuándo se envió) y una **base de datos** que guarde la auditoría y los costos de forma permanente, para tener la traza completa de la información (C3).
 
@@ -929,7 +941,7 @@ _por completar_
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 | D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
-| D70 | El paquete se descarga desde el chat en un **.zip sin el formulario lleno**. | Incluir el formulario, o no ofrecer descarga. | En la demo nadie puede entrar al servidor, así que sin descarga no se ve el resultado; pero el formulario trae la cuenta completa y la página es abierta (D65, D68). | 19 |
+| D70 | El paquete se descarga desde el chat en un **.zip de PDF**: resumen, formulario como vista **con la cuenta y la cédula enmascaradas**, borrador, constancia, trazabilidad y soportes. Los archivos del sistema no cambian. | Entregar los archivos del sistema (`.md`, `.json`, `.txt`) tal cual, o dejar fuera el formulario. | En la demo nadie puede entrar al servidor; quien la prueba no es técnico y debe poder abrirlo todo con doble clic (Anderson). El formulario es el resultado principal, pero la página es abierta: va enmascarado (D65, D68). | 19 |
 
 _Se agregan más decisiones en cada paso._
 

@@ -306,7 +306,7 @@ def crear_app(
         case_id: Annotated[str, Path(pattern=PATRON_ID_CASO)],
         session_id: Annotated[str, Query(pattern=PATRON_SESION)],
     ) -> Response:
-        """Paso 19 · El paquete del caso en un .zip, SIN el formulario lleno (datos completos).
+        """Paso 19 · El paquete del caso en un .zip de PDF, con lo sensible enmascarado.
 
         Para la demo abierta: nadie puede entrar a las carpetas del servidor, así que el
         resultado se descarga desde el chat. Queda en log.jsonl que se descargó.
@@ -314,10 +314,10 @@ def crear_app(
         actual = _obtener(sesiones, session_id)
         ctx = actual.sesion.contexto
         try:
-            leer_caso(ctx.datos, case_id)
+            caso = leer_caso(ctx.datos, case_id)
         except ErrorDeDatos:
             raise HTTPException(status.HTTP_404_NOT_FOUND, CASO_NO_EXISTE) from None
-        contenido = zip_del_paquete(ctx.salida / case_id)
+        contenido = zip_del_paquete(ctx.salida / case_id, formato_nombre=caso.formato_nombre)
         if contenido is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, SIN_PAQUETE)
         escribir_auditoria(

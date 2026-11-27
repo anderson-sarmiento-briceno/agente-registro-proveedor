@@ -18,8 +18,9 @@
   de la demo (429) se muestran como un aviso, con el mensaje del servidor.
 
   Paso 19: cuando se arma el paquete de un caso, la respuesta trae "Descargar paquete
-  (.zip)" (GET /api/cases/{caso}/package.zip): soportes, checklist, borrador y
-  constancia, SIN el formulario lleno. En la demo nadie puede entrar al servidor.
+  (.zip)" (GET /api/cases/{caso}/package.zip): todo en PDF (resumen, formulario con la
+  cuenta enmascarada, borrador, trazabilidad, soportes y constancia). En la demo nadie
+  puede entrar al servidor.
 
   Seguridad: NUNCA se usa `innerHTML`. Todo lo que llega del servidor (la respuesta del
   modelo, las etiquetas del cliente) se agrega como TEXTO (`textContent`), así que un
@@ -259,9 +260,9 @@ function casoConPaquete(llamadas) {
 }
 
 /**
- * Un enlace de descarga (no un script): el navegador baja el .zip de la API. Lleva los
- * soportes, el checklist, el borrador, el manifiesto y la constancia; NO el formulario
- * lleno, que trae la cuenta completa (la demo es pública).
+ * Un enlace de descarga (no un script): el navegador baja el .zip de la API. Todo va en
+ * PDF, para que cualquiera lo abra; el formulario va como vista, con la cuenta
+ * enmascarada (la demo es pública).
  */
 function enlaceDescarga(caso) {
   const contenedor = crear("div", "acciones");
@@ -270,7 +271,11 @@ function enlaceDescarga(caso) {
   enlace.setAttribute("download", `paquete-${caso}.zip`);
   contenedor.appendChild(enlace);
   contenedor.appendChild(
-    crear("span", "argumentos", "Soportes, checklist, borrador y constancia (sin el formulario lleno).")
+    crear(
+      "span",
+      "argumentos",
+      "Todo en PDF: resumen, formulario (con la cuenta enmascarada), borrador del correo, soportes y constancia."
+    )
   );
   return contenedor;
 }

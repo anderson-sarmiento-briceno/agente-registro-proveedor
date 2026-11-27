@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from pypdf import PdfReader
 
 from registro_proveedor.agente.ciclo import Sesion
 from registro_proveedor.agente.llm.adaptador import RespuestaModelo, Uso
@@ -34,7 +35,8 @@ from registro_proveedor.api.sesiones import AlmacenDeSesiones
 from registro_proveedor.config import Configuracion
 from registro_proveedor.dominio.descarga import zip_del_paquete
 from registro_proveedor.herramientas.base import Contexto
-from tests.ayudas import DATOS_REALES
+from registro_proveedor.herramientas.proveedor import registro
+from tests.ayudas import DATOS_REALES, aprobado
 
 CO = "co-industrias-delta"
 EC = "ec-corp-andina"
@@ -534,17 +536,26 @@ def test_descargar_el_paquete_sin_el_formulario(contexto: Contexto) -> None:
     assert f'filename="paquete-{PA}.zip"' in r.headers["content-disposition"]
     assert r.headers["cache-control"] == "no-store"
 
-    with zipfile.ZipFile(io.BytesIO(r.content)) as zip_:
-        nombres = set(zip_.namelist())
-        contenido = b"".join(zip_.read(n) for n in nombres)
-    assert {f"{PA}/checklist.md", f"{PA}/borrador-correo.md", f"{PA}/LEEME.txt"} <= nombres
-    assert f"{PA}/manifiesto.json" in nombres
-    # Los soportes exigidos por Panamá van en el zip.
-    assert any(n.startswith(f"{PA}/rut") for n in nombres)
-    # El formulario lleno NO (trae la cuenta completa), y la cuenta no aparece en nada.
-    assert f"{PA}/valores-portal.md" not in nombres
+    textos = _pdfs_del_zip(r.content)
+    # Todo en PDF, con nombres para personas (pedido de Anderson): nada de .md ni .json.
+    assert set(textos) == {
+        f"{PA}/1. Resumen del caso.pdf",
+        f"{PA}/2. Formulario (vista demo).pdf",
+        f"{PA}/3. Borrador del correo.pdf",
+        f"{PA}/5. De dónde salió cada dato.pdf",
+        f"{PA}/Soportes/Cámara de Comercio.pdf",
+        f"{PA}/Soportes/RUT.pdf",
+    }
+    resumen = textos[f"{PA}/1. Resumen del caso.pdf"]
+    assert "NO está listo para firma" in resumen
+    assert "Portal web del cliente" in resumen  # el formato, en palabras
+    # El formulario va como vista, con la cuenta ENMASCARADA; completa, en ningún lado.
     maestro = json.loads((DATOS_REALES / "repositorio" / "maestro.json").read_text("utf-8"))
-    assert maestro["banco"]["numero_cuenta"].encode() not in contenido
+    cuenta = maestro["banco"]["numero_cuenta"]
+    assert f"****{cuenta[-4:]} (enmascarado)" in textos[f"{PA}/2. Formulario (vista demo).pdf"]
+    assert all(cuenta not in texto for texto in textos.values())
+    # La trazabilidad dice de dónde salió cada dato.
+    assert "banco > numero cuenta" in textos[f"{PA}/5. De dónde salió cada dato.pdf"]
     assert "descarga_paquete" in (contexto.salida / PA / "log.jsonl").read_text("utf-8")
 
 
@@ -560,20 +571,40 @@ def test_descargar_sin_paquete_o_caso_inexistente(contexto: Contexto) -> None:
     assert otra_sesion.status_code == 404
 
 
-def test_el_zip_lleva_la_constancia_si_se_registro_el_envio(tmp_path: Path) -> None:
-    carpeta = tmp_path / PA
-    (carpeta / "paquete").mkdir(parents=True)
-    (carpeta / "paquete" / "checklist.md").write_text("ok", encoding="utf-8")
-    (carpeta / "paquete" / "formulario.xlsx").write_bytes(b"datos completos")
-    (carpeta / "constancia-envio.md").write_text("constancia", encoding="utf-8")
-    contenido = zip_del_paquete(carpeta)
+def test_el_zip_lleva_la_constancia_si_se_registro_el_envio(contexto: Contexto) -> None:
+    """Colombia queda listo (fecha fija 2026-09-01): se registra el envío y se descarga."""
+    for herramienta in (
+        "proveedor_leer_solicitud",
+        "proveedor_mapear_campos",
+        "proveedor_armar_paquete",
+    ):
+        assert registro.ejecutar(herramienta, {"caso": CO}, contexto).ok
+    envio = {"caso": CO}
+    aprobado_ = aprobado(contexto, "proveedor_registrar_envio", envio)
+    assert registro.ejecutar("proveedor_registrar_envio", envio, aprobado_).ok
+
+    contenido = zip_del_paquete(contexto.salida / CO, formato_nombre="Excel")
     assert contenido is not None
+    textos = _pdfs_del_zip(contenido)
+    assert f"{CO}/4. Constancia de envío.pdf" in textos
+    # La constancia lista los archivos del SISTEMA con su nombre real (no se renombran).
+    assert "checklist.md" in textos[f"{CO}/4. Constancia de envío.pdf"]
+    # El borrador ya no manda a "checklist.md", sino al resumen de la descarga.
+    assert "checklist.md" not in textos[f"{CO}/3. Borrador del correo.pdf"]
+    assert "Listo para firma: Sí" in textos[f"{CO}/1. Resumen del caso.pdf"]
+    assert len([n for n in textos if "/Soportes/" in n]) == 4  # Colombia exige 4
+    assert zip_del_paquete(contexto.salida / "sin-paquete") is None
+
+
+def _pdfs_del_zip(contenido: bytes) -> dict[str, str]:
+    """Cada archivo del zip con su texto (para revisar lo que dice cada PDF)."""
+    textos: dict[str, str] = {}
     with zipfile.ZipFile(io.BytesIO(contenido)) as zip_:
-        nombres = set(zip_.namelist())
-        leeme = zip_.read(f"{PA}/LEEME.txt").decode("utf-8")
-    assert nombres == {f"{PA}/checklist.md", f"{PA}/constancia-envio.md", f"{PA}/LEEME.txt"}
-    assert "formulario.xlsx" in leeme  # explica qué se dejó fuera
-    assert zip_del_paquete(tmp_path / "sin-paquete") is None
+        for nombre in zip_.namelist():
+            assert nombre.endswith(".pdf"), nombre
+            lector = PdfReader(io.BytesIO(zip_.read(nombre)))
+            textos[nombre] = "\n".join(p.extract_text() for p in lector.pages)
+    return textos
 
 
 # ---------- 11. Paso 19 · Una carpeta por conversación ----------
