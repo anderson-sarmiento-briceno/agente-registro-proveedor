@@ -31,6 +31,35 @@ CON_HTML = {Path(md).name: Path(html).name for md, html, _ in DOCUMENTOS}
 _MD = re.compile(r'const md = ".*?";', re.DOTALL)
 _TITULO = re.compile(r"<title>.*?</title>", re.DOTALL)
 
+# Los diagramas Mermaid (```mermaid) que GitHub dibuja solo: aquí se dibujan con la
+# librería mermaid, cargada SOLO si la página tiene alguno. Se agrega una sola vez,
+# justo después de la línea que convierte el Markdown en HTML.
+_TRAS_MARKED = (
+    'contenido.innerHTML = window.marked ? marked.parse(md) : "<pre>" + '
+    'md.replace(/[&<]/g, c => c === "&" ? "&amp;" : "&lt;") + "</pre>";'
+)
+_MERMAID = """
+  contenido.querySelectorAll("pre code.language-mermaid").forEach((codigo) => {
+    const figura = document.createElement("div");
+    figura.className = "mermaid";
+    figura.textContent = codigo.textContent;
+    codigo.parentElement.replaceWith(figura);
+  });
+  if (contenido.querySelector(".mermaid")) {
+    import("https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs").then((m) => {
+      const oscuro = matchMedia("(prefers-color-scheme: dark)").matches;
+      m.default.initialize({ startOnLoad: false, theme: oscuro ? "dark" : "default" });
+      m.default.run({ querySelector: ".mermaid" });
+    });
+  }"""
+
+
+def con_mermaid(html: str) -> str:
+    """El HTML con el paso que dibuja los diagramas (si todavía no lo tiene)."""
+    if "language-mermaid" in html or _TRAS_MARKED not in html:
+        return html
+    return html.replace(_TRAS_MARKED, _TRAS_MARKED + _MERMAID, 1)
+
 
 def enlaces_a_html(texto: str) -> str:
     """ "(modulo/LEEME.md)" → "(modulo/LEEME.html)", solo en los enlaces de Markdown."""
@@ -56,7 +85,7 @@ def regenerar(md: str, html: str, titulo: str | None) -> None:
         raise SystemExit(f"{html}: no se encontró «const md = ...;»")
     if titulo is not None:
         resultado = _TITULO.sub(f"<title>{titulo}</title>", resultado, count=1)
-    destino.write_text(resultado, encoding="utf-8", newline="")
+    destino.write_text(con_mermaid(resultado), encoding="utf-8", newline="")
     print(f"escrito: {html}")
 
 
