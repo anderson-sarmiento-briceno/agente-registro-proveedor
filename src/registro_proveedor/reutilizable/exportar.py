@@ -108,16 +108,22 @@ El servidor MCP también está publicado en internet, junto a la demo. Solo hay 
 agregarlo como **conector personalizado** en Claude (la aplicación de escritorio o
 claude.ai):
 
-1. Abra **Configuración (Settings)** → **Conectores (Connectors)**.
-2. Pulse **Agregar conector personalizado (Add custom connector)**.
+1. Abra **Configuración** → **Plugins** (en otras versiones se llama **Conectores**).
+2. Pulse el botón negro **Agregar ⌄** (arriba a la derecha) → **Agregar conector
+   personalizado**.
 3. Escriba un nombre (por ejemplo, `Registro como Proveedor`) y esta URL:
 
    ```
    {URL_MCP_EN_LINEA}
    ```
 
-4. Pulse **Agregar (Add)**. En un chat nuevo, actívelo en el menú de herramientas o
-   conectores y pruebe las frases del punto 5 de más abajo.
+4. En **Autenticación**, deje **«Sin inicio de sesión»** (Claude lo marca solo como
+   «Detectado»). El aviso amarillo de que cualquiera con la URL puede usarlo es normal:
+   es una demostración abierta. No agregue encabezados ni cambie «Avanzada».
+5. Pulse **Agregar**. Debe aparecer en **Tus plugins**.
+6. En un chat nuevo, en el botón de herramientas (junto a donde se escribe), revise que
+   **Registro como Proveedor** esté activado, y pruebe las frases del punto 5 de más
+   abajo. Claude pide permiso antes de usar cada herramienta: acéptelo.
 
 Para tener en cuenta:
 - Los conectores personalizados dependen del plan de Claude de cada persona; si no
