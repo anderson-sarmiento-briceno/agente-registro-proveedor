@@ -46,6 +46,10 @@ MAESTRO = cargar_maestro(DATOS_REALES)
 REGLAS = cargar_reglas(RAIZ_PROYECTO / "config" / "reglas.yaml")
 CONTENIDO = MAESTRO.model_dump(mode="json")
 CUENTA = "03100012345"
+RAZON = "Empresa Ejemplo S.A.S."
+# El campo "por confirmar" de las pruebas de confirmación: la razón social con un error
+# de escritura (92 % parecida). Desde el piloto, un parecido así siempre pide confirmar.
+PENDIENTE = "Razon socail"
 OTRA_HORA = datetime(2026, 9, 2, 8, 30, tzinfo=UTC)
 CASOS = ["co-industrias-delta", "ec-corp-andina", "hn-agroexport-sula", "pa-logistica-istmo"]
 
@@ -165,21 +169,40 @@ def test_capa_2_normalizada() -> None:
     assert campo.valor == "Empresa Ejemplo S.A.S."
 
 
-def test_capa_3_muy_parecida_se_llena() -> None:
+def test_capa_3_muy_parecida_pide_confirmacion() -> None:
+    """Piloto (Paso 21): lo que solo "se parece" ya NO se llena solo (umbral_lleno = 1.0)."""
     campo = _campo("Razon socail")  # error de escritura: 92 % parecida
-    assert campo.estado is Estado.LLENO
+    assert campo.estado is Estado.REQUIERE_CONFIRMACION
     assert campo.metodo is Metodo.SIMILITUD
     assert campo.confianza >= 0.9
+    assert campo.valor == RAZON  # se propone; la analista decide
     assert "parecida a «Razón social» del glosario (92%)" in campo.nota
-
-
-def test_capa_3_algo_parecida_pide_confirmacion() -> None:
-    campo = _campo("Num. de cuenta")  # 90 % parecida a "Número de cuenta" → entre 0.8 y 0.9
-    assert campo.estado is Estado.REQUIERE_CONFIRMACION
-    assert 0.8 <= campo.confianza < 0.9
-    assert campo.ruta == "banco.numero_cuenta"
-    assert campo.valor == CUENTA  # aquí, en el dominio, el valor está completo
     assert "confirme que es el mismo dato" in campo.nota
+
+
+def test_un_dato_bancario_no_se_propone_por_parecido() -> None:
+    """Piloto: "Num. de cuenta" se parece a "Número de cuenta", pero no se propone."""
+    campo = _campo("Num. de cuenta")
+    assert campo.estado is Estado.FALTANTE
+    assert campo.metodo is Metodo.SIMILITUD
+    assert campo.ruta is None and campo.valor is None
+    assert "no se propone por parecido" in campo.nota
+
+
+@pytest.mark.parametrize(
+    "etiqueta",
+    [
+        # Lo que encontró el piloto: se propuso el dígito de verificación como NIT…
+        "NIT (sin dígito de verificación)",
+        # …y la cédula del representante se llenó con su NOMBRE.
+        "C.C. Representante Legal",
+    ],
+)
+def test_los_errores_del_piloto_ya_no_ocurren(etiqueta: str) -> None:
+    campo = _campo(etiqueta)
+    assert campo.estado is Estado.FALTANTE
+    assert campo.valor is None
+    assert "agregue la etiqueta al glosario" in campo.nota
 
 
 def test_capa_3_poco_parecida_queda_faltante() -> None:
@@ -309,8 +332,8 @@ def test_valor_en_maestro(ruta: str, esperado: str | None) -> None:
 
 
 def _con_pendiente() -> Mapeo:
-    """Un mapeo con un campo por confirmar ("Num. de cuenta") y otros dos ya resueltos."""
-    m = _mapear("Razón social", "Num. de cuenta", "Cuenta bancaria")
+    """Un mapeo con un campo por confirmar (`PENDIENTE`) y otros dos ya resueltos."""
+    m = _mapear("Teléfono", PENDIENTE, "Cuenta bancaria")
     assert [c.estado for c in m.campos] == [
         Estado.LLENO,
         Estado.REQUIERE_CONFIRMACION,
@@ -321,9 +344,9 @@ def _con_pendiente() -> Mapeo:
 
 def test_aceptar_llena_el_campo_y_no_toca_los_demas() -> None:
     m = _con_pendiente()
-    nuevo, campo = confirmar_campo(m, "Num. de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA)
+    nuevo, campo = confirmar_campo(m, PENDIENTE, Decision.ACEPTAR, "analista", OTRA_HORA)
     assert campo.estado is Estado.LLENO
-    assert campo.valor == CUENTA
+    assert campo.valor == RAZON
     assert campo.confirmacion is not None
     assert campo.confirmacion.por == "analista"
     assert campo.confirmacion.en == OTRA_HORA
@@ -334,36 +357,34 @@ def test_aceptar_llena_el_campo_y_no_toca_los_demas() -> None:
 
 def test_dejar_faltante_vacia_el_campo_y_guarda_lo_propuesto() -> None:
     _, campo = confirmar_campo(
-        _con_pendiente(), "Num. de cuenta", Decision.DEJAR_FALTANTE, "analista", OTRA_HORA
+        _con_pendiente(), PENDIENTE, Decision.DEJAR_FALTANTE, "analista", OTRA_HORA
     )
     assert campo.estado is Estado.FALTANTE
     assert campo.valor is None
     assert campo.confirmacion is not None
-    assert campo.confirmacion.valor_propuesto == CUENTA  # para poder cambiar de opinión
+    assert campo.confirmacion.valor_propuesto == RAZON  # para poder cambiar de opinión
 
 
 def test_cambiar_de_opinion() -> None:
     original = _con_pendiente()
-    m, _ = confirmar_campo(
-        original, "Num. de cuenta", Decision.DEJAR_FALTANTE, "analista", OTRA_HORA
-    )
-    _, campo = confirmar_campo(m, "Num. de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA)
+    m, _ = confirmar_campo(original, PENDIENTE, Decision.DEJAR_FALTANTE, "analista", OTRA_HORA)
+    _, campo = confirmar_campo(m, PENDIENTE, Decision.ACEPTAR, "analista", OTRA_HORA)
     assert campo.estado is Estado.LLENO
-    assert campo.valor == CUENTA  # se recuperó el valor propuesto
+    assert campo.valor == RAZON  # se recuperó el valor propuesto
     assert campo.confirmacion is not None and campo.confirmacion.decision is Decision.ACEPTAR
     assert campo.nota == original.campos[1].nota
 
 
 def test_la_etiqueta_se_encuentra_sin_mayusculas_ni_tildes() -> None:
     _, campo = confirmar_campo(
-        _con_pendiente(), "num de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA
+        _con_pendiente(), "RAZÓN SOCAIL", Decision.ACEPTAR, "analista", OTRA_HORA
     )
-    assert campo.etiqueta == "Num. de cuenta"
+    assert campo.etiqueta == PENDIENTE
 
 
 def test_no_se_confirma_un_campo_lleno() -> None:
-    with pytest.raises(ErrorDeMapeo, match=r"está «lleno».*Pendientes: «Num\. de cuenta»"):
-        confirmar_campo(_con_pendiente(), "Razón social", Decision.ACEPTAR, "analista", OTRA_HORA)
+    with pytest.raises(ErrorDeMapeo, match=r"está «lleno».*Pendientes: «Razon socail»"):
+        confirmar_campo(_con_pendiente(), "Teléfono", Decision.ACEPTAR, "analista", OTRA_HORA)
 
 
 def test_etiqueta_inexistente() -> None:
@@ -372,25 +393,16 @@ def test_etiqueta_inexistente() -> None:
 
 
 def test_volver_a_mapear_conserva_la_decision() -> None:
-    m, _ = confirmar_campo(
-        _con_pendiente(), "Num. de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA
-    )
-    otra_vez = _mapear("Razón social", "Num. de cuenta", "Cuenta bancaria", anterior=m)
+    m, _ = confirmar_campo(_con_pendiente(), PENDIENTE, Decision.ACEPTAR, "analista", OTRA_HORA)
+    otra_vez = _mapear("Teléfono", PENDIENTE, "Cuenta bancaria", anterior=m)
     assert otra_vez.campos[1].estado is Estado.LLENO
     assert otra_vez.campos[1].confirmacion == m.campos[1].confirmacion
 
 
 def test_si_el_maestro_cambio_hay_que_volver_a_confirmar() -> None:
-    m, _ = confirmar_campo(
-        _con_pendiente(), "Num. de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA
-    )
-    assert MAESTRO.banco is not None
-    otra_cuenta = MAESTRO.model_copy(
-        update={"banco": MAESTRO.banco.model_copy(update={"numero_cuenta": "99999999999"})}
-    )
-    otra_vez = _mapear(
-        "Razón social", "Num. de cuenta", "Cuenta bancaria", anterior=m, maestro=otra_cuenta
-    )
+    m, _ = confirmar_campo(_con_pendiente(), PENDIENTE, Decision.ACEPTAR, "analista", OTRA_HORA)
+    otra_razon = MAESTRO.model_copy(update={"razon_social": "Otra Empresa S.A.S."})
+    otra_vez = _mapear("Teléfono", PENDIENTE, "Cuenta bancaria", anterior=m, maestro=otra_razon)
     assert otra_vez.campos[1].estado is Estado.REQUIERE_CONFIRMACION
     assert otra_vez.campos[1].confirmacion is None
 
@@ -433,12 +445,10 @@ def test_un_campo_incoherente_no_se_puede_crear(cambios: dict[str, object], mens
 
 
 def test_guardar_y_leer(tmp_path: Path) -> None:
-    m, _ = confirmar_campo(
-        _con_pendiente(), "Num. de cuenta", Decision.ACEPTAR, "analista", OTRA_HORA
-    )
+    m, _ = confirmar_campo(_con_pendiente(), PENDIENTE, Decision.ACEPTAR, "analista", OTRA_HORA)
     ruta = guardar_mapeo(tmp_path, m)
     assert ruta.name == "mapeo.json"
-    assert CUENTA in ruta.read_text(encoding="utf-8")  # el archivo tiene el valor completo
+    assert RAZON in ruta.read_text(encoding="utf-8")  # el archivo tiene el valor completo
     assert cargar_mapeo(tmp_path) == m
     assert [p.name for p in tmp_path.iterdir()] == ["mapeo.json"]  # no queda el temporal
 

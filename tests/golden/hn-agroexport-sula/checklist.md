@@ -13,7 +13,7 @@ Antes de firmar, resuelva:
 
 **Para tener en cuenta (no bloquea):**
 
-- campo faltante en el maestro: «Referencias comerciales»
+- etiqueta no reconocida: «Referencias comerciales» (si el dato está en el maestro con otro nombre, agregue la etiqueta al glosario)
 
 ## Soportes exigidos por el cliente
 

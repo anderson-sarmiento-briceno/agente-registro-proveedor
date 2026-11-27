@@ -259,6 +259,24 @@ def mapear_campo(
             confianza=coincidencia.confianza if coincidencia else 0.0,
         )
 
+    # Paso 21 (piloto): un identificador o un dato bancario no se propone por parecido.
+    if coincidencia.metodo is Metodo.SIMILITUD and _sin_parecido(
+        campo.etiqueta, coincidencia, reglas
+    ):
+        nota = (
+            f"parecida a «{coincidencia.etiqueta_glosario}» del glosario "
+            f"({coincidencia.confianza:.0%}), pero un identificador o un dato bancario no se "
+            "propone por parecido: si es el mismo dato, agregue la etiqueta al glosario"
+        )
+        return _campo(
+            campo,
+            Estado.FALTANTE,
+            None,
+            nota,
+            metodo=Metodo.SIMILITUD,
+            confianza=coincidencia.confianza,
+        )
+
     # Hay coincidencia: se busca el valor en el maestro.
     valor = valor_en_maestro(contenido, coincidencia.ruta)
     if valor is None:
@@ -266,6 +284,41 @@ def mapear_campo(
         return _campo(campo, Estado.FALTANTE, None, nota, coincidencia=coincidencia)
     estado, nota = _estado_y_nota(coincidencia, reglas.umbral_lleno)
     return _campo(campo, estado, valor, nota, coincidencia=coincidencia)
+
+
+def _sin_parecido(etiqueta: str, coincidencia: Coincidencia, reglas: ReglasMapeo) -> bool:
+    """¿Es un caso en el que NO se debe proponer nada por parecido? (Paso 21, piloto)
+
+    Dos situaciones:
+    - el dato que se propondría es un identificador o un dato bancario («NIT (sin dígito
+      de verificación)» → el dígito de verificación);
+    - la etiqueta del cliente es de un identificador, y se le propondría OTRO dato
+      («C.C. Representante Legal» → el nombre del representante).
+    """
+    if coincidencia.ruta in reglas.datos_sin_parecido:
+        return True
+    return bool(set(_palabras_con_siglas(etiqueta)) & set(reglas.palabras_de_identificador))
+
+
+def _palabras_con_siglas(etiqueta: str) -> list[str]:
+    """Las palabras de la etiqueta, juntando las siglas con puntos: "C.C. Rep." → ["cc", "rep"].
+
+    `normalizar` convierte "C.C." en "c c" (los puntos pasan a espacios). Una sigla así
+    son letras sueltas seguidas: se juntan para poder compararla con "cc".
+    """
+    resultado: list[str] = []
+    sueltas = ""
+    for palabra in normalizar(etiqueta).split():
+        if len(palabra) == 1:
+            sueltas += palabra
+            continue
+        if sueltas:
+            resultado.append(sueltas)
+            sueltas = ""
+        resultado.append(palabra)
+    if sueltas:
+        resultado.append(sueltas)
+    return resultado
 
 
 def _campo(

@@ -232,8 +232,29 @@ def _motivos_y_avisos(
     for campo in mapeo.en_estado(Estado.REQUIERE_CONFIRMACION):
         motivos.append(f"campo por confirmar: «{campo.etiqueta}»")
     for campo in mapeo.en_estado(Estado.FALTANTE):
-        avisos.append(f"campo faltante en el maestro: «{campo.etiqueta}»")
+        # Piloto (Paso 21): una etiqueta NO RECONOCIDA en un campo OBLIGATORIO bloquea la
+        # firma. Sin esto, Constructora Andes quedaba "listo" con el NIT y la razón social
+        # vacíos. RN3 sigue igual para lo que de verdad falta en el maestro (con ruta).
+        if campo.ruta is None and campo.obligatorio is True and campo.confirmacion is None:
+            motivos.append(f"etiqueta no reconocida en un campo obligatorio: «{campo.etiqueta}»")
+        else:
+            avisos.append(_aviso_de_faltante(campo.etiqueta, campo.ruta))
     return motivos, avisos
+
+
+def _aviso_de_faltante(etiqueta: str, ruta: str | None) -> str:
+    """El aviso de un campo vacío, diciendo la VERDAD sobre por qué quedó vacío (Paso 21).
+
+    - Con ruta: la etiqueta se reconoció, pero el maestro no tiene ese dato.
+    - Sin ruta: la etiqueta no se reconoció. El dato puede estar en el maestro con otro
+      nombre (en el piloto, «Tel.» o «E-mail corporativo»): no hay que decir que "falta".
+    """
+    if ruta is not None:
+        return f"campo faltante en el maestro: «{etiqueta}»"
+    return (
+        f"etiqueta no reconocida: «{etiqueta}» (si el dato está en el maestro con otro "
+        "nombre, agregue la etiqueta al glosario)"
+    )
 
 
 def _copiar_soportes(

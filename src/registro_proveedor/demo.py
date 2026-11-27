@@ -279,12 +279,14 @@ def main(argumentos: list[str], config: Configuracion | None = None) -> Resultad
         f"out/{ARCHIVO_LLAMADAS}).",
     )
     args = parser.parse_args(argumentos)
+    config = config or Configuracion()
     try:
-        fecha = elegir_fecha(args.fecha, config or Configuracion())
+        fecha = elegir_fecha(args.fecha, config)
     except ValueError:
         parser.error(f"fecha no válida: «{args.fecha}» (use AAAA-MM-DD u «hoy»)")
     try:
-        resultado = ejecutar_demo(RAIZ_PROYECTO / "datos", args.salida, fecha, args.caso)
+        # Paso 21: `datos/`, o la carpeta del piloto si CARPETA_DATOS la indica.
+        resultado = ejecutar_demo(config.datos_efectivos(), args.salida, fecha, args.caso)
     except ErrorDeDemo as e:
         return ResultadoDemo(1, f"ERROR: {e}")
     if not args.llamadas:

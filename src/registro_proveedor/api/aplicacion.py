@@ -49,6 +49,8 @@ from registro_proveedor.api.esquemas import (
     ChatResponse,
     ConfirmationRequest,
     ErrorResponse,
+    FeedbackRequest,
+    FeedbackResponse,
     HealthResponse,
     PortalField,
     PortalValuesResponse,
@@ -70,6 +72,11 @@ from registro_proveedor.dominio.modelos import PATRON_ID_CASO, Formato
 from registro_proveedor.herramientas.base import Contexto
 from registro_proveedor.herramientas.proveedor import registro
 from registro_proveedor.observabilidad import RegistroLlamada, escribir_auditoria, obtener_logger
+from registro_proveedor.piloto.retroalimentacion import (
+    LARGO_MAXIMO_COMENTARIO,
+    Opinion,
+    escribir_opinion,
+)
 from registro_proveedor.reutilizable.servidor_mcp import McpEnLinea
 
 PROVEEDOR = "anthropic"
@@ -152,6 +159,10 @@ def crear_app(
         # Paso 19 · Los costos de todas las conversaciones, juntos en el `out/` raíz.
         carpeta_costos=None if crear_contexto is not None else CARPETA_SALIDA,
     )
+
+    # Paso 21 · Lo que es de TODAS las conversaciones (costos, opiniones) va al `out/`
+    # raíz; en las pruebas (con `crear_contexto`), al `out/` de la sesión.
+    carpeta_comun = None if crear_contexto is not None else CARPETA_SALIDA
 
     def sesion_nueva(sesion_id: str) -> Sesion:
         if crear_contexto is not None:
@@ -367,6 +378,37 @@ def crear_app(
                 "Cache-Control": "no-store",
             },
         )
+
+    @app.post("/api/feedback", response_model=FeedbackResponse, responses=ERRORES)
+    def opinar(solicitud: FeedbackRequest) -> FeedbackResponse:
+        """Paso 21 · 👍 / 👎 (y un comentario opcional) sobre una respuesta del chat.
+
+        Queda en `out/retroalimentacion.jsonl` con las herramientas y los casos de esa
+        respuesta, para el reporte del piloto. No consulta al modelo.
+        """
+        actual = _obtener(sesiones, solicitud.session_id)
+        if solicitud.turn >= len(actual.turnos):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No existe esa respuesta.")
+        respuesta = actual.turnos[solicitud.turn].response
+        casos: list[str] = []
+        for llamada in respuesta.tool_calls:
+            caso = llamada.arguments.get("caso")
+            if isinstance(caso, str) and caso not in casos:
+                casos.append(caso)
+        ctx = actual.sesion.contexto
+        escribir_opinion(
+            carpeta_comun or ctx.salida,
+            Opinion(
+                ts=ctx.reloj(),
+                sesion=ctx.sesion_id,
+                turno=solicitud.turn,
+                util=solicitud.useful,
+                comentario=(solicitud.comment or "").strip()[:LARGO_MAXIMO_COMENTARIO] or None,
+                herramientas=[ll.name for ll in respuesta.tool_calls],
+                casos=casos,
+            ),
+        )
+        return FeedbackResponse(ok=True)
 
     @app.get("/api/health", response_model=HealthResponse)
     def salud() -> HealthResponse:

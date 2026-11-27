@@ -10,10 +10,27 @@
 # Qué tan parecida debe ser la etiqueta del cliente a una del glosario.
 # 1.0 = idéntica · 0.0 = nada que ver.
 mapeo:
-  umbral_lleno: 0.9           # desde aquí, el campo se llena solo
+  # Piloto (Paso 21): con 0.9, «C.C. Representante Legal» se llenó SOLA con el nombre del
+  # representante (90 % parecida a «Representante legal»). Desde entonces, lo que solo
+  # "se parece" NUNCA se llena solo: con 1.0, solo una coincidencia perfecta lo haría.
+  umbral_lleno: 1.0           # desde aquí, el campo se llena solo
   umbral_confirmar: 0.8       # desde aquí (y por debajo del anterior), se propone y la analista confirma
                               # por debajo de este valor, el campo queda faltante
   confianza_normalizado: 0.95 # confianza de una etiqueta igual salvo mayúsculas, tildes o signos
+
+  # Piloto (Paso 21): la analista aprobó «NIT (sin dígito de verificación)» con el DÍGITO
+  # de verificación, que se le propuso por parecido (85 %). Estos datos nunca se proponen
+  # por parecido: solo con una etiqueta que esté en el glosario (exacta o sin tildes).
+  datos_sin_parecido:
+    - nit
+    - digito_verificacion
+    - representante_legal.identificacion
+    - banco.numero_cuenta
+    - banco.tipo_cuenta
+    - banco.swift
+  # Y si la etiqueta del cliente tiene una de estas palabras (es un identificador), tampoco
+  # se le propone OTRO dato por parecido («C.C.» → el nombre del representante).
+  palabras_de_identificador: [nit, ruc, rtn, dv, cc, cedula, identificacion, documento, pasaporte]
 
 # ---------- RN1 · Identificador tributario por país ----------
 # La empresa solo tiene identificador de su país (NIT de Colombia). Si el cliente es

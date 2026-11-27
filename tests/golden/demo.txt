@@ -12,7 +12,7 @@ ec-corp-andina · Corporación Andina de Servicios S.A. · Ecuador · pdf
     - soporte ausente: Certificado de cumplimiento tributario, no está en el repositorio
     - campo por confirmar: «RUC»
   avisos (no bloquean):
-    - campo faltante en el maestro: «Número de contribuyente especial»
+    - etiqueta no reconocida: «Número de contribuyente especial» (si el dato está en el maestro con otro nombre, agregue la etiqueta al glosario)
 
 hn-agroexport-sula · Agroexport Sula S. de R.L. · Honduras · xlsx
   campos: 9 llenos · 1 faltante · 1 por confirmar
@@ -21,7 +21,7 @@ hn-agroexport-sula · Agroexport Sula S. de R.L. · Honduras · xlsx
     - soporte vencido: Certificación de parafiscales, venció el 2026-08-31 (hace 1 día)
     - campo por confirmar: «RTN»
   avisos (no bloquean):
-    - campo faltante en el maestro: «Referencias comerciales»
+    - etiqueta no reconocida: «Referencias comerciales» (si el dato está en el maestro con otro nombre, agregue la etiqueta al glosario)
 
 pa-logistica-istmo · Logística del Istmo S.A. · Panamá · portal
   campos: 8 llenos · 0 faltantes · 1 por confirmar

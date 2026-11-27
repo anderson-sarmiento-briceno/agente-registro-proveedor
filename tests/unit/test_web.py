@@ -18,7 +18,12 @@ from pydantic import SecretStr
 
 from registro_proveedor.agente.llm.falso import AdaptadorFalso, responde
 from registro_proveedor.api.aplicacion import CARPETA_WEB, CSP, crear_app
-from registro_proveedor.api.esquemas import ChatResponse, PortalField, PortalValuesResponse
+from registro_proveedor.api.esquemas import (
+    ChatResponse,
+    FeedbackRequest,
+    PortalField,
+    PortalValuesResponse,
+)
 from registro_proveedor.config import Configuracion
 from registro_proveedor.herramientas.base import Contexto
 
@@ -144,6 +149,14 @@ def test_app_js_usa_el_contrato_de_los_valores_del_portal() -> None:
     de_campo = set(re.findall(r"\bcampo\.([a-z_]+)", APP_JS))
     assert de_campo <= set(PortalField.model_fields), de_campo
     assert "campo.masked" in APP_JS  # lo enmascarado no se puede copiar
+
+
+def test_app_js_manda_las_opiniones() -> None:
+    """Paso 21: 👍 / 👎 con el número de la respuesta, al contrato de /api/feedback."""
+    assert '"/api/feedback"' in APP_JS
+    for campo in ("session_id:", "turn:", "useful:", "comment:"):
+        assert campo in APP_JS
+    assert set(FeedbackRequest.model_fields) == {"session_id", "turn", "useful", "comment"}
 
 
 def test_app_js_descarga_el_paquete_y_no_copia_respuestas() -> None:

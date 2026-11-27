@@ -1,0 +1,14 @@
+{
+  "id": "co-constructora-andes",
+  "de": "proveedores@constructoraandes-ficticia.co",
+  "para": "recepcion@empresa-ejemplo.com",
+  "asunto": "Inscripción de proveedores 2027 - Constructora Andes",
+  "fecha": "2026-11-20",
+  "pais": "CO",
+  "cliente": "Constructora Andes S.A.S.",
+  "formato": "pdf",
+  "cuerpo": "Cordial saludo,\n\nPara la vigencia 2027 actualizamos nuestro registro de proveedores. Por favor diligencien el formulario adjunto y envíenlo con Cámara de Comercio, RUT, certificado ISO 9001 vigente y certificación bancaria.\n\nGracias,\nDepartamento de Abastecimiento",
+  "adjuntos": [
+    "Formulario_Inscripcion_Proveedores_2027.pdf"
+  ]
+}

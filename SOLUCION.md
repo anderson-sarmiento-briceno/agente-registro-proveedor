@@ -35,7 +35,7 @@
 | 18 | Seguridad y control de costos | F3 | ✅ |
 | 19 | Contenedor y despliegue | F3 | ✅ |
 | 20 | Módulo reutilizable | F3 | ✅ |
-| 21 | Piloto con la usuaria | F3 | ⬜ |
+| 21 | Piloto con la usuaria | F3 | ✅ |
 
 ---
 
@@ -107,7 +107,7 @@
 - **`config/reglas.yaml`**: los umbrales del mapeo, el identificador de cada país, la lista de datos bancarios y los días de aviso "por vencer". Tiene comentarios para quien lo edite, y si un valor no tiene sentido (por ejemplo, un umbral mayor que 1) da un error claro.
 - **RN1 aplicada:** si el cliente no es colombiano, el campo que se llena con el NIT queda **por confirmar**, con la nota "identificador extranjero". Ahora EC, HN y PA tienen 1 campo por confirmar cada uno.
 - **Vigencias listas** (RN3 y RN6): cada soporte queda presente, por vencer, vencido o ausente. Los vencidos y los ausentes bloquean la firma. El checklist del Paso 8 las usará.
-- **Comprobado de punta a punta:** con `umbral_lleno: 0.95`, el mismo campo pasa de lleno a por confirmar sin tocar el código.
+- **Comprobado de punta a punta:** con `umbral_lleno: 0.95`, el mismo campo pasa de lleno a por confirmar sin tocar el código. (Desde el piloto, el valor real es 1.0, D76.)
 - **Pruebas:** 261 en total.
 
 ### Paso 7 · Generación de formularios
@@ -276,8 +276,12 @@
 ### Paso 21 · Piloto con la usuaria
 **Objetivo:** procesar solicitudes reales con la analista, medir el tiempo y los errores frente al proceso manual y recoger mejoras.
 **Hecho cuando:** hay métricas del piloto y una lista priorizada de ajustes.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Piloto simulado** (opción B de Anderson): los 4 casos de referencia y **3 casos ficticios nuevos, más desordenados**, en `piloto/casos/` (no tocan `datos/`; `CARPETA_DATOS`, D75). Hay métricas O1 a O5 (`scripts/metricas_piloto.py`), con la respuesta correcta en `piloto/esperado/`, y 👍 / 👎 en el chat (`POST /api/feedback`).
+- **El piloto:** Anderson trabajó **Constructora Andes**, de punta a punta, en 2.9 minutos y por USD 0.0055. **Aprobó el NIT con el dígito de verificación**, que se proponía por parecido (85 %). Con eso el paquete quedó «listo» y se registró el envío. Además, la cédula del representante se había llenado sola con su nombre (90 %). No se inventó nada (O2) y nada se hizo sin aprobación (O3), pero **2 datos reales quedaron en el campo equivocado** (`piloto/reporte-piloto.md`). Se cerró con este caso, a pedido de Anderson.
+- **Ajustes hechos** (D76, D77): el parecido ya no llena solo (`umbral_lleno: 1.0`). Un identificador o dato bancario no se propone por parecido. La tarjeta de **Aprobar** dice qué se va a escribir y de qué dato sale. Se dice «etiqueta no reconocida» en vez de «falta en el maestro». Y una etiqueta no reconocida en un campo **obligatorio** bloquea la firma.
+- **Tras los ajustes** (los 7 casos, sin modelo, `piloto/reporte-tras-ajustes.md`): **0 datos en el campo equivocado** (antes 2). O1 sigue en 57 %: las etiquetas no reconocidas se resuelven en el glosario, que decide el dueño del dato (B11). **Pruebas:** 650 en total.
 
 ---
 
@@ -439,7 +443,7 @@ Para cada campo, primero se busca la etiqueta en el glosario y después el valor
 |---|---|---|---|
 | 1. Exacta | "Razón social" | 1.0 | lleno |
 | 2. Sin mayúsculas, tildes ni signos | "RAZON SOCIAL:" | 0.95 | lleno |
-| 3. Parecida | "Razon socail" (92 %) | el puntaje | lleno si es ≥ 0.9 · por confirmar si está entre 0.8 y 0.9 · faltante si es menor |
+| 3. Parecida | "Razon socail" (92 %) | el puntaje | por confirmar si es ≥ 0.8 · faltante si es menor. Desde el piloto (Paso 21) nunca llena sola (`umbral_lleno: 1.0`), y un identificador o dato bancario no se propone por parecido (`datos_sin_parecido`, `palabras_de_identificador` en `reglas.yaml`) |
 
 - **Si el maestro no tiene el dato**, el campo queda **faltante**. Nunca se rellena con otra cosa.
 - **Si una etiqueta se parece igual a dos datos distintos**, queda **por confirmar**.
@@ -454,7 +458,7 @@ Las reglas que el negocio puede querer cambiar viven en `config/reglas.yaml`. Po
 |---|---|---|
 | RN1 · Identificador por país | Cliente extranjero → el campo con el NIT queda **por confirmar** ("identificador extranjero"). | `reglas.yaml` + mapeo |
 | RN2 · Datos bancarios | Se llenan solo si la plantilla los pide y **nunca** van en el borrador del correo. | `reglas.yaml` (lo usa el Paso 8) |
-| RN3 · Qué bloquea la firma | Un soporte vencido o ausente bloquea; un campo faltante, no. | `dominio/reglas.py` |
+| RN3 · Qué bloquea la firma | Un soporte vencido o ausente bloquea; un campo faltante, no. Desde el piloto, una etiqueta no reconocida en un campo obligatorio sí bloquea (D77). | `dominio/reglas.py`, `dominio/paquete.py` |
 | RN4 · Nada sale sin aprobación | La confirmación la controla el servidor. | Paso 13 |
 | RN5 · Registro de cada llamada | `out/log.jsonl` y `out/<caso>/log.jsonl`. | `observabilidad.py` (Paso 3) |
 | RN6 · Por vencer | Vence en 15 días o menos → se avisa, no bloquea. | `reglas.yaml` |
@@ -883,7 +887,38 @@ uv run python scripts/exportar_modulo.py                                     # t
 ## B11 · Resultados del piloto
 **Se alimenta de:** Paso 21.
 **Objetivo:** registrar las métricas del piloto frente al proceso manual (tiempo por solicitud, porcentaje de campos llenados automáticamente, errores, costo), la retroalimentación de la usuaria y los ajustes priorizados.
-_por completar_
+
+**Cómo se hizo:** piloto simulado por Anderson (opción B), con casos ficticios. Se preparó para los 7 casos (`piloto/GUIA.md`) y se cerró con **1 caso trabajado de punta a punta**, Constructora Andes, el más desordenado, porque ahí salió el hallazgo principal. Las métricas salen del propio sistema; para los casos nuevos se compara con una respuesta correcta escrita a mano (`piloto/esperado/`).
+
+**Resultados del piloto** (`piloto/reporte-piloto.md`):
+
+| Objetivo del plan | Meta | En el piloto | Tras los ajustes (7 casos, sin modelo) |
+|---|---|---|---|
+| O1 · Llenar sin transcribir | 100 % | ⚠️ 29 % (4 de 14) | ⚠️ 57 % (21 de 37) |
+| O2 · Ningún valor inventado | 0 | ✅ 0 | ✅ 0 |
+| O2 · Ningún valor en el campo equivocado | 0 | ⛔ **2** (NIT y cédula) | ✅ **0** |
+| O3 · Ninguna acción sin aprobación | 0 | ✅ 0 de 2 | ✅ 0 |
+| O4 · Trabajo por solicitud | < 15 min | 2.9 min con el agente (falta la estimación a mano) | — |
+| O5 · Soportes vencidos o por vencer señalados | 100 % | ✅ (no había) | ✅ 2 de 2 |
+| Costo por caso | — | USD 0.0055 | — |
+
+**Herramientas que pidió el modelo en el caso del piloto, en orden:** leer → mapear → generar → armar (NO listo) · descarga del zip · ⏳ `confirmar_campo` → **Aprobar** → armar (listo) · ⏳ `registrar_envio` → **Aprobar** → constancia · descarga del zip.
+
+**Lo que enseñó el piloto:** las garantías funcionaron como estaban diseñadas: nada se inventó y nada ocurrió sin aprobación. Aun así, **un dato real puesto en el campo equivocado llegó hasta el envío**. El riesgo no era inventar, sino **confundir campos parecidos**, y que la persona apruebe sin notarlo, porque la nota no se veía al decidir.
+
+**Ajustes priorizados:**
+
+| # | Ajuste | Por qué | Estado |
+|---|---|---|---|
+| 1 | Un identificador o dato bancario **nunca se propone por parecido**, y a una etiqueta de identificador («C.C.», «NIT», «DV») no se le propone otro dato | Fue el error que llegó al envío | ✅ Hecho (`reglas.yaml`: `datos_sin_parecido`, `palabras_de_identificador`) |
+| 2 | El parecido **nunca llena solo**: siempre pide confirmar | La cédula se llenó con el nombre, al 90 % | ✅ Hecho (`umbral_lleno: 1.0`) |
+| 3 | La tarjeta de **Aprobar** dice qué se escribirá y de qué dato sale | La analista aprobó sin ver que era el dígito de verificación | ✅ Hecho |
+| 4 | Una etiqueta no reconocida en un campo **obligatorio** bloquea la firma | Sin esto, el caso quedaba «listo» con el NIT vacío | ✅ Hecho (D77) |
+| 5 | Decir «etiqueta no reconocida» en vez de «falta en el maestro» | El dato sí estaba en el maestro | ✅ Hecho |
+| 6 | **Agregar al glosario** las etiquetas no reconocidas («Tel.», «E-mail corporativo», «Cta. bancaria N°»… 11 en total, listadas en el reporte) | Sube O1 de 57 % hacia 100 % | ⏳ Pendiente: lo decide el dueño del dato (glosario que aprende, C3) |
+| 7 | Una propuesta por parecido entre dos datos del mismo grupo sigue siendo posible («Nombre del contacto comercial» → el teléfono del contacto), aunque ahora pide confirmar y la tarjeta muestra el dato | Es la única propuesta equivocada que queda | ⏳ Pendiente: comparar también el **tipo** de dato (nombre, teléfono, correo) |
+| 8 | Completar el piloto: los otros 6 casos, la planilla con el tiempo a mano (O4) y las opiniones 👍 / 👎 | Con 1 caso no se puede medir el ahorro de tiempo | ⏳ Pendiente (la herramienta queda lista) |
+| 9 | Hacer el piloto con una analista y plantillas reales, en su computador | Es lo que pide el plan; los casos ficticios no reemplazan a los reales | ⏳ Pendiente |
 
 ## B12 · Cobertura de historias de usuario
 **Se alimenta de:** Pasos 3 a 13.
@@ -968,6 +1003,9 @@ _por completar_
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 | D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
+| D76 | El parecido **nunca llena solo** (`umbral_lleno: 1.0`), y un identificador o dato bancario **no se propone por parecido** (listas en `reglas.yaml`). | Subir un poco el umbral (por ejemplo, a 0.95). | El piloto mostró un error a 90 % y otro a 85 %: no hay un umbral "seguro" para confundir campos parecidos. Lo que solo se parece debe decidirlo una persona, y en un identificador ni siquiera conviene proponerlo. Se cambió en la configuración, sin tocar el código de las capas. | 21 |
+| D77 | Una etiqueta **no reconocida** en un campo **obligatorio** bloquea `listo_para_firma` (excepción a RN3; plan actualizado). | Dejar RN3 como estaba (un faltante nunca bloquea). | Con D76, Constructora Andes quedaba «listo» con el NIT y la razón social vacíos. RN3 sigue igual cuando el dato de verdad falta en el maestro. | 21 |
+| D75 | Los casos del piloto van **aparte** (`piloto/casos/`) y se combinan con `datos/` en una carpeta armada (`CARPETA_DATOS`). | Agregarlos a `datos/`. | Los 4 casos de referencia sostienen las pruebas golden, las evaluaciones y la demo pública (19 lugares cuentan con que son 4). Así el piloto prueba plantillas más desordenadas sin romper nada. | 21 |
 | D74 | El MCP también se publica **en línea** (`/mcp` en Render), además de por stdio. | Solo instalarlo en el computador de cada persona (uv, rutas, JSON). | Alguien sin conocimientos técnicos no puede instalarlo; como conector solo pega una URL (Anderson). No gasta la clave, porque las herramientas no llaman al modelo. Es público, como la demo, con datos ficticios y un tope por IP. | 20 |
 | D72 | El servidor MCP usa la API de bajo nivel del SDK (`Server` con `on_list_tools` / `on_call_tool`) sobre el **mismo registro** del chat. | El atajo con decoradores (una función por herramienta). | Con decoradores habría que volver a escribir cada herramienta y sus argumentos: dos copias que se desincronizan. Así, una herramienta nueva aparece sola. | 20 |
 | D73 | Por MCP **no** se publican las herramientas que requieren aprobación (opción A, Anderson). | Publicarlas y confiar en que el cliente pregunte a la persona. | El principio 3 exige que la aprobación la controle nuestro servidor. Por MCP no hay botón Aprobar: lo decidiría el cliente. | 20 |
@@ -1001,6 +1039,7 @@ _Se agregan más supuestos en cada paso._
 |---|---|---|
 | El modelo responde sin la información completa | En E5 («¿qué le falta a Honduras?»), con `medium` el modelo no armó el paquete, así que no supo que los parafiscales están vencidos (la evaluación solo revisa que nombre el soporte). | **Hecho:** prompt v7 (ante «¿qué le falta?» arma el paquete) y E5 lo exige. Con v7 pasa. |
 | El modelo pide una herramienta antes de tiempo | En E4 pidió armar el paquete antes de leer el caso. La herramienta respondió con error y el modelo se corrigió solo. | Las herramientas validan el orden (principio 6). Basta con vigilarlo en los reportes. |
+| Confundir campos parecidos | En el piloto, un dato real del maestro quedó en el campo equivocado y llegó hasta el envío: la analista aprobó sin notarlo. | Hecho: el parecido nunca llena solo, un identificador no se propone por parecido y la tarjeta de Aprobar muestra el dato (D76). Pendiente: comparar el tipo de dato (B11, ajuste 7). |
 | El modelo no siempre avisa de una instrucción sospechosa | En la corrida completa con v7, E6 falló una vez: no obedeció, pero no se lo dijo a la analista. Al repetirlo, pasó. | La protección no depende del modelo: la alerta ⚠️ la muestra el código, y las acciones necesitan Aprobar. Si se repite, reforzar esa regla del prompt. |
 | Pocas evaluaciones | 7 escenarios con una sola corrida cada uno: un modelo puede acertar (o fallar) por suerte, como pasó con E6. | Correr cada escenario varias veces antes de cambiar de modelo o esfuerzo, y sumar las conversaciones reales del piloto (Paso 21). |
 | El chat abierto se usa para otra cosa | E8 y E9 pasan con v8, pero un modelo puede fallar alguna vez. | Los topes del código acotan el gasto (USD 2 por día) y nada se ejecuta sin Aprobar. Revisar `out/costos.jsonl` (turnos "sin caso"). |

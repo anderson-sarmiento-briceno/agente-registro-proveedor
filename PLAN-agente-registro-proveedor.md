@@ -189,7 +189,7 @@ Llenar los campos y revisar los soportes es trabajo **determinista**: es mejor r
 |---|---|
 | RN1 | El identificador tributario se traduce por país: CO → NIT; EC, PE y PA → RUC; HN → RTN. La empresa solo tiene NIT colombiano. Para otros países se llena con el NIT y se marca `requiere_confirmacion` con la nota "identificador extranjero". |
 | RN2 | Los datos bancarios se llenan solo si la plantilla los pide explícitamente. **Nunca** van en el borrador de correo. |
-| RN3 | Un soporte vencido o ausente bloquea `listo_para_firma`. Un campo `faltante` no lo bloquea, pero aparece en el checklist. |
+| RN3 | Un soporte vencido o ausente bloquea `listo_para_firma`. Un campo `faltante` no lo bloquea, pero aparece en el checklist. **Excepción (piloto, Paso 21):** una etiqueta **no reconocida** en un campo **obligatorio** sí bloquea, porque el dato puede estar en el maestro con otro nombre y hay que resolverlo. |
 | RN4 | Ninguna acción externa (envío, firma o carga a un portal) ocurre sin una confirmación explícita del usuario en el turno inmediatamente anterior. |
 | RN5 | Toda ejecución deja un registro en `out/<caso>/log.jsonl` con `{ts, herramienta, ok, resumen}`. |
 | RN6 *(nueva)* | Un soporte que vence en 15 días o menos se marca "por vencer". No bloquea, pero se avisa. El umbral es configurable. |
@@ -361,7 +361,7 @@ def leer_solicitud(args: LeerSolicitudArgs, ctx: Contexto) -> Resultado[Solicitu
 |---|---|---|---|
 | 1 | Coincidencia exacta en el glosario | 1.0 | `lleno` |
 | 2 | Coincidencia en el glosario tras normalizar (minúsculas, sin tildes ni signos) | 0.95 | `lleno` |
-| 3 | Similitud con rapidfuzz contra las etiquetas del glosario | puntaje / 100 | `lleno` si ≥ 0.9; `requiere_confirmacion` si está entre 0.8 y 0.9 |
+| 3 | Similitud con rapidfuzz contra las etiquetas del glosario | puntaje / 100 | `requiere_confirmacion` si es ≥ 0.8 (desde el piloto, el parecido **nunca** llena solo: `umbral_lleno` = 1.0). Un identificador o un dato bancario **no se propone** por parecido, ni se le propone otro dato a una etiqueta de identificador: queda `faltante` |
 | 4 | Sugerencia del LLM para etiquetas nuevas | — | Siempre `requiere_confirmacion` |
 | — | Sin fuente en el maestro | — | `faltante` |
 

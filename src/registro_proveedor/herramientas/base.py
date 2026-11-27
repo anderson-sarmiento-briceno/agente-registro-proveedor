@@ -206,7 +206,7 @@ class Contexto:
         un caso que se trabaja "el 20 de septiembre", y eso confunde a quien lo revisa.
         """
         return cls(
-            datos=RAIZ_PROYECTO / "datos",
+            datos=config.datos_efectivos(),  # Paso 21: `datos/`, o la del piloto
             salida=RAIZ_PROYECTO / "out",
             fecha_ejecucion=config.fecha_efectiva(),
             sesion_id=sesion_id,

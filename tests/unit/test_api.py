@@ -189,8 +189,10 @@ def test_confirmacion_pendiente_y_aprobada(contexto: Contexto) -> None:
         {
             "id": confirmacion,
             "tool": "proveedor_confirmar_campo",
+            # Piloto (Paso 21): la tarjeta dice QUÉ se escribirá y de qué dato sale.
             "description": (
                 f"proveedor_confirmar_campo: caso {EC} · etiqueta RUC · decision aceptar"
+                " · se escribirá «900123456» (dato del maestro: nit, etiqueta «RUC» del glosario)"
             ),
         }
     ]
@@ -389,7 +391,7 @@ def test_ninguna_respuesta_expone_la_clave_ni_la_cuenta(contexto: Contexto) -> N
 # ---------- 7. OpenAPI ----------
 
 
-def test_openapi_documenta_las_6_rutas(contexto: Contexto) -> None:
+def test_openapi_documenta_las_7_rutas(contexto: Contexto) -> None:
     esquema = _cliente(contexto).get("/openapi.json").json()
     rutas = esquema["paths"]
     assert set(rutas) == {
@@ -398,6 +400,7 @@ def test_openapi_documenta_las_6_rutas(contexto: Contexto) -> None:
         "/api/sessions/{session_id}",
         "/api/cases/{case_id}/portal-values",  # Paso 18 (D57)
         "/api/cases/{case_id}/package.zip",  # Paso 19
+        "/api/feedback",  # Paso 21
         "/api/health",
     }
     assert "ChatResponse" in esquema["components"]["schemas"]

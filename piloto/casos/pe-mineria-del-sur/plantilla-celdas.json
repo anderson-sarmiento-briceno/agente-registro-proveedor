@@ -1,0 +1,15 @@
+[
+  { "hoja": "Ficha", "celda_etiqueta": "A2", "etiqueta": "Razón social", "celda_valor": "B2" },
+  { "hoja": "Ficha", "celda_etiqueta": "A3", "etiqueta": "RUC", "celda_valor": "B3" },
+  { "hoja": "Ficha", "celda_etiqueta": "A4", "etiqueta": "País", "celda_valor": "B4" },
+  { "hoja": "Ficha", "celda_etiqueta": "A5", "etiqueta": "Domicilio fiscal", "celda_valor": "B5" },
+  { "hoja": "Ficha", "celda_etiqueta": "A6", "etiqueta": "Teléfono", "celda_valor": "B6" },
+  { "hoja": "Ficha", "celda_etiqueta": "A7", "etiqueta": "Correo electronico", "celda_valor": "B7" },
+  { "hoja": "Ficha", "celda_etiqueta": "A8", "etiqueta": "Representante legal", "celda_valor": "B8" },
+  { "hoja": "Ficha", "celda_etiqueta": "A9", "etiqueta": "Cargo del representante legal", "celda_valor": "B9" },
+  { "hoja": "Ficha", "celda_etiqueta": "A10", "etiqueta": "Fecha de constitución", "celda_valor": "B10" },
+  { "hoja": "Banco", "celda_etiqueta": "A2", "etiqueta": "Banco", "celda_valor": "B2" },
+  { "hoja": "Banco", "celda_etiqueta": "A3", "etiqueta": "Número de cuenta", "celda_valor": "B3" },
+  { "hoja": "Banco", "celda_etiqueta": "A4", "etiqueta": "SWIFT", "celda_valor": "B4" },
+  { "hoja": "Banco", "celda_etiqueta": "A5", "etiqueta": "Moneda de la cuenta", "celda_valor": "B5" }
+]

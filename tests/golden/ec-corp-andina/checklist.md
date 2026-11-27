@@ -13,7 +13,7 @@ Antes de firmar, resuelva:
 
 **Para tener en cuenta (no bloquea):**
 
-- campo faltante en el maestro: «Número de contribuyente especial»
+- etiqueta no reconocida: «Número de contribuyente especial» (si el dato está en el maestro con otro nombre, agregue la etiqueta al glosario)
 
 ## Soportes exigidos por el cliente
 

@@ -1,0 +1,17 @@
+[
+  { "etiqueta": "Nombre / Razón Social", "obligatorio": true },
+  { "etiqueta": "NIT (sin dígito de verificación)", "obligatorio": true },
+  { "etiqueta": "DV", "obligatorio": true },
+  { "etiqueta": "Dirección principal", "obligatorio": true },
+  { "etiqueta": "Ciudad", "obligatorio": true },
+  { "etiqueta": "Tel.", "obligatorio": true },
+  { "etiqueta": "E-mail corporativo", "obligatorio": true },
+  { "etiqueta": "Representante Legal (nombre completo)", "obligatorio": true },
+  { "etiqueta": "C.C. Representante Legal", "obligatorio": true },
+  { "etiqueta": "Página web", "obligatorio": false },
+  { "etiqueta": "Número de trabajadores", "obligatorio": false },
+  { "etiqueta": "Banco", "obligatorio": true },
+  { "etiqueta": "Tipo de cuenta", "obligatorio": true },
+  { "etiqueta": "Cta. bancaria N°", "obligatorio": true },
+  { "etiqueta": "Póliza de responsabilidad civil", "obligatorio": false }
+]

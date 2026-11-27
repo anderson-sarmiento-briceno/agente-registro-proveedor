@@ -1,0 +1,14 @@
+{
+  "id": "pe-mineria-del-sur",
+  "de": "logistica@mineriadelsur-ficticia.pe",
+  "para": "recepcion@empresa-ejemplo.com",
+  "asunto": "Ficha de registro de proveedor extranjero",
+  "fecha": "2026-11-25",
+  "pais": "PE",
+  "cliente": "Minería del Sur S.A.C.",
+  "formato": "xlsx",
+  "cuerpo": "Buenas tardes,\n\nAdjuntamos la ficha de registro para proveedores extranjeros. Agradeceremos devolverla completa, junto con el certificado de existencia, el registro tributario y los estados financieros del último año.\n\nAtentamente,\nÁrea de Logística",
+  "adjuntos": [
+    "Ficha_Proveedor_Extranjero.xlsx"
+  ]
+}

@@ -888,6 +888,30 @@ def test_sesion_nueva_tiene_su_propio_id() -> None:
 # ---------- 8. Paso 18 · Tope de mensajes y costo por turno ----------
 
 
+def test_la_tarjeta_de_aprobar_dice_que_se_va_a_escribir(contexto: Contexto) -> None:
+    """Piloto (Paso 21): al aprobar se ve el valor y el dato del maestro del que sale."""
+    falso = AdaptadorFalso(
+        [
+            pide("proveedor_mapear_campos", {"caso": EC}),
+            pide(
+                "proveedor_confirmar_campo", {"caso": EC, "etiqueta": "RUC", "decision": "aceptar"}
+            ),
+            responde("Apruébelo con el botón."),
+            pide(
+                "proveedor_confirmar_campo",
+                {"caso": EC, "etiqueta": "RUC", "decision": "dejar_faltante"},
+            ),
+            responde("Apruébelo con el botón."),
+        ]
+    )
+    sesion = Sesion(contexto)
+    agente = _agente(falso)
+    (aceptar,) = agente.responder(sesion, "Acepto el NIT como RUC").pendientes
+    assert "se escribirá «900123456» (dato del maestro: nit" in aceptar.descripcion
+    (vacio,) = agente.responder(sesion, "Mejor déjalo vacío").pendientes
+    assert vacio.descripcion.endswith("· el campo quedará vacío")
+
+
 def test_tope_de_mensajes_por_conversacion(contexto: Contexto) -> None:
     """Al llegar al máximo, responde el CÓDIGO: el modelo ni se consulta."""
     falso = AdaptadorFalso([responde("Uno."), responde("Dos.")])

@@ -82,12 +82,17 @@ from registro_proveedor.agente.llm.adaptador import (
 )
 from registro_proveedor.agente.llm.costos import costo_usd, precio_conocido
 from registro_proveedor.config import Configuracion
+from registro_proveedor.dominio.lectura import ErrorDeDatos
+from registro_proveedor.dominio.mapeo import Decision, cargar_mapeo
 from registro_proveedor.dominio.modelos import PATRON_ID_CASO
+from registro_proveedor.dominio.texto import normalizar
 from registro_proveedor.herramientas.base import Aprobacion, Contexto, Registro, Resultado
 from registro_proveedor.observabilidad import (
     RegistroCosto,
     RegistroLlamada,
+    enmascarar,
     enmascarar_datos,
+    es_ruta_sensible,
     escribir_auditoria,
     escribir_costo,
     obtener_logger,
@@ -506,7 +511,8 @@ class Agente:
                 id=uuid.uuid4().hex[:8],
                 herramienta=llamada.nombre,
                 argumentos=argumentos,
-                descripcion=_describir(llamada.nombre, argumentos),
+                descripcion=_describir(llamada.nombre, argumentos)
+                + _lo_que_se_va_a_escribir(ctx, argumentos),
                 creada_en=ctx.reloj(),
             )
             sesion.pendientes[pendiente.id] = pendiente
@@ -670,6 +676,37 @@ def _describir(herramienta: str, argumentos: dict[str, object]) -> str:
     """ "proveedor_confirmar_campo: caso ec-corp-andina · etiqueta RUC · decision aceptar"."""
     partes = " · ".join(f"{k} {v}" for k, v in _enmascarados(argumentos).items())
     return f"{herramienta}: {partes}" if partes else herramienta
+
+
+def _lo_que_se_va_a_escribir(ctx: Contexto, argumentos: dict[str, object]) -> str:
+    """Para confirmar un campo: QUÉ valor se escribirá y de qué dato del maestro sale.
+
+    Lo pidió el piloto (Paso 21): la analista aprobó «NIT (sin dígito de verificación)»
+    sin notar que se proponía el DÍGITO de verificación. La nota lo decía, pero no se
+    veía al decidir. Ahora la tarjeta de Aprobar lo dice:
+        "· se escribirá «900123456» (dato del maestro: nit, etiqueta «RUC» del glosario)"
+    Lo sensible va enmascarado. Si no se encuentra el campo, no se agrega nada.
+    """
+    caso, etiqueta = argumentos.get("caso"), argumentos.get("etiqueta")
+    if not isinstance(caso, str) or not isinstance(etiqueta, str):
+        return ""
+    if argumentos.get("decision") == Decision.DEJAR_FALTANTE:
+        return " · el campo quedará vacío"
+    try:
+        mapeo = cargar_mapeo(ctx.salida / caso)
+    except ErrorDeDatos:
+        return ""
+    buscada = normalizar(etiqueta)
+    campo = next(
+        (c for c in (mapeo.campos if mapeo else []) if normalizar(c.etiqueta) == buscada), None
+    )
+    if campo is None or campo.ruta is None or campo.valor is None:
+        return ""
+    valor = enmascarar(campo.valor) if es_ruta_sensible(campo.ruta) else campo.valor
+    glosario = (
+        f", etiqueta «{campo.etiqueta_glosario}» del glosario" if campo.etiqueta_glosario else ""
+    )
+    return f" · se escribirá «{valor}» (dato del maestro: {campo.ruta}{glosario})"
 
 
 def _id_de(resultado: Resultado[object]) -> str:

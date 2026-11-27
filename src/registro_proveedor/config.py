@@ -103,6 +103,11 @@ class Configuracion(BaseSettings):
     # local se deja apagado: todo queda en `out/<caso>/`, como siempre.
     salida_por_conversacion: bool = False
 
+    # Paso 21 · De dónde se leen los casos, el maestro y los soportes. Vacía = `datos/`
+    # (los 4 casos de referencia). Para el piloto apunta a `piloto/datos-del-piloto`, que
+    # arma `scripts/preparar_piloto.py`. Una ruta relativa se toma desde la raíz.
+    carpeta_datos: Path | None = None
+
     # RN7: fecha de ejecución inyectable. Las vigencias de los soportes se comparan
     # con esta fecha. Si se fija (por ejemplo, en pruebas), el resultado no depende
     # del día en que se ejecuta. Si está vacía, se usa la fecha de hoy.
@@ -116,6 +121,12 @@ class Configuracion(BaseSettings):
         return (
             self.anthropic_api_key is not None and self.anthropic_api_key.get_secret_value() != ""
         )
+
+    def datos_efectivos(self) -> Path:
+        """La carpeta de datos: la de `CARPETA_DATOS` o, si está vacía, `datos/`."""
+        if self.carpeta_datos is None:
+            return RAIZ_PROYECTO / "datos"
+        return (RAIZ_PROYECTO / self.carpeta_datos).resolve()
 
     def fecha_efectiva(self) -> date:
         """Devuelve la fecha inyectada o, si no hay, la de hoy."""

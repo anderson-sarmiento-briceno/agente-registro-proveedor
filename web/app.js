@@ -68,6 +68,11 @@ const MOTIVOS = {
 const ARCHIVO_PORTAL = "valores-portal.md";
 const casosDePortal = new Set();
 
+// Paso 21 · Cuántas respuestas van en esta conversación: es el número (`turn`) que se
+// manda con cada 👍 / 👎. Coincide con el historial del servidor: una respuesta por
+// mensaje o por clic en Aprobar / Rechazar.
+let turnosMostrados = 0;
+
 // ---------- La sesión (en la pestaña) ----------
 
 function leerSesion() {
@@ -202,7 +207,7 @@ function agregarRespuesta(r) {
   const conPaquete = casoConPaquete(r.tool_calls);
   if (conPaquete) burbuja.appendChild(enlaceDescarga(conPaquete));
   if (r.tool_calls.length) burbuja.appendChild(tablaHerramientas(r.tool_calls));
-  burbuja.appendChild(pie(r));
+  burbuja.appendChild(pie(r, turnosMostrados++));
   return agregar(burbuja);
 }
 
@@ -374,14 +379,67 @@ function tarjetaCancelada(c) {
   );
 }
 
-function pie(r) {
+function pie(r, turno) {
   const contenedor = crear("div", "pie");
   const consumo = r.usage.input_tokens + r.usage.output_tokens + r.usage.cache_read_tokens + r.usage.cache_write_tokens;
   let texto = `${consumo.toLocaleString("es-CO")} tokens`;
   if (r.finish_reason in MOTIVOS) texto = `${MOTIVOS[r.finish_reason]} · ${texto}`;
   // Sin botón para copiar la respuesta (revisión de Anderson): no se necesitaba.
   contenedor.appendChild(crear("span", "", texto));
+  contenedor.appendChild(botonesDeOpinion(turno));
   return contenedor;
+}
+
+// ---------- Paso 21 · ¿Le sirvió esta respuesta? (👍 / 👎) ----------
+
+/**
+ * Dos botones. Al elegir uno aparece un comentario opcional y «Enviar»: la opinión va a
+ * POST /api/feedback con el número de esta respuesta en la conversación (`turno`).
+ */
+function botonesDeOpinion(turno) {
+  const caja = crear("span", "opinion");
+  const si = crear("button", "boton secundario chico", "👍");
+  const no = crear("button", "boton secundario chico", "👎");
+  si.type = no.type = "button";
+  si.title = "Me sirvió";
+  no.title = "No me sirvió";
+  const elegir = (util) => {
+    si.disabled = no.disabled = true;
+    (util ? si : no).classList.add("elegido");
+    caja.appendChild(formularioDeComentario(turno, util));
+  };
+  si.addEventListener("click", () => elegir(true));
+  no.addEventListener("click", () => elegir(false));
+  caja.append(si, no);
+  return caja;
+}
+
+function formularioDeComentario(turno, util) {
+  const formulario = crear("span", "comentario");
+  const entrada = crear("input");
+  entrada.type = "text";
+  entrada.maxLength = 1000;
+  entrada.placeholder = util ? "¿Qué le gustó? (opcional)" : "¿Qué estuvo mal? (opcional)";
+  const enviar = crear("button", "boton chico", "Enviar");
+  enviar.type = "button";
+  enviar.addEventListener("click", async () => {
+    if (!sesionId) return;
+    enviar.disabled = true;
+    try {
+      await llamar("POST", "/api/feedback", {
+        session_id: sesionId,
+        turn: turno,
+        useful: util,
+        comment: entrada.value.trim() || null,
+      });
+      formulario.replaceWith(crear("span", "argumentos", "Gracias, quedó registrado."));
+    } catch (e) {
+      enviar.disabled = false;
+      agregarError(e.message);
+    }
+  });
+  formulario.append(entrada, enviar);
+  return formulario;
 }
 
 /** Las tarjetas de acciones que YA no están pendientes pierden sus botones. */
@@ -560,6 +618,7 @@ async function enviarMensaje(texto) {
     if (sesionId) cuerpo.session_id = sesionId;
     const r = await llamar("POST", "/api/chat", cuerpo);
     pensando.remove();
+    if (r.session_id !== sesionId) turnosMostrados = 0; // empezó una conversación nueva
     guardarSesion(r.session_id);
     agregarRespuesta(r);
     actualizarPendientes(r.confirmations);
@@ -607,6 +666,7 @@ function nuevaConversacion() {
     if (elemento !== bienvenida) elemento.remove();
   }
   casosDePortal.clear();
+  turnosMostrados = 0;
   bienvenida.hidden = false;
   caja.focus();
 }

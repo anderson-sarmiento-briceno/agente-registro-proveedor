@@ -55,8 +55,11 @@ def _yaml_con(tmp_path: Path, **cambios: dict[str, object]) -> Path:
 
 
 def test_reglas_reales() -> None:
-    assert REGLAS.mapeo.umbral_lleno == 0.9
+    # Piloto (Paso 21): lo que solo "se parece" ya no se llena solo.
+    assert REGLAS.mapeo.umbral_lleno == 1.0
     assert REGLAS.mapeo.umbral_confirmar == 0.8
+    assert "nit" in REGLAS.mapeo.datos_sin_parecido
+    assert "cc" in REGLAS.mapeo.palabras_de_identificador
     assert REGLAS.identificador_tributario.pais_empresa is Pais.COLOMBIA
     assert REGLAS.identificador_tributario.por_pais[Pais.HONDURAS] == "RTN"
     assert REGLAS.vigencias.dias_por_vencer == 15
@@ -75,7 +78,7 @@ def test_yaml_mal_escrito(tmp_path: Path) -> None:
 
 
 def test_umbrales_en_desorden(tmp_path: Path) -> None:
-    ruta = _yaml_con(tmp_path, mapeo={"umbral_confirmar": 0.95})
+    ruta = _yaml_con(tmp_path, mapeo={"umbral_lleno": 0.7})  # por debajo de confirmar (0.8)
     with pytest.raises(ErrorDeDatos, match="umbral_confirmar no puede ser mayor que umbral_lleno"):
         cargar_reglas(ruta)
 
@@ -213,8 +216,9 @@ def test_un_umbral_mas_exigente_cambia_el_mapeo(
     """De punta a punta: el mismo caso, mapeado con dos reglas.yaml distintos.
 
     En una copia de los datos, la etiqueta "Razón social" del caso CO se escribe con un
-    error ("Razon socail", 92 % parecida). Con el umbral normal (0.9) se llena sola; con
-    umbral_lleno 0.95 pide confirmación. No se tocó ni una línea de código.
+    error ("Razon socail", 92 % parecida). Con el umbral actual (1.0, desde el piloto)
+    pide confirmación; con un umbral_lleno permisivo de 0.9 (el de antes) se llena sola.
+    No se tocó ni una línea de código.
     """
 
     def con_error(celdas: object) -> object:
@@ -241,9 +245,9 @@ def test_un_umbral_mas_exigente_cambia_el_mapeo(
         }
         return estados["Razon socail"]
 
-    exigente = _yaml_con(tmp_path, mapeo={"umbral_lleno": 0.95})
-    assert estado_con(ARCHIVO_REAL, "out-normal") == "llenos"
-    assert estado_con(exigente, "out-exigente") == "requiere_confirmacion"
+    permisivo = _yaml_con(tmp_path, mapeo={"umbral_lleno": 0.9})
+    assert estado_con(ARCHIVO_REAL, "out-normal") == "requiere_confirmacion"
+    assert estado_con(permisivo, "out-permisivo") == "llenos"
 
 
 def test_una_regla_rota_da_error_claro_en_la_herramienta(

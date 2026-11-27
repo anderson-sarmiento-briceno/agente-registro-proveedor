@@ -182,6 +182,11 @@ td.nombre, td.argumentos { font-family: ui-monospace, "Cascadia Mono", Consolas,
 .tarjeta.portal { background: var(--aviso-fondo); border: 1px solid var(--borde); }
 .tarjeta.portal .tabla-contenedor { margin: 8px 0; }
 .mensaje > .acciones { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+/* Paso 21 · 👍 / 👎 y el comentario opcional, en el pie de cada respuesta. */
+.pie .opinion { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pie .opinion .elegido { outline: 2px solid var(--borde); }
+.pie .opinion .comentario { display: inline-flex; gap: 6px; }
+.pie .opinion input { font: inherit; padding: 2px 6px; min-width: 220px; }
 /* Paso 19 · El enlace de descarga del paquete se ve como un botón. */
 a.boton { display: inline-block; text-decoration: none; }
 

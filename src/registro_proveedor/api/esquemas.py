@@ -166,6 +166,19 @@ class ErrorResponse(_Salida):
     detail: str
 
 
+class FeedbackRequest(_Entrada):
+    """Paso 21 · 👍 / 👎 sobre una respuesta del chat (la del turno `turn`, desde 0)."""
+
+    session_id: IdSesion
+    turn: int = Field(ge=0, description="Qué respuesta de la conversación (0 = la primera).")
+    useful: bool = Field(description="true = 👍 · false = 👎.")
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+class FeedbackResponse(_Salida):
+    ok: bool
+
+
 class PortalField(_Salida):
     """Un campo del portal del cliente, para copiarlo y pegarlo (Paso 18, D57)."""
 

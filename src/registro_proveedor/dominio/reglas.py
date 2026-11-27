@@ -50,6 +50,10 @@ class ReglasMapeo(_Modelo):
     umbral_lleno: float = Field(ge=0, le=1)
     umbral_confirmar: float = Field(ge=0, le=1)
     confianza_normalizado: float = Field(ge=0, le=1)
+    # Paso 21 (piloto): rutas del maestro que nunca se proponen por parecido, y palabras
+    # que hacen que una etiqueta se trate como identificador. Ver config/reglas.yaml.
+    datos_sin_parecido: list[str] = Field(default_factory=list)
+    palabras_de_identificador: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _orden_de_umbrales(self) -> "ReglasMapeo":

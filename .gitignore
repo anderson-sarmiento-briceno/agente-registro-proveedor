@@ -23,3 +23,6 @@ out/
 Thumbs.db
 .vscode/
 .idea/
+
+# Paso 21 · La carpeta de datos del piloto se arma con scripts/preparar_piloto.py
+piloto/datos-del-piloto/

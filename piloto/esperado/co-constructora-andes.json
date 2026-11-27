@@ -1,0 +1,17 @@
+{
+  "Nombre / Razón Social": "razon_social",
+  "NIT (sin dígito de verificación)": "nit",
+  "DV": "digito_verificacion",
+  "Dirección principal": "direccion",
+  "Ciudad": "ciudad",
+  "Tel.": "telefono",
+  "E-mail corporativo": "contacto_comercial.email",
+  "Representante Legal (nombre completo)": "representante_legal.nombre",
+  "C.C. Representante Legal": "representante_legal.identificacion",
+  "Página web": "sitio_web",
+  "Número de trabajadores": "numero_empleados",
+  "Banco": "banco.nombre",
+  "Tipo de cuenta": "banco.tipo_cuenta",
+  "Cta. bancaria N°": "banco.numero_cuenta",
+  "Póliza de responsabilidad civil": null
+}

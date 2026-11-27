@@ -251,7 +251,9 @@ def test_checklist(tmp_path: Path) -> None:
     texto = _leer(_armar("hn-agroexport-sula", tmp_path), ARCHIVO_CHECKLIST)
     assert "## ⛔ No está listo para firma" in texto
     assert "- [ ] campo por confirmar: «RTN»" in texto
-    assert "- campo faltante en el maestro: «Referencias comerciales»" in texto
+    # Piloto (Paso 21): la etiqueta no está en el glosario, así que no se puede decir que
+    # "falta en el maestro": puede estar con otro nombre.
+    assert "- etiqueta no reconocida: «Referencias comerciales»" in texto
     assert (
         "| Certificación de parafiscales | ⛔ vencido | 2026-08-31 (venció hace 1 día) | "
         "Renovarlo antes de firmar |" in texto

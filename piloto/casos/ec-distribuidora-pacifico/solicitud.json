@@ -1,0 +1,12 @@
+{
+  "id": "ec-distribuidora-pacifico",
+  "de": "compras@distpacifico-ficticia.ec",
+  "para": "recepcion@empresa-ejemplo.com",
+  "asunto": "Registro en nuestro portal de proveedores",
+  "fecha": "2026-11-23",
+  "pais": "EC",
+  "cliente": "Distribuidora del Pacífico S.A.",
+  "formato": "portal",
+  "cuerpo": "Estimados,\n\nPara poder emitir órdenes de compra necesitamos que se registren en nuestro portal de proveedores. Además del formulario en línea, deben cargar Cámara de Comercio, RUT, certificado de pago de aportes parafiscales y certificado ISO 9001.\n\nSaludos,\nCompras - Distribuidora del Pacífico",
+  "adjuntos": []
+}

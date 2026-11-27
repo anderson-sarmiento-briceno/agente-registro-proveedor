@@ -1,0 +1,15 @@
+{
+  "Razón social": "razon_social",
+  "RUC": "nit",
+  "País": "pais",
+  "Domicilio fiscal": "direccion",
+  "Teléfono": "telefono",
+  "Correo electronico": "contacto_comercial.email",
+  "Representante legal": "representante_legal.nombre",
+  "Cargo del representante legal": "representante_legal.cargo",
+  "Fecha de constitución": "fecha_constitucion",
+  "Banco": "banco.nombre",
+  "Número de cuenta": "banco.numero_cuenta",
+  "SWIFT": "banco.swift",
+  "Moneda de la cuenta": "banco.moneda"
+}
