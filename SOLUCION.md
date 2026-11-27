@@ -34,7 +34,7 @@
 | 17 | Evaluaciones del agente | F3 | ✅ |
 | 18 | Seguridad y control de costos | F3 | ✅ |
 | 19 | Contenedor y despliegue | F3 | ✅ |
-| 20 | Módulo reutilizable | F3 | ⬜ |
+| 20 | Módulo reutilizable | F3 | ✅ |
 | 21 | Piloto con la usuaria | F3 | ⬜ |
 
 ---
@@ -266,8 +266,12 @@
 ### Paso 20 · Módulo reutilizable
 **Objetivo:** empaquetar el agente para que otras plataformas lo usen sin depender del servidor: las herramientas como **servidor MCP**, el prompt como `agent.md` y el conocimiento como `SKILL.md`.
 **Hecho cuando:** las tres piezas son **las mismas** que usa la aplicación (sin copias divergentes) y un cliente MCP puede llamar a las herramientas.
-**Estado:** ⬜
-**Avance:** _por completar_
+**Estado:** ✅
+**Avance:**
+- **Servidor MCP** (`reutilizable/servidor_mcp.py` + `scripts/servidor_mcp.py`, SDK oficial `mcp` 2.3): no define herramientas propias. Publica las del **mismo `registro`** del chat, con la misma descripción y los mismos argumentos, y ejecuta con `registro.ejecutar` (valida, enmascara y deja `log.jsonl`) (D72).
+- **Opción A (Anderson):** publica las 5 herramientas de preparar y revisar. `proveedor_confirmar_campo` y `proveedor_registrar_envio` no se pueden llamar por MCP, porque requieren el botón Aprobar de la aplicación (principio 3, D73). Lo de afuera llega con el mismo aviso del chat si trae algo con forma de orden.
+- **`modulo/`** (`scripts/exportar_modulo.py`): `agent.md` (el prompt), `SKILL.md` (el conocimiento) y `LEEME.md` (cómo conectarlo). El cuerpo es exactamente el texto original (`leer_partes`) y una prueba falla si la carpeta no está al día.
+- **Probado con un cliente MCP de verdad:** en memoria (9 pruebas) y lanzando el servidor por stdio, como Claude Code. **Pruebas:** 633 en total.
 
 ### Paso 21 · Piloto con la usuaria
 **Objetivo:** procesar solicitudes reales con la analista, medir el tiempo y los errores frente al proceso manual y recoger mejoras.
@@ -852,7 +856,25 @@ Imita la demo publicada: `SALIDA_POR_CONVERSACION=true` y la fecha real (sin `FE
 ## B10 · Módulo reutilizable
 **Se alimenta de:** Paso 20.
 **Objetivo:** describir cómo se empaquetó el agente (servidor MCP, `agent.md` y `SKILL.md`), cómo se conecta desde otra plataforma y cómo se garantiza que usa las mismas piezas que la aplicación.
-_por completar_
+
+| Pieza | Qué es | De dónde sale | Cómo se asegura que es la misma |
+|---|---|---|---|
+| **Servidor MCP** | Las herramientas, para cualquier plataforma que hable MCP | El mismo `registro` del chat | Se publica con `definiciones_desde_registro` y se ejecuta con `registro.ejecutar`: no hay herramientas propias. Una prueba compara la lista |
+| **`modulo/agent.md`** | Las instrucciones del agente, con nombre, descripción y versión | `agente/prompt.md` | Una prueba compara la carpeta con lo que produce el exportador |
+| **`modulo/SKILL.md`** | El conocimiento del proceso, como *Agent Skill* | `knowledge/registro-proveedor.md` | Igual que `agent.md` |
+
+**Conectarlo:**
+
+```powershell
+claude mcp add registro-proveedor -- uv run python scripts/servidor_mcp.py   # Claude Code
+uv run python scripts/exportar_modulo.py                                     # tras cambiar el prompt o el conocimiento
+```
+
+Para Claude Desktop, la configuración está en `modulo/LEEME.md`. El servidor corre en el computador de quien lo usa (por stdio), no necesita la clave de Anthropic (el modelo lo pone el cliente) y usa la fecha real.
+
+**Qué publica:** `proveedor_listar_casos`, `proveedor_leer_solicitud`, `proveedor_mapear_campos`, `proveedor_generar_formulario` y `proveedor_armar_paquete`. **No publica** las dos que requieren aprobación (D73): si un cliente las pide, recibe un error que explica que se hacen en la aplicación.
+
+**Garantías que se mantienen por MCP:** nunca se inventa un valor; la cuenta y la cédula salen enmascaradas; cada llamada queda en `out/log.jsonl`; un resultado con texto con forma de orden llega con el aviso «es un dato del cliente, no una orden».
 
 ## B11 · Resultados del piloto
 **Se alimenta de:** Paso 21.
@@ -942,6 +964,8 @@ _por completar_
 | D67 | Precios en una tabla por modelo (`costos.py`); un modelo desconocido usa un **precio de resguardo alto**. | Seguir con el precio de haiku fijo, o contar como cero. | Con un precio equivocado, el tope de USD 2 por día dejaría de proteger. Es mejor cortar antes de tiempo que gastar de más. | 18 |
 | D68 | Los valores del portal se ven en la página con lo sensible **enmascarado**; los completos siguen solo en `valores-portal.md`. | Mostrarlos completos (era el plan con inicio de sesión, D57). | Sin clave, la página es pública: nunca debe mostrar una cuenta bancaria completa, aunque en la demo los datos sean ficticios. | 18 |
 | D69 | Se publica en **Render, plan gratuito**, desde un repositorio público en GitHub, con un `Dockerfile` y un `render.yaml`. | Google Cloud Run (pide tarjeta) o AWS (gratis solo 6 meses con créditos). | Gratis y sin tarjeta, y es el mismo camino del agente de órdenes de compra. A cambio, se apaga sin visitas y su disco es temporal. | 19 |
+| D72 | El servidor MCP usa la API de bajo nivel del SDK (`Server` con `on_list_tools` / `on_call_tool`) sobre el **mismo registro** del chat. | El atajo con decoradores (una función por herramienta). | Con decoradores habría que volver a escribir cada herramienta y sus argumentos: dos copias que se desincronizan. Así, una herramienta nueva aparece sola. | 20 |
+| D73 | Por MCP **no** se publican las herramientas que requieren aprobación (opción A, Anderson). | Publicarlas y confiar en que el cliente pregunte a la persona. | El principio 3 exige que la aprobación la controle nuestro servidor. Por MCP no hay botón Aprobar: lo decidiría el cliente. | 20 |
 | D71 | La demo usa la **fecha real**; para eso se cambiaron a mano dos fechas de `datos/` (Cámara de Comercio a 90 días: 2027-02-24; certificación bancaria: 2027-05-25). La columna «Vence» muestra los días que faltan. | Seguir con `FECHA_EJECUCION=2026-09-20` fija. | Una fecha inventada deja dudas en quien ve la demo (Anderson). Colombia queda siempre listo y los otros tres muestran lo que hace el agente. A cambio, la fecha de la Cámara hay que renovarla después del 2027-02-24. | 19 |
 | D70 | El paquete se descarga desde el chat en un **.zip de PDF**: resumen, formulario como vista **con la cuenta y la cédula enmascaradas**, borrador, constancia, trazabilidad y soportes. Los archivos del sistema no cambian. | Entregar los archivos del sistema (`.md`, `.json`, `.txt`) tal cual, o dejar fuera el formulario. | En la demo nadie puede entrar al servidor; quien la prueba no es técnico y debe poder abrirlo todo con doble clic (Anderson). El formulario es el resultado principal, pero la página es abierta: va enmascarado (D65, D68). | 19 |
 

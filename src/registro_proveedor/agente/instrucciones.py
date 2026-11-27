@@ -63,11 +63,32 @@ def cargar_instrucciones(
 
     Las rutas se pueden cambiar para las pruebas.
     """
-    version, comportamiento = _separar_encabezado(ruta_prompt, _leer(ruta_prompt))
-    conocimiento = _leer(ruta_conocimiento)
-    texto = comportamiento.strip() + SEPARADOR + conocimiento.strip() + "\n"
+    partes = leer_partes(ruta_prompt, ruta_conocimiento)
+    texto = partes.comportamiento + SEPARADOR + partes.conocimiento + "\n"
     huella = hashlib.sha256(texto.encode("utf-8")).hexdigest()[:12]
-    return InstruccionesSistema(texto=texto, version=version, huella=huella)
+    return InstruccionesSistema(texto=texto, version=partes.version, huella=huella)
+
+
+@dataclass(frozen=True)
+class PartesDeInstrucciones:
+    """El prompt y el conocimiento por separado, ya limpios (sin encabezado ni espacios)."""
+
+    version: str
+    comportamiento: str  # agente/prompt.md sin su encabezado
+    conocimiento: str  # knowledge/registro-proveedor.md
+
+
+def leer_partes(
+    ruta_prompt: Path = RUTA_PROMPT, ruta_conocimiento: Path = RUTA_CONOCIMIENTO
+) -> PartesDeInstrucciones:
+    """Las dos partes por separado. La usan el chat (juntas) y el Paso 20 (`agent.md` y
+    `SKILL.md`): así las dos salidas vienen SIEMPRE del mismo texto."""
+    version, comportamiento = _separar_encabezado(ruta_prompt, _leer(ruta_prompt))
+    return PartesDeInstrucciones(
+        version=version,
+        comportamiento=comportamiento.strip(),
+        conocimiento=_leer(ruta_conocimiento).strip(),
+    )
 
 
 def _leer(ruta: Path) -> str:
